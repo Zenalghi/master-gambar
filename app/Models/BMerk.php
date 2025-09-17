@@ -32,4 +32,10 @@ class BMerk extends Model
     {
         return $this->belongsTo(ATypeEngine::class, 'type_engine_id');
     }
+
+    public function typeChassis()
+    {
+        // Ini adalah relasi custom karena tidak pakai foreign key biasa
+        return $this->hasMany(CTypeChassis::class, 'id', 'id')->where('id', 'like', $this->id . '%');
+    }
 }

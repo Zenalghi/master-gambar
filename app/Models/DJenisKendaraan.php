@@ -40,4 +40,5 @@ class DJenisKendaraan extends Model
     {
         return $this->hasMany(EVarianBody::class, 'jenis_kendaraan_id');
     }
+    
 }

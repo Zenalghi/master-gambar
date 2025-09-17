@@ -5,6 +5,11 @@ use App\Http\Controllers\Api\OptionController;
 use App\Http\Controllers\Api\CustomerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\TypeEngineController;
+use App\Http\Controllers\Api\MerkController;
+use App\Http\Controllers\Api\TypeChassisController;
+use App\Http\Controllers\Api\JenisKendaraanController;
+use App\Http\Controllers\Api\VarianBodyController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -27,7 +32,14 @@ Route::middleware('auth.api')->group(function () {
     Route::get('/options/users', [OptionController::class, 'getUsers']);
     Route::get('/options/customers', [OptionController::class, 'getCustomers']);
 
+    Route::apiResource('type-engines', TypeEngineController::class);
+    Route::apiResource('merks', MerkController::class);
+    Route::apiResource('type-chassis', TypeChassisController::class);
+    Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
+    Route::apiResource('varian-body', VarianBodyController::class);
+    
     Route::apiResource('customers', CustomerController::class);
+    
     // Anda bisa tambahkan rute untuk PROSES UTAMA di sini
     // Contoh:
     // Route::post('/drawings/preview', [DrawingController::class, 'generatePreview']);
