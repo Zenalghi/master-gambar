@@ -1,0 +1,24 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+
+class E_VarianBody extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        DB::table('e_varian_body')->insert([
+            ['jenis_kendaraan_id' => '010100101', 'varian_body' => 'FIX SIDE'],
+            ['jenis_kendaraan_id' => '010100101', 'varian_body' => 'DROP SIDE 3 WAY'],
+            ['jenis_kendaraan_id' => '010100101', 'varian_body' => 'DROP SIDE 5 WAY'],
+            ['jenis_kendaraan_id' => '010100101', 'varian_body' => 'FLAT DECK'],
+            // ... tambahkan data lain dari Excel Anda
+        ]);
+    }
+}
