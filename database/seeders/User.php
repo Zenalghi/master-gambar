@@ -18,14 +18,14 @@ class User extends Seeder
             [
                 'name' => 'ASEP',
                 'email' => 'asep@example.com',
-                'password' => Hash::make('abcd'), // Ganti 'password' dengan password default yg aman
-                'role' => 'drafter',
+                'password' => Hash::make('1234qwer'), // Ganti 'password' dengan password default yg aman
+                'role' => 'user',
             ],
             [
                 'name' => 'HASAN',
                 'email' => 'hasan@example.com',
-                'password' => Hash::make('abcd'),
-                'role' => 'drafter',
+                'password' => Hash::make('qwer1234'),
+                'role' => 'user',
             ],
             // ... tambahkan data lain dari Excel Anda
         ]);
