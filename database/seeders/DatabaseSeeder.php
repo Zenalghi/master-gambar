@@ -13,7 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             // Urutan ini penting!
-            // A_TypeEngine::class,
+            A_TypeEngine::class,
             B_Merk::class,
             C_TypeChassis::class,
             D_JenisKendaraan::class,
