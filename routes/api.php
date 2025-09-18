@@ -34,7 +34,8 @@ Route::middleware('auth.api')->group(function () {
 
     Route::apiResource('type-engines', TypeEngineController::class);
     Route::apiResource('merks', MerkController::class);
-    Route::apiResource('type-chassis', TypeChassisController::class);
+    Route::apiResource('type-chassis', TypeChassisController::class)
+     ->parameters(['type-chassis' => 'typeChassis']);
     Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
     Route::apiResource('varian-body', VarianBodyController::class);
     

@@ -13,7 +13,6 @@ class UpdateTypeChassisRequest extends FormRequest
 
     public function rules(): array
     {
-        // Saat update, kita hanya mengizinkan perubahan nama deskriptifnya
         return [
             'type_chassis' => 'required|string|max:255',
         ];

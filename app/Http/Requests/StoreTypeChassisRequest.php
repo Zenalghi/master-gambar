@@ -15,11 +15,11 @@ class StoreTypeChassisRequest extends FormRequest
     public function rules(): array
     {
         // Gabungkan ID induk (merk) dan kode baru (chassis) untuk validasi keunikan
-        $compositeId = $this->input('merk_id') . $this->input('chassis_code');
+        $compositeId = $this->input('merk_id') . $this->input('type_chassis_code');
 
         return [
             'merk_id' => 'required|string|size:4|exists:b_merks,id',
-            'chassis_code' => [
+            'type_chassis_code' => [
                 'required',
                 'string',
                 'size:3',
