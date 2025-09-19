@@ -10,10 +10,12 @@ use App\Http\Controllers\Api\MerkController;
 use App\Http\Controllers\Api\TypeChassisController;
 use App\Http\Controllers\Api\JenisKendaraanController;
 use App\Http\Controllers\Api\VarianBodyController;
+use App\Http\Controllers\Api\DrawingController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']); // Jika Anda butuh registrasi mandiri
+Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf'])->middleware('auth.api');
 
 // Rute Terproteksi (Sekarang menggunakan alias 'auth.api')
 Route::middleware('auth.api')->group(function () {
@@ -40,12 +42,15 @@ Route::middleware('auth.api')->group(function () {
     Route::apiResource('varian-body', VarianBodyController::class);
     
     Route::apiResource('customers', CustomerController::class);
+    // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
     
     // Anda bisa tambahkan rute untuk PROSES UTAMA di sini
     // Contoh:
     // Route::post('/drawings/preview', [DrawingController::class, 'generatePreview']);
     // Route::post('/drawings/store', [DrawingController::class, 'storeFinalDrawing']);
-});
+}
+
+);
 
 //pakai alias, g jadi dipake:dibawah ini
 // Rute Terproteksi (WAJIB login dan mengirim token)
