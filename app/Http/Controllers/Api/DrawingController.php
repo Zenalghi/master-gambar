@@ -62,26 +62,26 @@ class DrawingController extends Controller
         $pdf->Write(0, $data['disetujui']);
 
 
-        $pdf->SetXY(243.704, 175.205);
-        $pdf->Write(0, $data['tanggal']);
-        $pdf->SetXY(243.704, 177.768);
-        $pdf->Write(0, $data['tanggal']);
-        $pdf->SetXY(243.704, 180.331);
-        $pdf->Write(0, $data['tanggal']);
+        $pdf->SetXY(243.53, 175.205);
+        // $pdf->Write(0, $data['tanggal']);
+        $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
+        $pdf->SetXY(243.53, 177.768);
+        $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
+        $pdf->SetXY(243.53, 180.331);
+        $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
 
         // $pdf->SetFont($arial, 'B', 8); 
         $pdf->SetFont('arial', '', 6); // Gunakan 'arial'
-        $pdf->setFontSpacing(-1);
+        $pdf->setFontSpacing(-0.09);
         $pdf->SetXY(215.686, 183.252);
         $pdf->Cell(68.654, 0, $data['judul_gambar_1'], 0, 0, 'C');
-        $pdf->SetXY(215.686, 185.934);
-        $pdf->Cell(68.654, 0, $data['judul_gambar_2'], 0, 0, 'C');
-        // $pdf->Write(0, $data['judul_gambar_1']);
-        // $pdf->SetXY(257, 195);
-        // $pdf->Write(0, $data['judul_gambar_2']);
+        // $pdf->SetXY(215.686, 185.934);
+        // $pdf->Cell(68.654, 0, $data['judul_gambar_2'], 0, 0, 'C');
         // $pdf->SetXY(257, 199);
         // $pdf->Write(0, $data['judul_gambar_3']);
         $pdf->SetFont('arial', '', 8); // Gunakan 'arial'
+        $pdf->setFontSpacing(0);
+
         $pdf->SetXY(217.004, 194.679);
         $pdf->Cell(44.149, 0, $data['karoseri'], 0, 0, 'C');
         // $pdf->Write(0, $data['karoseri']);
@@ -97,9 +97,9 @@ class DrawingController extends Controller
         $pdf->Write(0, $data['no_halaman'] . ' / ' . $data['total_halaman']);
 
         // 5. Menempatkan Gambar Tanda Tangan
-        $pdf->Image($data['signature_path'], 237.527, 175.205, 15, 15, 'PNG');
-        $pdf->Image($data['signature_path_2'], 237.527, 177.768, 15, 15, 'PNG');
-        $pdf->Image($data['signature_path_3'], 237.527, 180.331, 15, 15, 'PNG');
+        // $pdf->Image($data['signature_path'], 237.527, 175.205, 15, 15, 'PNG');
+        // $pdf->Image($data['signature_path_2'], 237.527, 177.768, 15, 15, 'PNG');
+        // $pdf->Image($data['signature_path_3'], 237.527, 180.331, 15, 15, 'PNG');
 
         // 6. Kirim PDF ke browser
         return $pdf->Output('hasil.pdf', 'D');
