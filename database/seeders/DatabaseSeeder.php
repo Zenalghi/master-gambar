@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             C_TypeChassis::class,
             D_JenisKendaraan::class,
             E_VarianBody::class,
+            F_Pengajuan::class,
 
             // Seeder ini tidak memiliki dependensi, bisa ditaruh di akhir
             User::class,

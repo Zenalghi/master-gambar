@@ -9,6 +9,7 @@ use App\Models\CTypeChassis;
 use App\Models\Customer;
 use App\Models\DJenisKendaraan;
 use App\Models\EVarianBody;
+use App\Models\FPengajuan;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -39,6 +40,11 @@ class OptionController extends Controller
     public function getVarianBody($jenis_kendaraan_id)
     {
         return response()->json(EVarianBody::where('jenis_kendaraan_id', $jenis_kendaraan_id)->get());
+    }
+
+    public function getPengajuan($varian_body_id)
+    {
+        return response()->json(FPengajuan::where('varian_body_id', $varian_body_id)->get());
     }
 
     // === DATA DROPDOWN FORM UTAMA ===

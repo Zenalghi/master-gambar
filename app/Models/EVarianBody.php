@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EVarianBody extends Model
 {
@@ -20,5 +21,9 @@ class EVarianBody extends Model
     public function jenisKendaraan(): BelongsTo
     {
         return $this->belongsTo(DJenisKendaraan::class, 'jenis_kendaraan_id');
+    }
+    public function pengajuan(): HasMany
+    {
+        return $this->hasMany(FPengajuan::class, 'varian_body_id');
     }
 }
