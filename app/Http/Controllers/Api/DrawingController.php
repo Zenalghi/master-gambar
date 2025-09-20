@@ -16,13 +16,13 @@ class DrawingController extends Controller
             'diperiksa' => 'Umardani',
             'disetujui' => 'Harsoyo',
             'tanggal' => '01.02.22',
-            'catatan' => '- Model Bak Besi 5 Way',
-            'judul_gambar_1' => 'GAMBAR TAMPAK UTAMA STANDAR DAN DIMENSI KENDARAAN',
-            'judul_gambar_2' => 'MEREK MITSUBISHI TIPE CANTER FE 74 N (4X2) M/T',
+            // 'catatan' => '- Model Bak Besi 5 Way',
+            'judul_gambar_1' => 'GAMBAR TAMPAK UTAMA STANDAR',
+            // 'judul_gambar_2' => 'MEREK MITSUBISHI TIPE CANTER FE 74 N (4X2) M/T',
             // 'judul_gambar_3' => 'SEBAGAI MOBIL BARANG BAK MUATAN TERBUKA ( BAK BESI )',
-            'karoseri' => 'PT SURYA KAROSERI MANDIRI',
+            'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
-            'total_halaman' => '14',
+            'total_halaman' => '13',
             'signature_path' => storage_path('app/signatures/ridho_ttd.png'),
             'signature_path_2' => storage_path('app/signatures/umardani_ttd.png'),
             'signature_path_3' => storage_path('app/signatures/harsoyo_ttd.png')
@@ -93,13 +93,14 @@ class DrawingController extends Controller
         $pdf->SetXY(274.381, 194.118);
         $pdf->Write(0, $data['no_halaman']);
         $pdf->SetFont('arial', '', 5); // Gunakan 'arial'
-        $pdf->SetXY(276.356, 198.3);
-        $pdf->Write(0, $data['no_halaman'] . ' / ' . $data['total_halaman']);
+        $pdf->SetXY(275.342, 198.311);
+        $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
+        // $pdf->Write(0, $data['no_halaman'] . ' / ' . $data['total_halaman']);
 
         // 5. Menempatkan Gambar Tanda Tangan
-        // $pdf->Image($data['signature_path'], 237.527, 175.205, 15, 15, 'PNG');
-        // $pdf->Image($data['signature_path_2'], 237.527, 177.768, 15, 15, 'PNG');
-        // $pdf->Image($data['signature_path_3'], 237.527, 180.331, 15, 15, 'PNG');
+        $pdf->Image($data['signature_path'], 237.527, 175.205, 15, 15, 'PNG');
+        $pdf->Image($data['signature_path_2'], 237.527, 177.768, 4.529, 2.074, 'PNG');
+        $pdf->Image($data['signature_path_3'], 237.527, 180.331, 4.529, 2.074, 'PNG');
 
         // 6. Kirim PDF ke browser
         return $pdf->Output('hasil.pdf', 'D');
