@@ -12,14 +12,8 @@ class User extends Seeder
     {
         DB::table('users')->insert([
             [
-                'name' => 'Admin',
-                'username' => 'admin', // Ganti dari email
-                'password' => Hash::make('alhamdulillah'),
-                'role' => 'admin', // Jadikan user pertama sebagai admin
-            ],
-            [
                 'name' => 'Fatih',
-                'username' => 'fatih', // Ganti dari email
+                'username' => 'fatih',
                 'password' => Hash::make('rekayasa'),
                 'role' => 'drafter',
             ],
