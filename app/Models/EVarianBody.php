@@ -22,8 +22,8 @@ class EVarianBody extends Model
     {
         return $this->belongsTo(DJenisKendaraan::class, 'jenis_kendaraan_id');
     }
-    public function pengajuan(): HasMany
-    {
-        return $this->hasMany(FPengajuan::class, 'varian_body_id');
-    }
+    // public function pengajuan(): HasMany
+    // {
+    //     return $this->hasMany(FPengajuan::class, 'varian_body_id');
+    // }
 }

@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('f_pengajuan', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('varian_body_id')->constrained('e_varian_body')->onDelete('cascade');
+            // $table->foreignId('varian_body_id')->constrained('e_varian_body')->onDelete('cascade');
             $table->string('jenis_pengajuan');
             $table->timestamps();
         });

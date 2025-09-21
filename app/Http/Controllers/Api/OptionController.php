@@ -42,10 +42,10 @@ class OptionController extends Controller
         return response()->json(EVarianBody::where('jenis_kendaraan_id', $jenis_kendaraan_id)->get());
     }
 
-    public function getPengajuan($varian_body_id)
-    {
-        return response()->json(FPengajuan::where('varian_body_id', $varian_body_id)->get());
-    }
+    // public function getPengajuan($varian_body_id)
+    // {
+    //     return response()->json(FPengajuan::where('varian_body_id', $varian_body_id)->get());
+    // }
 
     // === DATA DROPDOWN FORM UTAMA ===
 

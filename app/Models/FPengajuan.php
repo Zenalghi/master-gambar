@@ -19,15 +19,15 @@ class FPengajuan extends Model
      * Atribut yang dapat diisi secara massal.
      */
     protected $fillable = [
-        'varian_body_id',
+        // 'varian_body_id',
         'nama_pengajuan', // Kolom untuk 'BARU', 'VARIAN', 'REVISI'
     ];
 
     /**
      * RELASI: Setiap Pengajuan dimiliki oleh satu Varian Body.
      */
-    public function varianBody(): BelongsTo
-    {
-        return $this->belongsTo(EVarianBody::class, 'varian_body_id');
-    }
+    // public function varianBody(): BelongsTo
+    // {
+    //     return $this->belongsTo(EVarianBody::class, 'varian_body_id');
+    // }
 }
