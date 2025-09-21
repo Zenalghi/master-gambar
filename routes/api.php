@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\OptionController;
 use App\Http\Controllers\Api\CustomerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\TypeEngineController;
 use App\Http\Controllers\Api\MerkController;
 use App\Http\Controllers\Api\TypeChassisController;
@@ -20,6 +21,8 @@ Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePd
 // Rute Terproteksi (Sekarang menggunakan alias 'auth.api')
 Route::middleware('auth.api')->group(
     function () {
+        Route::apiResource('admin/users', UserController::class)->middleware('is.admin');
+
         // Rute autentikasi
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', function (Request $request) {
@@ -42,7 +45,6 @@ Route::middleware('auth.api')->group(
             ->parameters(['type-chassis' => 'typeChassis']);
         Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
         Route::apiResource('varian-body', VarianBodyController::class);
-
 
         Route::apiResource('customers', CustomerController::class);
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
