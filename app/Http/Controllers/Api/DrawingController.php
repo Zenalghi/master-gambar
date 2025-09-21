@@ -35,7 +35,7 @@ class DrawingController extends Controller
         $pdf->SetAutoPageBreak(false, 0);
 
         // 2. Impor halaman dari template
-        $templatePath = storage_path('app/templates/pdf_kosong.pdf');
+        $templatePath = 'D:/_Master/BEFORE/pdf_kosong.pdf';
         $pdf->setSourceFile($templatePath);
         $templateId = $pdf->importPage(1);
 
