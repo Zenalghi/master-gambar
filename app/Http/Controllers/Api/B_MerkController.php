@@ -8,7 +8,7 @@ use App\Http\Requests\UpdateMerkRequest;
 use App\Models\BMerk;
 use App\Models\CTypeChassis;
 
-class MerkController extends Controller
+class B_MerkController extends Controller
 {
     public function index()
     {

@@ -7,7 +7,7 @@ use App\Http\Requests\StoreVarianBodyRequest;
 use App\Http\Requests\UpdateVarianBodyRequest;
 use App\Models\EVarianBody;
 
-class VarianBodyController extends Controller
+class E_VarianBodyController extends Controller
 {
     public function index()
     {

@@ -8,7 +8,7 @@ use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
 use Illuminate\Http\Request;
 
-class CustomerController extends Controller
+class X_CustomerController extends Controller
 {
     /**
      * Menampilkan semua data customer. (GET)

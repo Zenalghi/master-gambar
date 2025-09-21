@@ -7,7 +7,7 @@ use App\Http\Requests\StoreJenisKendaraanRequest;
 use App\Http\Requests\UpdateJenisKendaraanRequest;
 use App\Models\DJenisKendaraan;
 
-class JenisKendaraanController extends Controller
+class D_JenisKendaraanController extends Controller
 {
     public function index()
     {

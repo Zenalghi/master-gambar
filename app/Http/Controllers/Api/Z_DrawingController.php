@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use setasign\Fpdi\Tcpdf\Fpdi;
 
-class DrawingController extends Controller
+class Z_DrawingController extends Controller
 {
     public function generatePdf(Request $request)
     {

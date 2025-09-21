@@ -13,7 +13,7 @@ use App\Models\FPengajuan;
 use App\Models\User;
 use Illuminate\Http\Request;
 
-class OptionController extends Controller
+class _OptionController extends Controller
 {
     // === DATA DROPDOWN KENDARAAN ===
 

@@ -8,7 +8,7 @@ use App\Http\Requests\UpdateTypeChassisRequest;
 use App\Models\CTypeChassis;
 use App\Models\DJenisKendaraan;
 
-class TypeChassisController extends Controller
+class C_TypeChassisController extends Controller
 {
     public function index()
     {
