@@ -1,17 +1,17 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\OptionController;
-use App\Http\Controllers\Api\CustomerController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\TypeEngineController;
-use App\Http\Controllers\Api\MerkController;
-use App\Http\Controllers\Api\TypeChassisController;
-use App\Http\Controllers\Api\JenisKendaraanController;
-use App\Http\Controllers\Api\VarianBodyController;
-use App\Http\Controllers\Api\DrawingController;
+use App\Http\Controllers\Api\_AuthController as AuthController;
+use App\Http\Controllers\Api\_OptionController as OptionController;
+use App\Http\Controllers\Api\A_TypeEngineController as TypeEngineController;
+use App\Http\Controllers\Api\B_MerkController as MerkController;
+use App\Http\Controllers\Api\C_TypeChassisController as TypeChassisController;
+use App\Http\Controllers\Api\D_JenisKendaraanController as JenisKendaraanController;
+use App\Http\Controllers\Api\E_VarianBodyController as VarianBodyController;
+use App\Http\Controllers\Api\X_CustomerController as CustomerController;
+use App\Http\Controllers\Api\X_UserController as UserController;
+use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -21,8 +21,6 @@ Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePd
 // Rute Terproteksi (Sekarang menggunakan alias 'auth.api')
 Route::middleware('auth.api')->group(
     function () {
-        Route::apiResource('admin/users', UserController::class)->middleware('is.admin');
-
         // Rute autentikasi
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/user', function (Request $request) {
@@ -46,7 +44,13 @@ Route::middleware('auth.api')->group(
         Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
         Route::apiResource('varian-body', VarianBodyController::class);
 
-        Route::apiResource('customers', CustomerController::class);
+        Route::middleware('is.admin')->prefix('admin')->group(function () {
+            // Rute CRUD untuk mengelola User
+            Route::apiResource('users', UserController::class);
+
+            // Rute CRUD untuk mengelola Customer
+            Route::apiResource('customers', CustomerController::class);
+        });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
         // Anda bisa tambahkan rute untuk PROSES UTAMA di sini
