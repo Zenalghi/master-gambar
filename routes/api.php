@@ -33,7 +33,7 @@ Route::middleware('auth.api')->group(
         Route::get('/options/type-chassis/{merk_id}', [OptionController::class, 'getTypeChassis']);
         Route::get('/options/jenis-kendaraan/{chassis_id}', [OptionController::class, 'getJenisKendaraan']);
         Route::get('/options/varian-body/{jenis_kendaraan_id}', [OptionController::class, 'getVarianBody']);
-        Route::get('/options/pengajuan/{varian_body_id}', [OptionController::class, 'getPengajuan']);
+        Route::get('/options/pengajuan', [OptionController::class, 'getPengajuan']);
         Route::get('/options/users', [OptionController::class, 'getUsers']);
         Route::get('/options/customers', [OptionController::class, 'getCustomers']);
 

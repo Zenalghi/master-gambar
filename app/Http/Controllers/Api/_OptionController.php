@@ -59,4 +59,8 @@ class _OptionController extends Controller
     {
         return response()->json(Customer::select('id', 'nama_pt', 'pj', 'signature_pj')->get());
     }
+    public function getPengajuan()
+    {
+        return response()->json(FPengajuan::all());
+    }
 }
