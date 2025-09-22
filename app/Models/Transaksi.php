@@ -15,33 +15,24 @@ class Transaksi extends Model
 
     protected $fillable = [
         'id',
-        'customer_id',
+        'a_type_engine_id',         // <-- Tambahkan
+        'b_merk_id',                // <-- Tambahkan
+        'c_type_chassis_id',        // <-- Tambahkan
         'd_jenis_kendaraan_id',
         'f_pengajuan_id',
+        'customer_id',
         'user_id',
     ];
 
-    // Relasi ke User yang membuat
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    // Relasi yang sudah ada
+    public function user() { return $this->belongsTo(User::class); }
+    public function customer() { return $this->belongsTo(Customer::class); }
+    public function dJenisKendaraan() { return $this->belongsTo(DJenisKendaraan::class, 'd_jenis_kendaraan_id'); }
+    public function fPengajuan() { return $this->belongsTo(FPengajuan::class, 'f_pengajuan_id'); }
 
-    // Relasi ke Customer
-    public function customer()
-    {
-        return $this->belongsTo(Customer::class);
-    }
-
-    // Relasi ke Jenis Kendaraan (dan semua induknya)
-    public function dJenisKendaraan()
-    {
-        return $this->belongsTo(DJenisKendaraan::class);
-    }
-
-    // Relasi ke Jenis Pengajuan
-    public function fPengajuan()
-    {
-        return $this->belongsTo(FPengajuan::class);
-    }
+    // --- RELASI BARU ---
+    public function aTypeEngine() { return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id'); }
+    public function bMerk() { return $this->belongsTo(BMerk::class, 'b_merk_id'); }
+    public function cTypeChassis() { return $this->belongsTo(CTypeChassis::class, 'c_type_chassis_id'); }
 }
+

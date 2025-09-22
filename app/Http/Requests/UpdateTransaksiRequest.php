@@ -22,6 +22,9 @@ class UpdateTransaksiRequest extends FormRequest
     {
         return [
             'customer_id' => 'sometimes|required|exists:customers,id',
+            'a_type_engine_id' => 'sometimes|required|string|exists:a_type_engines,id',
+            'b_merk_id' => 'sometimes|required|string|exists:b_merks,id',
+            'c_type_chassis_id' => 'sometimes|required|string|exists:c_type_chassis,id',
             'd_jenis_kendaraan_id' => 'sometimes|required|string|exists:d_jenis_kendaraan,id',
             'f_pengajuan_id' => 'sometimes|required|exists:f_pengajuan,id',
         ];

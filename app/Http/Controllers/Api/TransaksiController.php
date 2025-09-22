@@ -18,7 +18,16 @@ class TransaksiController extends Controller
      */
     public function index()
     {
-        $transaksis = Transaksi::with(['user:id,name', 'customer:id,nama_pt', 'dJenisKendaraan', 'fPengajuan'])->latest()->get();
+        $transaksis = Transaksi::with([
+            'user:id,name',
+            'customer:id,nama_pt',
+            'aTypeEngine', // <-- eager load
+            'bMerk',       // <-- eager load
+            'cTypeChassis', // <-- eager load
+            'dJenisKendaraan',
+            'fPengajuan'
+        ])->latest()->get();
+
         return response()->json($transaksis);
     }
 
@@ -28,26 +37,34 @@ class TransaksiController extends Controller
     public function store(StoreTransaksiRequest $request)
     {
         $validated = $request->validated();
+        $jenisKendaraanId = $validated['d_jenis_kendaraan_id'];
 
-        $baseId = $validated['d_jenis_kendaraan_id'];
-        $lastTransaksi = Transaksi::where('id', 'like', $baseId . '-%')->orderBy('id', 'desc')->first();
-
+        // --- Logika Membuat ID Unik (Sama seperti sebelumnya) ---
+        $lastTransaksi = Transaksi::where('id', 'like', $jenisKendaraanId . '-%')->orderBy('id', 'desc')->first();
         $counter = 1;
         if ($lastTransaksi) {
             $parts = explode('-', $lastTransaksi->id);
             $counter = intval(end($parts)) + 1;
         }
-        $newId = $baseId . '-' . str_pad($counter, 4, '0', STR_PAD_LEFT);
+        $newId = $jenisKendaraanId . '-' . str_pad($counter, 4, '0', STR_PAD_LEFT);
+
+        // --- Logika Baru: Ekstrak ID Induk ---
+        $engineId = substr($jenisKendaraanId, 0, 2);
+        $merkId = substr($jenisKendaraanId, 0, 4);
+        $chassisId = substr($jenisKendaraanId, 0, 7);
 
         $transaksi = Transaksi::create([
             'id' => $newId,
+            'a_type_engine_id' => $engineId,       // <-- simpan data baru
+            'b_merk_id' => $merkId,             // <-- simpan data baru
+            'c_type_chassis_id' => $chassisId,        // <-- simpan data baru
+            'd_jenis_kendaraan_id' => $jenisKendaraanId,
             'customer_id' => $validated['customer_id'],
-            'd_jenis_kendaraan_id' => $validated['d_jenis_kendaraan_id'],
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
             'user_id' => Auth::id(),
         ]);
 
-        return response()->json($transaksi->load(['user', 'customer', 'dJenisKendaraan', 'fPengajuan']), 201);
+        return response()->json($transaksi->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']), 201);
     }
 
     /**
@@ -55,7 +72,7 @@ class TransaksiController extends Controller
      */
     public function show(Transaksi $transaksi)
     {
-        return response()->json($transaksi->load(['user', 'customer', 'dJenisKendaraan', 'fPengajuan']));
+        return response()->json($transaksi->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']));
     }
 
     /**
@@ -65,7 +82,7 @@ class TransaksiController extends Controller
     {
         $this->authorize('update', $transaksi);
         $transaksi->update($request->validated());
-        return response()->json($transaksi->fresh()->load(['user', 'customer', 'dJenisKendaraan', 'fPengajuan']));
+        return response()->json($transaksi->fresh()->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']));
     }
 
     /**
