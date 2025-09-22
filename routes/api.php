@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\E_VarianBodyController as VarianBodyController;
 use App\Http\Controllers\Api\X_CustomerController as CustomerController;
 use App\Http\Controllers\Api\X_UserController as UserController;
 use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
+use App\Http\Controllers\Api\TransaksiController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -43,6 +44,9 @@ Route::middleware('auth.api')->group(
             ->parameters(['type-chassis' => 'typeChassis']);
         Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
         Route::apiResource('varian-body', VarianBodyController::class);
+
+        Route::apiResource('transaksi', TransaksiController::class);
+
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // Rute CRUD untuk mengelola User
