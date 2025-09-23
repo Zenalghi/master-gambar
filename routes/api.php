@@ -57,6 +57,9 @@ Route::middleware('auth.api')->group(
             Route::apiResource('customers', CustomerController::class);
             Route::post('/gambar-master/utama', [GambarMasterController::class, 'uploadGambarUtama']);
             Route::post('/gambar-master/optional', [GambarMasterController::class, 'uploadGambarOptional']);
+
+            Route::delete('/gambar-master/utama/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarUtama']);
+            Route::delete('/gambar-master/optional/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarOptional']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
