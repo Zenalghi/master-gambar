@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class CTypeChassis extends Model
 {
@@ -43,5 +44,10 @@ class CTypeChassis extends Model
     {
         // Langsung query ke model DJenisKendaraan dengan pola LIKE
         return DJenisKendaraan::where('id', 'like', $this->id . '%')->get();
+    }
+
+    public function gambarKelistrikan(): HasOne
+    {
+        return $this->hasOne(IGambarKelistrikan::class, 'c_type_chassis_id');
     }
 }

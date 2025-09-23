@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CTypeChassis;
 use App\Models\EVarianBody;
 use App\Models\GGambarUtama;
 use App\Models\HGambarOptional;
+use App\Models\IGambarKelistrikan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -67,6 +69,35 @@ class GambarMasterController extends Controller
         );
 
         return response()->json($gambarOptional, 201);
+    }
+
+    public function uploadGambarKelistrikan(Request $request)
+    {
+        $request->validate([
+            'c_type_chassis_id' => 'required|string|size:7|exists:c_type_chassis,id',
+            'gambar_kelistrikan' => 'required|file|mimes:pdf',
+        ]);
+
+        $chassis = CTypeChassis::with('merk.typeEngine')->find($request->c_type_chassis_id);
+        $basePath = $this->buildChassisPath($chassis);
+        $fileName = Str::slug($chassis->type_chassis) . ' Gambar Kelistrikan.pdf';
+
+        $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
+
+        $gambarKelistrikan = IGambarKelistrikan::updateOrCreate(
+            ['c_type_chassis_id' => $chassis->id],
+            ['path_gambar_kelistrikan' => $path]
+        );
+
+        return response()->json($gambarKelistrikan, 201);
+    }
+
+    public function destroyGambarKelistrikan($c_type_chassis_id)
+    {
+        $gambarKelistrikan = IGambarKelistrikan::where('c_type_chassis_id', $c_type_chassis_id)->firstOrFail();
+        Storage::disk('master_gambar')->delete($gambarKelistrikan->path_gambar_kelistrikan);
+        $gambarKelistrikan->delete();
+        return response()->json(null, 204);
     }
 
     /**
@@ -133,5 +164,14 @@ class GambarMasterController extends Controller
             ->implode('_');
 
         return $baseName . '.pdf';
+    }
+
+    private function buildChassisPath(CTypeChassis $chassis): string
+    {
+        $engine = $chassis->merk->typeEngine->type_engine;
+        $merk = $chassis->merk->merk;
+        $chassisName = $chassis->type_chassis;
+
+        return Str::slug($engine) . '/' . Str::slug($merk) . '/' . Str::slug($chassisName);
     }
 }

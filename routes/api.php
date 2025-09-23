@@ -60,6 +60,9 @@ Route::middleware('auth.api')->group(
 
             Route::delete('/gambar-master/utama/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarUtama']);
             Route::delete('/gambar-master/optional/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarOptional']);
+
+            Route::post('/gambar-master/kelistrikan', [GambarMasterController::class, 'uploadGambarKelistrikan']);
+            Route::delete('/gambar-master/kelistrikan/{c_type_chassis_id}', [GambarMasterController::class, 'destroyGambarKelistrikan']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
