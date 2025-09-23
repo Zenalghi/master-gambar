@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EVarianBody extends Model
 {
@@ -21,6 +22,22 @@ class EVarianBody extends Model
     public function jenisKendaraan(): BelongsTo
     {
         return $this->belongsTo(DJenisKendaraan::class, 'jenis_kendaraan_id');
+    }
+    // --- TAMBAHKAN DUA RELASI BARU INI ---
+    /**
+     * Mendefinisikan bahwa satu Varian Body memiliki satu set Gambar Utama.
+     */
+    public function gambarUtama(): HasOne
+    {
+        return $this->hasOne(GGambarUtama::class, 'e_varian_body_id');
+    }
+
+    /**
+     * Mendefinisikan bahwa satu Varian Body memiliki satu Gambar Optional.
+     */
+    public function gambarOptional(): HasOne
+    {
+        return $this->hasOne(HGambarOptional::class, 'e_varian_body_id');
     }
     // public function pengajuan(): HasMany
     // {

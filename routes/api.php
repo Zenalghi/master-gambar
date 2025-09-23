@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\X_CustomerController as CustomerController;
 use App\Http\Controllers\Api\X_UserController as UserController;
 use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
 use App\Http\Controllers\Api\TransaksiController;
+use App\Http\Controllers\Api\GambarMasterController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -54,6 +55,8 @@ Route::middleware('auth.api')->group(
 
             // Rute CRUD untuk mengelola Customer
             Route::apiResource('customers', CustomerController::class);
+            Route::post('/gambar-master/utama', [GambarMasterController::class, 'uploadGambarUtama']);
+            Route::post('/gambar-master/optional', [GambarMasterController::class, 'uploadGambarOptional']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
