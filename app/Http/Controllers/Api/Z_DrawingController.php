@@ -23,9 +23,9 @@ class Z_DrawingController extends Controller
             'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
             'total_halaman' => '13',
-            'signature_path' => storage_path('app/signatures/ridho_ttd.png'),
-            'signature_path_2' => storage_path('app/signatures/umardani_ttd.png'),
-            'signature_path_3' => storage_path('app/signatures/harsoyo_ttd.png')
+            'signature_path' => 'D:/_Master/USER/paraf deni.png',
+            'signature_path_2' => 'D:/_Master/USER/paraf umar dani.png',
+            'signature_path_3' => 'D:/_Master/CUSTOMER/pt antika raya paraf.png',
         ];
 
         // 1. Inisialisasi PDF dengan orientasi LANDSCAPE
@@ -97,12 +97,54 @@ class Z_DrawingController extends Controller
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
         // $pdf->Write(0, $data['no_halaman'] . ' / ' . $data['total_halaman']);
 
-        // 5. Menempatkan Gambar Tanda Tangan
-        $pdf->Image($data['signature_path'], 237.527, 175.205, 15, 15, 'PNG');
-        $pdf->Image($data['signature_path_2'], 237.527, 177.768, 4.529, 2.074, 'PNG');
-        $pdf->Image($data['signature_path_3'], 237.527, 180.331, 4.529, 2.074, 'PNG');
+        // 5. Menempatkan Gambar Paraf secara Dinamis
+
+        // Definisikan properti kotak paraf di PDF Anda
+        // Sesuaikan nilai $boxX jika posisi horizontalnya berbeda
+        $boxX = 238.59; // Titik X (kiri) dari area kotak paraf
+        $boxWidth = 4.529;   // Lebar total area kotak paraf
+        $boxHeight = 2.074;  // Tinggi total area kotak paraf (ini akan jadi patokan)
+
+        // Panggil fungsi bantuan untuk menempatkan setiap paraf.
+        // Fungsi ini akan menghitung ukuran dan posisi tengah secara otomatis.
+        // Sesuaikan koordinat Y (parameter ke-3) untuk setiap paraf.
+        $this->placeSignature($pdf, $data['signature_path'],   $boxX, 175.062, $boxWidth, $boxHeight);
+        $this->placeSignature($pdf, $data['signature_path_2'], $boxX, 177.625, $boxWidth, $boxHeight);
+        $this->placeSignature($pdf, $data['signature_path_3'], $boxX, 180.188, $boxWidth, $boxHeight);
+
+        // // Panggil fungsi untuk setiap gambar
+        // placeImageCentered($pdf, $data['signature_path'], $centeringAreaX, $centeringAreaWidth, 174.168, 0, 2.75);
+        // placeImageCentered($pdf, $data['signature_path_2'], $centeringAreaX, $centeringAreaWidth, 176.731,  0, 2.75);
+        // placeImageCentered($pdf, $data['signature_path_3'], $centeringAreaX, $centeringAreaWidth, 179.294,  0, 2.75);
 
         // 6. Kirim PDF ke browser
         return $pdf->Output('hasil.pdf', 'D');
+    }
+
+    private function placeSignature(Fpdi &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
+    {
+        // Pastikan file gambar ada sebelum diproses
+        if (!file_exists($imagePath)) {
+            // Jika file tidak ada, lewati saja agar tidak error
+            return;
+        }
+
+        // Dapatkan ukuran asli gambar dalam pixel
+        list($originalWidth, $originalHeight) = getimagesize($imagePath);
+
+        // Hindari error "division by zero" jika gambar rusak
+        if ($originalHeight == 0) {
+            return;
+        }
+
+        // Hitung lebar baru yang proporsional berdasarkan tinggi kotak
+        $newWidth = ($originalWidth / $originalHeight) * $boxHeight;
+        $newHeight = $boxHeight;
+
+        // Hitung posisi X baru agar gambar berada di tengah area kotak
+        $calculatedX = $boxX + (($boxWidth - $newWidth) / 2);
+
+        // Tempatkan gambar di PDF
+        $pdf->Image($imagePath, $calculatedX, $boxY, $newWidth, $newHeight, 'PNG');
     }
 }
