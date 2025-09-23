@@ -12,6 +12,7 @@ use App\Models\EVarianBody;
 use App\Models\FPengajuan;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Models\Role;
 
 class _OptionController extends Controller
 {
@@ -62,5 +63,9 @@ class _OptionController extends Controller
     public function getPengajuan()
     {
         return response()->json(FPengajuan::all());
+    }
+    public function getRoles()
+    {
+        return response()->json(Role::all());
     }
 }

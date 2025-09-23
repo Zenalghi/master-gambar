@@ -52,6 +52,7 @@ Route::middleware('auth.api')->group(
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // Rute CRUD untuk mengelola User
             Route::apiResource('users', UserController::class);
+            Route::get('/options/roles', [OptionController::class, 'getRoles']);
 
             // Rute CRUD untuk mengelola Customer
             Route::apiResource('customers', CustomerController::class);

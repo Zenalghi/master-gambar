@@ -16,14 +16,10 @@ class IsAdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Periksa apakah user sudah login DAN perannya adalah 'admin'
-        if (Auth::check() && Auth::user()->role === 'admin') {
-            // Jika ya, izinkan request untuk melanjutkan
+        // Cek nama role melalui relasi. Ini lebih mudah dibaca.
+        if (Auth::check() && Auth::user()->role->name === 'admin') {
             return $next($request);
         }
-
-        // Jika tidak, tolak akses dengan pesan error 403 Forbidden
         return response()->json(['message' => 'Forbidden: Requires admin access.'], 403);
     }
 }
-

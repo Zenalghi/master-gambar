@@ -29,7 +29,7 @@ class X_UserController extends Controller
             'name' => $request->name,
             'username' => $request->username,
             'password' => Hash::make($request->password),
-            'role' => $request->role,
+            'role_id' => $request->role_id,
         ]);
         return response()->json($user, 201);
     }

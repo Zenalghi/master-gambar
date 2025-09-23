@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             Transaksi::class,
 
             // Seeder ini tidak memiliki dependensi, bisa ditaruh di akhir
+            RoleSeeder::class,
             User::class,
             Customer::class,
         ]);

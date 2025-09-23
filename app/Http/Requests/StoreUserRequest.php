@@ -17,7 +17,7 @@ class StoreUserRequest extends FormRequest
             'name' => 'required|string|max:255',
             'username' => 'required|string|max:255|unique:users,username',
             'password' => 'required|string|min:8|confirmed', // 'confirmed' berarti harus ada field 'password_confirmation'
-            'role' => 'required|string|in:admin,drafter', // Hanya boleh diisi 'admin' atau 'drafter'
+            'role_id' => 'required|exists:roles,id',
         ];
     }
 }

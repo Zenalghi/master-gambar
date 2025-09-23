@@ -15,7 +15,10 @@ class User extends Seeder
                 'name' => 'Fatih',
                 'username' => 'fatih',
                 'password' => Hash::make('rekayasa'),
-                'role' => 'drafter',
+                'role_id' => 3, // <-- Ganti dari 'role' => 'admin'
+                'signature' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
             ],
         ]);
     }

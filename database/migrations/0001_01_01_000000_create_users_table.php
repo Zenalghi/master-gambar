@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('username')->unique(); // Ganti dari email ke username
             // $table->timestamp('email_verified_at')->nullable(); // Hapus baris ini
             $table->string('password');
-            $table->string('role')->default('drafter'); // Ganti default ke drafter agar lebih jelas
+            $table->string('role')->default('drafter');
             $table->string('signature')->nullable();
             $table->rememberToken();
             $table->timestamps();
