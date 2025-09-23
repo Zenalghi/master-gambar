@@ -59,6 +59,7 @@ class _AuthController extends Controller
             'name' => $request->name,
             'username' => $request->username,
             'password' => Hash::make($request->password),
+            'role_id' => 3,
             // 'role' akan default ke 'drafter'
         ]);
 
