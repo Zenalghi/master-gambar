@@ -50,6 +50,7 @@ Route::middleware('auth.api')->group(
 
         Route::apiResource('transaksi', TransaksiController::class);
         Route::post('/transaksi/{transaksi}/detail', [ProsesTransaksiController::class, 'simpanDetail']);
+        Route::post('/transaksi/{transaksi}/proses', [ProsesTransaksiController::class, 'proses']);
 
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
