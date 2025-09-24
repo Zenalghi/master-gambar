@@ -14,9 +14,24 @@ class Customer extends Seeder
     public function run(): void
     {
         DB::table('customers')->insert([
-            ['nama_pt' => 'ADI JAYA MAKMUR', 'pj' => 'KWAN PHA JIE'],
-            ['nama_pt' => 'CV AMRI JAYA DINAMIKA', 'pj' => 'KASMAN'],
-            ['nama_pt' => 'CV ANUGERAH ARTHA KARYA', 'pj' => 'SUJANTO'],
+            [
+                'nama_pt' => 'ADI JAYA MAKMUR',
+                'pj' => 'KWAN PHA JIE',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV AMRI JAYA DINAMIKA',
+                'pj' => 'KASMAN',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV ANUGERAH ARTHA KARYA',
+                'pj' => 'SUJANTO',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
             // ... tambahkan data lain dari Excel Anda
         ]);
     }

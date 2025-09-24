@@ -15,26 +15,116 @@ class B_Merk extends Seeder
     {
         DB::table('b_merks')->insert([
             // EURO 2 Merks
-            ['id' => '0101', 'merk' => 'MITSUBISHI'],
-            ['id' => '0102', 'merk' => 'HINO'],
-            ['id' => '0103', 'merk' => 'ISUZU'],
-            ['id' => '0104', 'merk' => 'UDTRUCKS'],
-            ['id' => '0105', 'merk' => 'MERCEDES BENZ'],
-            ['id' => '0106', 'merk' => 'TATA'],
-            ['id' => '0107', 'merk' => 'FAW'],
-            ['id' => '0108', 'merk' => 'SUZUKI'],
-            ['id' => '0109', 'merk' => 'DAIHATSU'],
+            [
+                'id' => '0101',
+                'merk' => 'MITSUBISHI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0102',
+                'merk' => 'HINO',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0103',
+                'merk' => 'ISUZU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0104',
+                'merk' => 'UDTRUCKS',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0105',
+                'merk' => 'MERCEDES BENZ',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0106',
+                'merk' => 'TATA',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0107',
+                'merk' => 'FAW',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0108',
+                'merk' => 'SUZUKI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0109',
+                'merk' => 'DAIHATSU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
 
             // EURO 4 Merks
-            ['id' => '0201', 'merk' => 'MITSUBISHI'],
-            ['id' => '0202', 'merk' => 'HINO'],
-            ['id' => '0203', 'merk' => 'ISUZU'],
-            ['id' => '0204', 'merk' => 'UDTRUCKS'],
-            ['id' => '0205', 'merk' => 'MERCEDES BENZ'],
-            ['id' => '0206', 'merk' => 'TATA'],
-            ['id' => '0207', 'merk' => 'FAW'],
-            ['id' => '0208', 'merk' => 'SUZUKI'],
-            ['id' => '0209', 'merk' => 'DAIHATSU'],
+            [
+                'id' => '0201',
+                'merk' => 'MITSUBISHI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0202',
+                'merk' => 'HINO',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0203',
+                'merk' => 'ISUZU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0204',
+                'merk' => 'UDTRUCKS',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0205',
+                'merk' => 'MERCEDES BENZ',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0206',
+                'merk' => 'TATA',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0207',
+                'merk' => 'FAW',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0208',
+                'merk' => 'SUZUKI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '0209',
+                'merk' => 'DAIHATSU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
         ]);
     }
 }

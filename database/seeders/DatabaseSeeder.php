@@ -13,6 +13,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             // Urutan ini penting!
+            RoleSeeder::class,
+            User::class,
+            Customer::class,
+
             A_TypeEngine::class,
             B_Merk::class,
             C_TypeChassis::class,
@@ -21,10 +25,6 @@ class DatabaseSeeder extends Seeder
             F_Pengajuan::class,
             Transaksi::class,
 
-            // Seeder ini tidak memiliki dependensi, bisa ditaruh di akhir
-            RoleSeeder::class,
-            User::class,
-            Customer::class,
         ]);
     }
 }

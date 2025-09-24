@@ -14,8 +14,15 @@ class A_TypeEngine extends Seeder
     public function run(): void
     {
         DB::table('a_type_engines')->insert([
-            ['id' => '01', 'type_engine' => 'EURO 2'],
-            ['id' => '02', 'type_engine' => 'EURO 4'],
+            ['id' => '01', 'type_engine' => 'EURO 2',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            ['id' => '02', 'type_engine' => 'EURO 4',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+
         ]);
     }
 }

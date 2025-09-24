@@ -12,10 +12,38 @@ class User extends Seeder
     {
         DB::table('users')->insert([
             [
+                'name' => 'Umardani',
+                'username' => 'umar',
+                'password' => Hash::make('qwerasdf'),
+                'role_id' => 3,
+                'signature' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+
+            [
                 'name' => 'Fatih',
                 'username' => 'fatih',
                 'password' => Hash::make('rekayasa'),
-                'role_id' => 3, // <-- Ganti dari 'role' => 'admin'
+                'role_id' => 3,
+                'signature' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Pemeriksa',
+                'username' => 'pemeriksa',
+                'password' => Hash::make('rekayasa'),
+                'role_id' => 2,
+                'signature' => null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Drafter',
+                'username' => 'drafter',
+                'password' => Hash::make('rekayasa'),
+                'role_id' => 3,
                 'signature' => null,
                 'created_at' => now(),
                 'updated_at' => now(),

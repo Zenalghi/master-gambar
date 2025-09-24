@@ -18,9 +18,21 @@ class F_Pengajuan extends Seeder
 
         // Contoh: Menambahkan pilihan pengajuan untuk Varian Body tanpa foreign key
         DB::table('f_pengajuan')->insert([
-            ['jenis_pengajuan' => 'BARU'],
-            ['jenis_pengajuan' => 'VARIAN'],
-            ['jenis_pengajuan' => 'REVISI'],
+            [
+                'jenis_pengajuan' => 'BARU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'jenis_pengajuan' => 'VARIAN',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'jenis_pengajuan' => 'REVISI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
         ]);
     }
 }

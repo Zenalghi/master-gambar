@@ -14,10 +14,30 @@ class D_JenisKendaraan extends Seeder
     public function run(): void
     {
         DB::table('d_jenis_kendaraan')->insert([
-            ['id' => '010100101', 'jenis_kendaraan' => 'BAK BESI'],
-            ['id' => '010100102', 'jenis_kendaraan' => 'BAK KAYU'],
-            ['id' => '010100103', 'jenis_kendaraan' => 'BOX LOGAM'],
-            ['id' => '010100201', 'jenis_kendaraan' => 'BAK BESI'],
+            [
+                'id' => '010100101',
+                'jenis_kendaraan' => 'BAK BESI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '010100102',
+                'jenis_kendaraan' => 'BAK KAYU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '010100103',
+                'jenis_kendaraan' => 'BOX LOGAM',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '010100201',
+                'jenis_kendaraan' => 'BAK BESI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
             // ... tambahkan data lain dari Excel Anda
         ]);
     }
