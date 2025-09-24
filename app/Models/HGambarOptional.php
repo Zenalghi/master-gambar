@@ -13,6 +13,7 @@ class HGambarOptional extends Model
     protected $fillable = [
         'e_varian_body_id',
         'path_gambar_optional',
+        'deskripsi',
     ];
 
     /**
@@ -23,4 +24,3 @@ class HGambarOptional extends Model
         return $this->belongsTo(EVarianBody::class, 'e_varian_body_id');
     }
 }
-

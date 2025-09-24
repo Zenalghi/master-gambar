@@ -13,6 +13,7 @@ class IGambarKelistrikan extends Model
     protected $fillable = [
         'c_type_chassis_id',
         'path_gambar_kelistrikan',
+        'deskripsi',
     ];
 
     public function typeChassis(): BelongsTo

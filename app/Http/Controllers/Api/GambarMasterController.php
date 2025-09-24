@@ -52,20 +52,23 @@ class GambarMasterController extends Controller
      */
     public function uploadGambarOptional(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'e_varian_body_id' => 'required|exists:e_varian_body,id',
             'gambar_optional' => 'required|file|mimes:pdf',
+            'deskripsi' => 'nullable|string', // <-- Tambahkan validasi
         ]);
+
         $varianBody = EVarianBody::with('jenisKendaraan.typeChassis.merk.typeEngine')->find($request->e_varian_body_id);
         $basePath = $this->buildPath($varianBody);
-
         $fileNameOptional = $this->buildFileName($varianBody, 'Gambar Optional');
-
         $pathOptional = $request->file('gambar_optional')->storeAs($basePath, $fileNameOptional, 'master_gambar');
 
         $gambarOptional = HGambarOptional::updateOrCreate(
             ['e_varian_body_id' => $varianBody->id],
-            ['path_gambar_optional' => $pathOptional]
+            [
+                'path_gambar_optional' => $pathOptional,
+                'deskripsi' => $validated['deskripsi'] ?? null, // <-- Simpan deskripsi
+            ]
         );
 
         return response()->json($gambarOptional, 201);
@@ -73,20 +76,23 @@ class GambarMasterController extends Controller
 
     public function uploadGambarKelistrikan(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'c_type_chassis_id' => 'required|string|size:7|exists:c_type_chassis,id',
             'gambar_kelistrikan' => 'required|file|mimes:pdf',
+            'deskripsi' => 'nullable|string', // <-- Tambahkan validasi
         ]);
 
         $chassis = CTypeChassis::with('merk.typeEngine')->find($request->c_type_chassis_id);
         $basePath = $this->buildChassisPath($chassis);
         $fileName = Str::slug($chassis->type_chassis) . ' Gambar Kelistrikan.pdf';
-
         $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
 
         $gambarKelistrikan = IGambarKelistrikan::updateOrCreate(
             ['c_type_chassis_id' => $chassis->id],
-            ['path_gambar_kelistrikan' => $path]
+            [
+                'path_gambar_kelistrikan' => $path,
+                'deskripsi' => $validated['deskripsi'] ?? null, // <-- Simpan deskripsi
+            ]
         );
 
         return response()->json($gambarKelistrikan, 201);
