@@ -9,17 +9,14 @@ use Symfony\Component\HttpFoundation\Response;
 
 class IsAdminMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
     public function handle(Request $request, Closure $next): Response
     {
-        // Cek nama role melalui relasi. Ini lebih mudah dibaca.
+        // Pengecekan: Apakah user sudah login DAN nama rolenya adalah 'admin'?
         if (Auth::check() && Auth::user()->role->name === 'admin') {
             return $next($request);
         }
+
+        // Jika tidak, tolak akses
         return response()->json(['message' => 'Forbidden: Requires admin access.'], 403);
     }
 }
