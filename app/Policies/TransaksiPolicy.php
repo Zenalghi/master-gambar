@@ -13,7 +13,8 @@ class TransaksiPolicy
      */
     public function before(User $user, string $ability): bool|null
     {
-        if ($user->role === 'admin') {
+        // PERBAIKAN DI SINI: Akses nama role melalui relasi
+        if ($user->role->name === 'admin') {
             return true;
         }
         return null;
