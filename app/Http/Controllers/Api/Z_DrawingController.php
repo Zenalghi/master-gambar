@@ -12,20 +12,21 @@ class Z_DrawingController extends Controller
     {
         // --- DATA INPUT ---
         $data = [
+            // 'catatan' => '- Model Bak Besi 5 Way',
+            // 'judul_gambar_2' => 'MEREK MITSUBISHI TIPE CANTER FE 74 N (4X2) M/T',
+            // 'judul_gambar_3' => 'SEBAGAI MOBIL BARANG BAK MUATAN TERBUKA ( BAK BESI )',
+            
             'digambar' => 'Ridho',
             'diperiksa' => 'Umardani',
             'disetujui' => 'Harsoyo',
             'tanggal' => '01.02.22',
-            // 'catatan' => '- Model Bak Besi 5 Way',
             'judul_gambar_1' => 'GAMBAR TAMPAK UTAMA STANDAR',
-            // 'judul_gambar_2' => 'MEREK MITSUBISHI TIPE CANTER FE 74 N (4X2) M/T',
-            // 'judul_gambar_3' => 'SEBAGAI MOBIL BARANG BAK MUATAN TERBUKA ( BAK BESI )',
             'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
             'total_halaman' => '13',
-            'signature_path' => 'D:/_Master/USER/paraf deni.png',
-            'signature_path_2' => 'D:/_Master/USER/paraf umar dani.png',
-            'signature_path_3' => 'D:/_Master/CUSTOMER/pt antika raya paraf.png',
+            'signature_path' => 'D:/_Master/User/4-deni/deni-sutriyo.png',
+            'signature_path_2' => 'D:/_Master/User/3-umar/paraf umar dani.png',
+            'signature_path_3' => 'D:/_Master/pt antika raya paraf.png',
         ];
 
         // 1. Inisialisasi PDF dengan orientasi LANDSCAPE
@@ -35,7 +36,7 @@ class Z_DrawingController extends Controller
         $pdf->SetAutoPageBreak(false, 0);
 
         // 2. Impor halaman dari template
-        $templatePath = 'D:/_Master/BEFORE/pdf_kosong.pdf';
+        $templatePath = 'D:/_Master/pdf_kosong.pdf';
         $pdf->setSourceFile($templatePath);
         $templateId = $pdf->importPage(1);
 

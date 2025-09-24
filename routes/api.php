@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\X_CustomerController as CustomerController;
 use App\Http\Controllers\Api\X_UserController as UserController;
 use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
 use App\Http\Controllers\Api\TransaksiController;
+use App\Http\Controllers\Api\ProsesTransaksiController;
 use App\Http\Controllers\Api\GambarMasterController;
 use App\Http\Controllers\Api\ParafUploadController;
 
@@ -48,6 +49,7 @@ Route::middleware('auth.api')->group(
         Route::apiResource('varian-body', VarianBodyController::class);
 
         Route::apiResource('transaksi', TransaksiController::class);
+        Route::post('/transaksi/{transaksi}/detail', [ProsesTransaksiController::class, 'simpanDetail']);
 
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {

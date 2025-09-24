@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Transaksi extends Model
 {
@@ -25,14 +26,39 @@ class Transaksi extends Model
     ];
 
     // Relasi yang sudah ada
-    public function user() { return $this->belongsTo(User::class); }
-    public function customer() { return $this->belongsTo(Customer::class); }
-    public function dJenisKendaraan() { return $this->belongsTo(DJenisKendaraan::class, 'd_jenis_kendaraan_id'); }
-    public function fPengajuan() { return $this->belongsTo(FPengajuan::class, 'f_pengajuan_id'); }
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+    public function dJenisKendaraan()
+    {
+        return $this->belongsTo(DJenisKendaraan::class, 'd_jenis_kendaraan_id');
+    }
+    public function fPengajuan()
+    {
+        return $this->belongsTo(FPengajuan::class, 'f_pengajuan_id');
+    }
 
     // --- RELASI BARU ---
-    public function aTypeEngine() { return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id'); }
-    public function bMerk() { return $this->belongsTo(BMerk::class, 'b_merk_id'); }
-    public function cTypeChassis() { return $this->belongsTo(CTypeChassis::class, 'c_type_chassis_id'); }
-}
+    public function aTypeEngine()
+    {
+        return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id');
+    }
+    public function bMerk()
+    {
+        return $this->belongsTo(BMerk::class, 'b_merk_id');
+    }
+    public function cTypeChassis()
+    {
+        return $this->belongsTo(CTypeChassis::class, 'c_type_chassis_id');
+    }
 
+    public function detail(): HasOne
+    {
+        return $this->hasOne(TransaksiDetail::class, 'z_transaksi_id');
+    }
+}
