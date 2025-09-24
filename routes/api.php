@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\X_UserController as UserController;
 use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
 use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\GambarMasterController;
+use App\Http\Controllers\Api\ParafUploadController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -64,6 +65,12 @@ Route::middleware('auth.api')->group(
 
             Route::post('/gambar-master/kelistrikan', [GambarMasterController::class, 'uploadGambarKelistrikan']);
             Route::delete('/gambar-master/kelistrikan/{c_type_chassis_id}', [GambarMasterController::class, 'destroyGambarKelistrikan']);
+
+            // --- RUTE BARU UNTUK UPLOAD & DELETE PARAF ---
+            Route::post('/users/{user}/paraf', [ParafUploadController::class, 'uploadUserParaf']);
+            Route::delete('/users/{user}/paraf', [ParafUploadController::class, 'destroyUserParaf']);
+
+            Route::post('/customers/{customer}/paraf', [ParafUploadController::class, 'uploadCustomerParaf']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

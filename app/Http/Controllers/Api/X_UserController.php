@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class X_UserController extends Controller
 {
@@ -70,7 +71,20 @@ class X_UserController extends Controller
             return response()->json(['message' => 'Admin cannot delete their own account.'], 403);
         }
 
+        // --- LOGIKA BARU UNTUK MENGHAPUS PARAF ---
+        // 2. Cek apakah user memiliki file paraf (signature)
+        if ($user->signature) {
+            // Dapatkan nama folder dari path file
+            $folderPath = dirname($user->signature);
+
+            // Hapus seluruh folder milik user tersebut dari disk 'user_paraf'
+            Storage::disk('user_paraf')->deleteDirectory($folderPath);
+        }
+        // --- AKHIR LOGIKA BARU ---
+
+        // 3. Hapus data user dari database
         $user->delete();
+
         return response()->json(null, 204);
     }
 }

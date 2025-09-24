@@ -67,6 +67,17 @@ return [
             'throw' => false,
         ],
 
+        'user_paraf' => [
+            'driver' => 'local',
+            'root' => 'D:/_Master/User',
+            'throw' => false,
+        ],
+        'customer_paraf' => [
+            'driver' => 'local',
+            'root' => 'D:/_Master/Customer',
+            'throw' => false,
+        ],
+
     ],
 
     /*

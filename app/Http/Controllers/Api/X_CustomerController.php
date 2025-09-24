@@ -7,6 +7,7 @@ use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class X_CustomerController extends Controller
 {
@@ -49,7 +50,18 @@ class X_CustomerController extends Controller
      */
     public function destroy(Customer $customer)
     {
+        // Cek apakah customer memiliki file paraf (signature_pj)
+        if ($customer->signature_pj) {
+            // Ambil nama folder dari path file
+            $folderPath = dirname($customer->signature_pj);
+
+            // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
+            Storage::disk('customer_paraf')->deleteDirectory($folderPath);
+        }
+
+        // Hapus data customer dari database
         $customer->delete();
+
         return response()->json(null, 204); // 204 No Content
     }
 }
