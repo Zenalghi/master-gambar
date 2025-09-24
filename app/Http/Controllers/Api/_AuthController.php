@@ -26,7 +26,7 @@ class _AuthController extends Controller
             return response()->json(['message' => 'Username atau Password salah.'], 401);
         }
 
-        $user = User::where('username', $request->username)->firstOrFail();
+        $user = User::with('role')->where('username', $request->username)->firstOrFail();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
