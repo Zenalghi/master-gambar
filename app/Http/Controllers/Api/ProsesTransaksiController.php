@@ -127,7 +127,7 @@ class ProsesTransaksiController extends Controller
             $folderName = sprintf(
                 '%s (%s) %s_%s_%s (%s)',
                 $transaksi->user->username,
-                $transaksi->fPengajuan->nama_pengajuan,
+                $transaksi->fPengajuan->jenis_pengajuan,
                 $transaksi->customer->nama_pt,
                 $merk->merk,
                 $chassis->type_chassis,

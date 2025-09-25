@@ -20,7 +20,7 @@ class FPengajuan extends Model
      */
     protected $fillable = [
         // 'varian_body_id',
-        'nama_pengajuan', // Kolom untuk 'BARU', 'VARIAN', 'REVISI'
+        'jenis_pengajuan', // Kolom untuk 'BARU', 'VARIAN', 'REVISI'
     ];
 
     /**
