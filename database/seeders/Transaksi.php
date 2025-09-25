@@ -15,11 +15,11 @@ class Transaksi extends Seeder
     {
         DB::table('z_transaksi')->insert([
             [
-                'id' => '010100201-0001', // ID Jenis Kendaraan + Counter
+                'id' => '010100101-0001', // ID Jenis Kendaraan + Counter
                 'a_type_engine_id' => '01', 
                 'b_merk_id' => '0101', 
-                'c_type_chassis_id' => '0101002', 
-                'd_jenis_kendaraan_id' => '010100201', // BAK BESI
+                'c_type_chassis_id' => '0101001', 
+                'd_jenis_kendaraan_id' => '010100101', // BAK BESI
                 'customer_id' => 1, // ADI JAYA MAKMUR
                 'f_pengajuan_id' => 1, // BARU
                 'user_id' => 4, // Ridho Al
