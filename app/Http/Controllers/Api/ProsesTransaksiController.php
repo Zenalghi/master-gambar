@@ -7,11 +7,11 @@ use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
 use App\Models\TransaksiVarian;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ProsesTransaksiController extends Controller
 {
@@ -20,10 +20,16 @@ class ProsesTransaksiController extends Controller
      */
     public function proses(Request $request, Transaksi $transaksi)
     {
+        $varianCount = count($request->input('varian_body_ids', []));
+
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
             'varian_body_ids' => 'required|array|min:1|max:4',
             'varian_body_ids.*' => 'required|exists:e_varian_body,id',
+            // --- VALIDASI BARU ---
+            'judul_gambar' => ['required', 'array', "size:$varianCount"],
+            'judul_gambar.*' => ['required', 'string', Rule::in(['STANDAR', 'VARIAN 1', 'VARIAN 2', 'VARIAN 3'])],
+            // --------------------
             'h_gambar_optional_id' => 'nullable|exists:h_gambar_optional,id',
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
@@ -40,12 +46,14 @@ class ProsesTransaksiController extends Controller
                     'i_gambar_kelistrikan_id' => $validated['i_gambar_kelistrikan_id'] ?? null,
                 ]
             );
+
             $detail->varians()->delete();
             foreach ($validated['varian_body_ids'] as $index => $varian_id) {
                 TransaksiVarian::create([
                     'z_transaksi_detail_id' => $detail->id,
                     'e_varian_body_id' => $varian_id,
                     'urutan' => $index + 1,
+                    'judul' => $validated['judul_gambar'][$index], // Simpan judul
                 ]);
             }
             DB::commit();
@@ -62,28 +70,28 @@ class ProsesTransaksiController extends Controller
             'detail.pemeriksa',
             'detail.gambarOptional',
             'detail.gambarKelistrikan',
+            // Gunakan nama relasi yang benar
             'detail.varians.varianBody.gambarUtama',
-            'detail.varians.varianBody.dJenisKendaraan.cTypeChassis.bMerk.aTypeEngine'
+            'detail.varians.varianBody.jenisKendaraan.typeChassis.merk.typeEngine'
         ]);
 
         // 3. Bangun "Daftar Pekerjaan Gambar"
         $drawingJobs = [];
         $pageCounter = 1;
 
-        $jenisKendaraan = $transaksi->detail->varians->first()->varianBody->dJenisKendaraan;
-        $chassis = $jenisKendaraan->cTypeChassis;
-        $merk = $chassis->bMerk;
+        $jenisKendaraan = $transaksi->detail->varians->first()->varianBody->jenisKendaraan;
+        $chassis = $jenisKendaraan->typeChassis;
+        $merk = $chassis->merk;
 
-        foreach ($transaksi->detail->varians as $index => $transaksiVarian) {
-            $prefix = ($index === 0) ? 'STANDAR' : 'VARIAN ' . $index;
+        foreach ($transaksi->detail->varians as $transaksiVarian) {
             $varianBody = $transaksiVarian->varianBody;
-            $varianName = $varianBody->varian_body;
             $gambarUtamaData = $varianBody->gambarUtama;
+            $jenisJudul = $transaksiVarian->judul; // Ambil judul dari DB
 
             if ($gambarUtamaData) {
-                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK UTAMA ' . $prefix, 'varian' => $varianName, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_utama];
-                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK TERURAI ' . $prefix, 'varian' => $varianName, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_terurai];
-                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK KONTRUKSI ' . $prefix, 'varian' => $varianName, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_kontruksi];
+                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_utama];
+                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_terurai];
+                $drawingJobs[] = ['title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_kontruksi];
             }
         }
 
