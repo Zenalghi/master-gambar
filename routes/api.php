@@ -40,6 +40,10 @@ Route::middleware('auth.api')->group(
         Route::get('/options/pengajuan', [OptionController::class, 'getPengajuan']);
         Route::get('/options/users', [OptionController::class, 'getUsers']);
         Route::get('/options/customers', [OptionController::class, 'getCustomers']);
+        Route::get('/options/roles', [OptionController::class, 'getRoles']);
+        Route::get('/options/users/pemeriksa', [OptionController::class, 'getPemeriksa']);
+        Route::get('/options/gambar-optional', [OptionController::class, 'getGambarOptional']);
+        Route::get('/options/gambar-kelistrikan/{chassis_id}', [OptionController::class, 'getGambarKelistrikan']);
 
         Route::apiResource('type-engines', TypeEngineController::class);
         Route::apiResource('merks', MerkController::class);

@@ -13,6 +13,8 @@ use App\Models\FPengajuan;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Role;
+use App\Models\HGambarOptional;
+use App\Models\IGambarKelistrikan;
 
 class _OptionController extends Controller
 {
@@ -67,5 +69,30 @@ class _OptionController extends Controller
     public function getRoles()
     {
         return response()->json(Role::all());
+    }
+
+    public function getPemeriksa()
+    {
+        // Asumsi: 'pemeriksa' adalah nama role di tabel roles Anda.
+        // Sesuaikan 'pemeriksa' jika nama rolenya berbeda.
+        return response()->json(User::whereHas('role', function ($query) {
+            $query->where('name', 'pemeriksa');
+        })->select('id', 'name')->get());
+    }
+
+    // Jangan lupa 'use App\Models\HGambarOptional;' di bagian atas file
+    public function getGambarOptional()
+    {
+        // Ambil id dan deskripsi untuk ditampilkan di dropdown
+        return response()->json(HGambarOptional::select('id', 'deskripsi')->get());
+    }
+
+    // Jangan lupa 'use App\Models\IGambarKelistrikan;' di bagian atas file
+    public function getGambarKelistrikan($chassis_id)
+    {
+        return response()->json(
+            IGambarKelistrikan::where('c_type_chassis_id', $chassis_id)
+                ->select('id', 'deskripsi')->get()
+        );
     }
 }
