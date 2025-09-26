@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::table('z_transaksi_details', function (Blueprint $table) {
             // Kolom ini akan menyimpan ID dari gambar optional/kelistrikan yang dipilih
-            $table->foreignId('h_gambar_optional_id')->nullable()->after('pemeriksa_id')->constrained('h_gambar_optional')->nullOnDelete();
-            $table->foreignId('i_gambar_kelistrikan_id')->nullable()->after('h_gambar_optional_id')->constrained('i_gambar_kelistrikan')->nullOnDelete();
+            // $table->foreignId('h_gambar_optional_id')->nullable()->after('pemeriksa_id')->constrained('h_gambar_optional')->nullOnDelete();
+            $table->foreignId('i_gambar_kelistrikan_id')->nullable()->nullOnDelete();
         });
     }
 

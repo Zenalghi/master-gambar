@@ -23,4 +23,9 @@ class HGambarOptional extends Model
     {
         return $this->belongsTo(EVarianBody::class, 'e_varian_body_id');
     }
+
+    public function transaksiOptionals()
+    {
+        return $this->hasMany(TransaksiOptional::class, 'h_gambar_optional_id');
+    }
 }

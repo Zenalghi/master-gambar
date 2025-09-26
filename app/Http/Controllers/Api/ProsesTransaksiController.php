@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaksi;
+use App\Models\TransaksiOptional;
 use App\Models\TransaksiDetail;
 use App\Models\TransaksiVarian;
 use Illuminate\Http\Request;
@@ -28,7 +29,12 @@ class ProsesTransaksiController extends Controller
             'varian_body_ids.*' => 'required|exists:e_varian_body,id',
             'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
             'judul_gambar_ids.*' => ['required', 'integer', 'exists:j_judul_gambars,id'],
-            'h_gambar_optional_id' => 'nullable|exists:h_gambar_optional,id',
+
+            // --- UBAH VALIDASI INI ---
+            'h_gambar_optional_ids' => 'nullable|array|min:1|max:5',
+            'h_gambar_optional_ids.*' => 'required|integer|exists:h_gambar_optional,id',
+            // -------------------------
+
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
         ]);
@@ -40,11 +46,22 @@ class ProsesTransaksiController extends Controller
                 ['z_transaksi_id' => $transaksi->id],
                 [
                     'pemeriksa_id' => $validated['pemeriksa_id'],
-                    'h_gambar_optional_id' => $validated['h_gambar_optional_id'] ?? null,
+                    // 'h_gambar_optional_id' => $validated['h_gambar_optional_id'] ?? null,
                     'i_gambar_kelistrikan_id' => $validated['i_gambar_kelistrikan_id'] ?? null,
                 ]
             );
-
+            $detail->optionals()->delete(); // Hapus data lama
+            if (!empty($validated['h_gambar_optional_ids'])) {
+                foreach ($validated['h_gambar_optional_ids'] as $index => $optional_id) {
+                    TransaksiOptional::create([
+                        'z_transaksi_detail_id' => $detail->id,
+                        'h_gambar_optional_id' => $optional_id,
+                        'urutan' => $index + 1,
+                    ]);
+                }
+            }
+            // ---------------------------------------------
+            DB::commit();
             $detail->varians()->delete();
             foreach ($validated['varian_body_ids'] as $index => $varian_id) {
                 TransaksiVarian::create([
@@ -66,7 +83,7 @@ class ProsesTransaksiController extends Controller
             'customer',
             'fPengajuan',
             'detail.pemeriksa',
-            'detail.gambarOptional',
+            'detail.optionals.gambarOptional',
             'detail.gambarKelistrikan',
             'detail.varians.varianBody.gambarUtama',
             'detail.varians.judulGambar',
@@ -93,8 +110,11 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        if ($transaksi->detail->gambarOptional) {
-            $drawingJobs[] = ['title' => $transaksi->detail->gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $transaksi->detail->gambarOptional->path_gambar_optional];
+        foreach ($transaksi->detail->optionals as $transaksiOptional) {
+            $gambarOptional = $transaksiOptional->gambarOptional;
+            if ($gambarOptional) {
+                $drawingJobs[] = ['title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $gambarOptional->path_gambar_optional];
+            }
         }
         if ($transaksi->detail->gambarKelistrikan) {
             $drawingJobs[] = ['title' => $transaksi->detail->gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $transaksi->detail->gambarKelistrikan->path_gambar_kelistrikan];

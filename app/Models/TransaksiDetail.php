@@ -9,12 +9,8 @@ class TransaksiDetail extends Model
 {
     use HasFactory;
     protected $table = 'z_transaksi_details';
-    protected $fillable = [
-        'z_transaksi_id',
-        'pemeriksa_id',
-        'h_gambar_optional_id',
-        'i_gambar_kelistrikan_id'
-    ];
+    protected $fillable = ['z_transaksi_id', 'pemeriksa_id', 'i_gambar_kelistrikan_id'];
+
     public function transaksi()
     {
         return $this->belongsTo(Transaksi::class, 'z_transaksi_id');
@@ -27,9 +23,9 @@ class TransaksiDetail extends Model
     {
         return $this->hasMany(TransaksiVarian::class, 'z_transaksi_detail_id');
     }
-    public function gambarOptional()
+    public function optionals()
     {
-        return $this->belongsTo(HGambarOptional::class, 'h_gambar_optional_id');
+        return $this->hasMany(TransaksiOptional::class, 'z_transaksi_detail_id');
     }
     public function gambarKelistrikan()
     {
