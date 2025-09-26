@@ -26,10 +26,8 @@ class ProsesTransaksiController extends Controller
             'pemeriksa_id' => 'required|exists:users,id',
             'varian_body_ids' => 'required|array|min:1|max:4',
             'varian_body_ids.*' => 'required|exists:e_varian_body,id',
-            // --- VALIDASI BARU ---
-            'judul_gambar' => ['required', 'array', "size:$varianCount"],
-            'judul_gambar.*' => ['required', 'string', Rule::in(['STANDAR', 'VARIAN 1', 'VARIAN 2', 'VARIAN 3'])],
-            // --------------------
+            'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
+            'judul_gambar_ids.*' => ['required', 'integer', 'exists:j_judul_gambars,id'],
             'h_gambar_optional_id' => 'nullable|exists:h_gambar_optional,id',
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
@@ -53,7 +51,7 @@ class ProsesTransaksiController extends Controller
                     'z_transaksi_detail_id' => $detail->id,
                     'e_varian_body_id' => $varian_id,
                     'urutan' => $index + 1,
-                    'judul' => $validated['judul_gambar'][$index], // Simpan judul
+                    'j_judul_gambar_id' => $validated['judul_gambar_ids'][$index],
                 ]);
             }
             DB::commit();
@@ -167,7 +165,7 @@ class ProsesTransaksiController extends Controller
 
         if (!file_exists($templatePath)) {
             $pdf->AddPage();
-            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->SetFont('arial', 'B', 12);
             $pdf->Text(10, 10, 'Error: Template PDF not found at ' . $data['source_pdf_path']);
             return $pdf->Output('error.pdf', 'S');
         }
@@ -178,7 +176,7 @@ class ProsesTransaksiController extends Controller
         $pdf->AddPage();
         $pdf->useTemplate($templateId, ['adjustPageSize' => true]);
 
-        $pdf->SetFont('helvetica', '', 4.3);
+        $pdf->SetFont('arial', '', 4.3);
         $pdf->setFontSpacing(0);
 
         $pdf->SetXY(225.862, 175.205);
@@ -195,21 +193,21 @@ class ProsesTransaksiController extends Controller
         $pdf->SetXY(243.53, 180.331);
         $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
 
-        $pdf->SetFont('helvetica', '', 6);
+        $pdf->SetFont('arial', '', 6);
         $pdf->setFontSpacing(-0.09);
         $pdf->SetXY(215.686, 183.252);
         $pdf->Cell(68.654, 0, $data['judul_gambar'], 0, 0, 'C');
 
-        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetFont('arial', '', 8);
         $pdf->setFontSpacing(0);
         $pdf->SetXY(217.004, 194.679);
         $pdf->Cell(44.149, 0, $data['karoseri'], 0, 0, 'C');
 
-        $pdf->SetFont('helvetica', '', 7);
+        $pdf->SetFont('arial', '', 7);
         $pdf->SetXY(274.381, 194.118);
         $pdf->Write(0, $data['no_halaman']);
 
-        $pdf->SetFont('helvetica', '', 5);
+        $pdf->SetFont('arial', '', 5);
         $pdf->SetXY(275.342, 198.311);
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
 
