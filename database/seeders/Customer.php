@@ -15,6 +15,12 @@ class Customer extends Seeder
     {
         DB::table('customers')->insert([
             [
+                'nama_pt' => 'PT ANTIKA RAYA',
+                'pj' => 'YANUAR',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
                 'nama_pt' => 'ADI JAYA MAKMUR',
                 'pj' => 'KWAN PHA JIE',
                 'created_at' => now(),
@@ -29,12 +35,6 @@ class Customer extends Seeder
             [
                 'nama_pt' => 'CV ANUGERAH ARTHA KARYA',
                 'pj' => 'SUJANTO',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'nama_pt' => 'PT ANTIKA RAYA',
-                'pj' => 'YANUAR',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
