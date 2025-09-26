@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use App\Models\Role;
 use App\Models\HGambarOptional;
 use App\Models\IGambarKelistrikan;
+use App\Models\JJudulGambar;
 
 class _OptionController extends Controller
 {
@@ -98,7 +99,7 @@ class _OptionController extends Controller
     public function getJudulGambar()
     {
         return response()->json(
-            IGambarKelistrikan::select('id', 'nama_judul')->get()
+            JJudulGambar::select('id', 'nama_judul')->get()
         );
     }
 }
