@@ -44,6 +44,7 @@ Route::middleware('auth.api')->group(
         Route::get('/options/users/pemeriksa', [OptionController::class, 'getPemeriksa']);
         Route::get('/options/gambar-optional', [OptionController::class, 'getGambarOptional']);
         Route::get('/options/gambar-kelistrikan/{chassis_id}', [OptionController::class, 'getGambarKelistrikan']);
+        Route::get('/options/judul-gambar', [OptionController::class, 'getJudulGambar']);
 
         Route::apiResource('type-engines', TypeEngineController::class);
         Route::apiResource('merks', MerkController::class);

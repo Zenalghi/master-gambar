@@ -95,4 +95,10 @@ class _OptionController extends Controller
                 ->select('id', 'deskripsi')->get()
         );
     }
+    public function getJudulGambar()
+    {
+        return response()->json(
+            IGambarKelistrikan::select('id', 'nama_judul')->get()
+        );
+    }
 }
