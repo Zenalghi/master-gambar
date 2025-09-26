@@ -68,8 +68,8 @@ class ProsesTransaksiController extends Controller
             'detail.pemeriksa',
             'detail.gambarOptional',
             'detail.gambarKelistrikan',
-            // Gunakan nama relasi yang benar
             'detail.varians.varianBody.gambarUtama',
+            'detail.varians.judulGambar',
             'detail.varians.varianBody.jenisKendaraan.typeChassis.merk.typeEngine'
         ]);
 
@@ -84,7 +84,7 @@ class ProsesTransaksiController extends Controller
         foreach ($transaksi->detail->varians as $transaksiVarian) {
             $varianBody = $transaksiVarian->varianBody;
             $gambarUtamaData = $varianBody->gambarUtama;
-            $jenisJudul = $transaksiVarian->judul; // Ambil judul dari DB
+            $jenisJudul = $transaksiVarian->judulGambar->nama_judul;
 
             if ($gambarUtamaData) {
                 $drawingJobs[] = ['title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_utama];
