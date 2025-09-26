@@ -9,7 +9,7 @@ class TransaksiVarian extends Model
 {
     use HasFactory;
     protected $table = 'z_transaksi_varians';
-    protected $fillable = ['z_transaksi_detail_id', 'e_varian_body_id', 'urutan'];
+    protected $fillable = ['z_transaksi_detail_id', 'e_varian_body_id', 'j_judul_gambar_id', 'urutan'];
 
     public function detail()
     {
@@ -18,5 +18,10 @@ class TransaksiVarian extends Model
     public function varianBody()
     {
         return $this->belongsTo(EVarianBody::class, 'e_varian_body_id');
+    }
+
+    public function judulGambar()
+    {
+        return $this->belongsTo(JJudulGambar::class, 'j_judul_gambar_id');
     }
 }

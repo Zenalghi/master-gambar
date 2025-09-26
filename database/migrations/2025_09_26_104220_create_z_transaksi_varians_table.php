@@ -12,7 +12,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('z_transaksi_detail_id')->constrained('z_transaksi_details')->onDelete('cascade');
             $table->foreignId('e_varian_body_id')->constrained('e_varian_body');
-            $table->integer('urutan'); // Untuk urutan 1, 2, 3, dst. (Standar, Varian 1, ...)
+
+            // --- PERBAIKAN DI SINI ---
+            // Tambahkan kolom untuk menyimpan ID dari tabel judul
+            $table->foreignId('j_judul_gambar_id')->constrained('j_judul_gambars');
+            // -------------------------
+
+            $table->integer('urutan');
             $table->timestamps();
         });
     }

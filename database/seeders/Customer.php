@@ -32,6 +32,13 @@ class Customer extends Seeder
                 'created_at' => now(),
                 'updated_at' => now()
             ],
+            [
+                'nama_pt' => 'PT ANTIKA RAYA',
+                'pj' => 'YANUAR',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+
             // ... tambahkan data lain dari Excel Anda
         ]);
     }

@@ -24,6 +24,8 @@ class DatabaseSeeder extends Seeder
             E_VarianBody::class,
             F_Pengajuan::class,
             Transaksi::class,
+            JJudulGambarSeeder::class,
+
 
         ]);
     }
