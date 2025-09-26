@@ -69,14 +69,16 @@ class Z_DrawingController extends Controller
         $pdf->setFontSpacing(-0.09);
         $pdf->SetXY(215.686, 183.252);
         $pdf->Cell(68.654, 0, $data['judul_gambar_1'], 0, 0, 'C');
+
         $pdf->SetFont('arial', '', 8); // Gunakan 'arial'
         $pdf->setFontSpacing(0);
-
         $pdf->SetXY(217.004, 194.679);
         $pdf->Cell(44.149, 0, $data['karoseri'], 0, 0, 'C');
+
         $pdf->SetFont('arial', '', 7); // Gunakan 'arial'
         $pdf->SetXY(274.381, 194.118);
         $pdf->Write(0, $data['no_halaman']);
+        
         $pdf->SetFont('arial', '', 5); // Gunakan 'arial'
         $pdf->SetXY(275.342, 198.311);
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
