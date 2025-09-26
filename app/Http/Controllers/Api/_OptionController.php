@@ -92,14 +92,11 @@ class _OptionController extends Controller
     public function getGambarKelistrikan($chassis_id)
     {
         return response()->json(
-            IGambarKelistrikan::where('c_type_chassis_id', $chassis_id)
-                ->select('id', 'deskripsi')->get()
+            IGambarKelistrikan::where('c_type_chassis_id', $chassis_id)->select('id', 'deskripsi')->get()
         );
     }
     public function getJudulGambar()
     {
-        return response()->json(
-            JJudulGambar::select('id', 'nama_judul')->get()
-        );
+        return response()->json(JJudulGambar::select('id', 'nama_judul as name')->get());
     }
 }
