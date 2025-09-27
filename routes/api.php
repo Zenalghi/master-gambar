@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\ProsesTransaksiController;
 use App\Http\Controllers\Api\GambarMasterController;
 use App\Http\Controllers\Api\ParafUploadController;
+use App\Http\Controllers\Api\ParafViewController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -79,6 +80,7 @@ Route::middleware('auth.api')->group(
             Route::delete('/users/{user}/paraf', [ParafUploadController::class, 'destroyUserParaf']);
 
             Route::post('/customers/{customer}/paraf', [ParafUploadController::class, 'uploadCustomerParaf']);
+            Route::get('/customers/{customer}/paraf', [ParafViewController::class, 'showCustomerParaf']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
