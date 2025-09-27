@@ -29,28 +29,39 @@ class ProsesTransaksiController extends Controller
             'varian_body_ids.*' => 'required|exists:e_varian_body,id',
             'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
             'judul_gambar_ids.*' => ['required', 'integer', 'exists:j_judul_gambars,id'],
-
-            // --- UBAH VALIDASI INI ---
             'h_gambar_optional_ids' => 'nullable|array|min:1|max:5',
             'h_gambar_optional_ids.*' => 'required|integer|exists:h_gambar_optional,id',
-            // -------------------------
-
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
         ]);
 
-        // 1. Simpan detail transaksi
+        // 1. Simpan semua detail transaksi dalam SATU transaction block
         try {
             DB::beginTransaction();
+
             $detail = TransaksiDetail::updateOrCreate(
                 ['z_transaksi_id' => $transaksi->id],
                 [
                     'pemeriksa_id' => $validated['pemeriksa_id'],
-                    // 'h_gambar_optional_id' => $validated['h_gambar_optional_id'] ?? null,
                     'i_gambar_kelistrikan_id' => $validated['i_gambar_kelistrikan_id'] ?? null,
                 ]
             );
-            $detail->optionals()->delete(); // Hapus data lama
+
+            // Hapus data lama
+            $detail->varians()->delete();
+            $detail->optionals()->delete();
+
+            // Buat data Varian Utama yang baru
+            foreach ($validated['varian_body_ids'] as $index => $varian_id) {
+                TransaksiVarian::create([
+                    'z_transaksi_detail_id' => $detail->id,
+                    'e_varian_body_id' => $varian_id,
+                    'urutan' => $index + 1,
+                    'j_judul_gambar_id' => $validated['judul_gambar_ids'][$index],
+                ]);
+            }
+
+            // Buat data Varian Optional yang baru
             if (!empty($validated['h_gambar_optional_ids'])) {
                 foreach ($validated['h_gambar_optional_ids'] as $index => $optional_id) {
                     TransaksiOptional::create([
@@ -60,24 +71,15 @@ class ProsesTransaksiController extends Controller
                     ]);
                 }
             }
-            // ---------------------------------------------
-            DB::commit();
-            $detail->varians()->delete();
-            foreach ($validated['varian_body_ids'] as $index => $varian_id) {
-                TransaksiVarian::create([
-                    'z_transaksi_detail_id' => $detail->id,
-                    'e_varian_body_id' => $varian_id,
-                    'urutan' => $index + 1,
-                    'j_judul_gambar_id' => $validated['judul_gambar_ids'][$index],
-                ]);
-            }
+
+            // Hanya ada SATU commit di akhir
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['message' => 'Gagal menyimpan detail transaksi.', 'error' => $e->getMessage()], 500);
         }
 
-        // 2. Muat semua data yang diperlukan
+        // 2. Muat semua data yang diperlukan (kode ini tidak berubah)
         $transaksi->load([
             'user',
             'customer',
