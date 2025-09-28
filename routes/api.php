@@ -81,6 +81,7 @@ Route::middleware('auth.api')->group(
 
             Route::post('/customers/{customer}/paraf', [ParafUploadController::class, 'uploadCustomerParaf']);
             Route::get('/customers/{customer}/paraf', [ParafViewController::class, 'showCustomerParaf']);
+            Route::get('/users/{user}/paraf', [ParafViewController::class, 'showUserParaf']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

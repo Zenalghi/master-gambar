@@ -18,7 +18,8 @@ class X_UserController extends Controller
      */
     public function index()
     {
-        return response()->json(User::all());
+        // Hapus baris yang lama, dan sisakan hanya baris yang benar ini
+        return response()->json(User::with('role')->orderBy('name')->get());
     }
 
     /**
