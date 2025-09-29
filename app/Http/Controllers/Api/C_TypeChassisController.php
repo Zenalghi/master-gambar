@@ -6,43 +6,67 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTypeChassisRequest;
 use App\Http\Requests\UpdateTypeChassisRequest;
 use App\Models\CTypeChassis;
-use App\Models\DJenisKendaraan;
+use Illuminate\Validation\ValidationException;
 
 class C_TypeChassisController extends Controller
 {
+    /**
+     * Menampilkan semua data, diurutkan berdasarkan ID.
+     * Memuat relasi merk dan typeEngine induknya.
+     */
     public function index()
     {
-        $chassis = CTypeChassis::with('merk')->orderBy('id')->get();
-        return response()->json($chassis);
+        return CTypeChassis::with('merk.typeEngine')->orderBy('id')->get();
     }
 
+    /**
+     * Menyimpan data baru dengan ID komposit otomatis.
+     */
     public function store(StoreTypeChassisRequest $request)
     {
-        $compositeId = $request->merk_id . $request->chassis_code;
+        $validated = $request->validated();
+        $merkId = $validated['merk_id'];
+
+        // --- LOGIKA ID OTOMATIS (7 DIGIT) ---
+        $lastChassis = CTypeChassis::where('id', 'like', $merkId . '%')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $nextCode = '001';
+        if ($lastChassis) {
+            $lastCode = intval(substr($lastChassis->id, 4, 3));
+            $nextCodeInt = $lastCode + 1;
+            $nextCode = str_pad($nextCodeInt, 3, '0', STR_PAD_LEFT);
+        }
+
+        $newId = $merkId . $nextCode;
+        // ------------------------------------
+
         $typeChassis = CTypeChassis::create([
-            'id' => $compositeId,
-            'type_chassis' => $request->type_chassis,
+            'id' => $newId,
+            'type_chassis' => $validated['type_chassis'],
         ]);
-        return response()->json($typeChassis, 201);
+
+        return response()->json($typeChassis->load('merk.typeEngine'), 201);
     }
 
     public function show(CTypeChassis $typeChassis)
     {
-        return response()->json($typeChassis->load('merk'));
+        return response()->json($typeChassis->load('merk.typeEngine'));
     }
 
     public function update(UpdateTypeChassisRequest $request, CTypeChassis $typeChassis)
     {
-        // Menggunakan pola yang sama dengan JenisKendaraanController yang sudah berhasil
         $typeChassis->update($request->validated());
-        // $typeChassis->refresh();
-        return response()->json($typeChassis);
+        return response()->json($typeChassis->fresh()->load('merk.typeEngine'));
     }
 
     public function destroy(CTypeChassis $typeChassis)
     {
         if ($typeChassis->getJenisKendaraanChildren()->isNotEmpty()) {
-            return response()->json(['message' => 'Tidak dapat menghapus Tipe Sasis karena masih memiliki data Jenis Kendaraan.'], 409);
+            throw ValidationException::withMessages([
+                'general' => ['Tidak dapat menghapus Tipe Chassis karena masih memiliki data Jenis Kendaraan.']
+            ]);
         }
         $typeChassis->delete();
         return response()->json(null, 204);

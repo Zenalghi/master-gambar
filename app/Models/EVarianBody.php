@@ -7,18 +7,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str; // <-- Tambahkan import
 
 class EVarianBody extends Model
 {
     use HasFactory;
-
     protected $table = 'e_varian_body';
-
     protected $fillable = ['jenis_kendaraan_id', 'varian_body'];
 
-    /**
-     * RELASI: Setiap Varian Body dimiliki oleh satu Jenis Kendaraan.
-     */
+    public function setVarianBodyAttribute($value)
+    {
+        $this->attributes['varian_body'] = Str::upper($value);
+    }
+    // ------------------------------------
+
     public function jenisKendaraan(): BelongsTo
     {
         return $this->belongsTo(DJenisKendaraan::class, 'jenis_kendaraan_id');

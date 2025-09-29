@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str; // <-- Tambahkan import
 
 class DJenisKendaraan extends Model
 {
@@ -18,27 +19,25 @@ class DJenisKendaraan extends Model
     protected $fillable = ['id', 'jenis_kendaraan'];
 
     /**
-     * ACCESSOR: Membuat atribut 'type_chassis_id' dari 7 digit pertama 'id'.
+     * Secara otomatis mengubah nilai 'jenis_kendaraan' menjadi huruf kapital.
      */
+    public function setJenisKendaraanAttribute($value)
+    {
+        $this->attributes['jenis_kendaraan'] = Str::upper($value);
+    }
+
     public function getTypeChassisIdAttribute(): string
     {
         return substr($this->id, 0, 7);
     }
 
-    /**
-     * RELASI: Setiap Jenis Kendaraan dimiliki oleh satu Tipe Sasis.
-     */
     public function typeChassis(): BelongsTo
     {
         return $this->belongsTo(CTypeChassis::class, 'type_chassis_id');
     }
 
-    /**
-     * RELASI: Satu Jenis Kendaraan bisa punya banyak Varian Body.
-     */
     public function varianBody(): HasMany
     {
         return $this->hasMany(EVarianBody::class, 'jenis_kendaraan_id');
     }
-    
 }

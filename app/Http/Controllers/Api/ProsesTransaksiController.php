@@ -25,7 +25,7 @@ class ProsesTransaksiController extends Controller
 
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
-            'varian_body_ids' => 'required|array|min:1|max:4',
+            'varian_body_ids' => 'required|array|min:1|max:100',
             'varian_body_ids.*' => 'required|exists:e_varian_body,id',
             'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
             'judul_gambar_ids.*' => ['required', 'integer', 'exists:j_judul_gambars,id'],

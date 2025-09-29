@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class BMerk extends Model
 {
@@ -36,5 +37,10 @@ class BMerk extends Model
     public function getTypeChassisChildren()
     {
         return CTypeChassis::where('id', 'like', $this->id . '%')->get();
+    }
+
+    public function setMerkAttribute($value)
+    {
+        $this->attributes['merk'] = Str::upper($value);
     }
 }

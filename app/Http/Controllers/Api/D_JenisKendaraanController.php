@@ -6,44 +6,65 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreJenisKendaraanRequest;
 use App\Http\Requests\UpdateJenisKendaraanRequest;
 use App\Models\DJenisKendaraan;
+use Illuminate\Validation\ValidationException;
 
 class D_JenisKendaraanController extends Controller
 {
+    /**
+     * Menampilkan semua data, diurutkan berdasarkan nama jenis kendaraan.
+     */
     public function index()
     {
-        $jenisKendaraan = DJenisKendaraan::with('typeChassis.merk')->orderBy('id')->get();
-        return response()->json($jenisKendaraan);
+        return DJenisKendaraan::with('typeChassis.merk.typeEngine')->orderBy('jenis_kendaraan')->get();
     }
 
+    /**
+     * Menyimpan data baru dengan ID komposit otomatis.
+     */
     public function store(StoreJenisKendaraanRequest $request)
     {
-        // Buat ID komposit dari data yang sudah divalidasi
-        $compositeId = $request->type_chassis_id . $request->jenis_kendaraan_code;
+        $validated = $request->validated();
+        $typeChassisId = $validated['type_chassis_id'];
+
+        // --- LOGIKA ID OTOMATIS (9 DIGIT) ---
+        $lastJenis = DJenisKendaraan::where('id', 'like', $typeChassisId . '%')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $nextCode = 'AA'; // Default jika ini adalah jenis pertama
+        if ($lastJenis) {
+            $lastCode = substr($lastJenis->id, 7, 2); // Ambil 2 karakter terakhir
+            $nextCode = ++$lastCode; // Increment karakter (e.g., 'AA' -> 'AB')
+        }
+
+        $newId = $typeChassisId . $nextCode;
+        // ------------------------------------
 
         $jenisKendaraan = DJenisKendaraan::create([
-            'id' => $compositeId,
-            'jenis_kendaraan' => $request->jenis_kendaraan,
+            'id' => $newId,
+            'jenis_kendaraan' => $validated['jenis_kendaraan'],
         ]);
 
-        return response()->json($jenisKendaraan, 201);
+        return response()->json($jenisKendaraan->load('typeChassis.merk.typeEngine'), 201);
     }
 
     public function show(DJenisKendaraan $jenisKendaraan)
     {
-        return response()->json($jenisKendaraan->load('typeChassis.merk'));
+        return response()->json($jenisKendaraan->load('typeChassis.merk.typeEngine'));
     }
 
     public function update(UpdateJenisKendaraanRequest $request, DJenisKendaraan $jenisKendaraan)
     {
         $jenisKendaraan->update($request->validated());
-        return response()->json($jenisKendaraan);
+        return response()->json($jenisKendaraan->fresh()->load('typeChassis.merk.typeEngine'));
     }
 
     public function destroy(DJenisKendaraan $jenisKendaraan)
     {
-        // Proteksi: Cek apakah memiliki turunan (Varian Body) menggunakan relasi Eloquent
         if ($jenisKendaraan->varianBody()->exists()) {
-            return response()->json(['message' => 'Tidak dapat menghapus Jenis Kendaraan karena masih memiliki data Varian Body.'], 409);
+            throw ValidationException::withMessages([
+                'general' => ['Tidak dapat menghapus Jenis Kendaraan karena masih memiliki data Varian Body.']
+            ]);
         }
 
         $jenisKendaraan->delete();

@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\ProsesTransaksiController;
 use App\Http\Controllers\Api\GambarMasterController;
 use App\Http\Controllers\Api\ParafUploadController;
 use App\Http\Controllers\Api\ParafViewController;
+use App\Http\Controllers\Api\J_JenisVarianController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -82,6 +83,7 @@ Route::middleware('auth.api')->group(
             Route::post('/customers/{customer}/paraf', [ParafUploadController::class, 'uploadCustomerParaf']);
             Route::get('/customers/{customer}/paraf', [ParafViewController::class, 'showCustomerParaf']);
             Route::get('/users/{user}/paraf', [ParafViewController::class, 'showUserParaf']);
+            Route::apiResource('jenis-varian', J_JenisVarianController::class)->parameters(['jenis-varian' => 'jJudulGambar']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
