@@ -50,29 +50,29 @@ class GambarMasterController extends Controller
     /**
      * Menangani upload untuk 1 file Gambar Optional.
      */
-    public function uploadGambarOptional(Request $request)
-    {
-        $validated = $request->validate([
-            'e_varian_body_id' => 'required|exists:e_varian_body,id',
-            'gambar_optional' => 'required|file|mimes:pdf',
-            'deskripsi' => 'nullable|string', // <-- Tambahkan validasi
-        ]);
+    // public function uploadGambarOptional(Request $request)
+    // {
+    //     $validated = $request->validate([
+    //         'e_varian_body_id' => 'required|exists:e_varian_body,id',
+    //         'gambar_optional' => 'required|file|mimes:pdf',
+    //         'deskripsi' => 'nullable|string', // <-- Tambahkan validasi
+    //     ]);
 
-        $varianBody = EVarianBody::with('jenisKendaraan.typeChassis.merk.typeEngine')->find($request->e_varian_body_id);
-        $basePath = $this->buildPath($varianBody);
-        $fileNameOptional = $this->buildFileName($varianBody, 'Gambar Optional');
-        $pathOptional = $request->file('gambar_optional')->storeAs($basePath, $fileNameOptional, 'master_gambar');
+    //     $varianBody = EVarianBody::with('jenisKendaraan.typeChassis.merk.typeEngine')->find($request->e_varian_body_id);
+    //     $basePath = $this->buildPath($varianBody);
+    //     $fileNameOptional = $this->buildFileName($varianBody, 'Gambar Optional');
+    //     $pathOptional = $request->file('gambar_optional')->storeAs($basePath, $fileNameOptional, 'master_gambar');
 
-        $gambarOptional = HGambarOptional::updateOrCreate(
-            ['e_varian_body_id' => $varianBody->id],
-            [
-                'path_gambar_optional' => $pathOptional,
-                'deskripsi' => $validated['deskripsi'] ?? null, // <-- Simpan deskripsi
-            ]
-        );
+    //     $gambarOptional = HGambarOptional::updateOrCreate(
+    //         ['e_varian_body_id' => $varianBody->id],
+    //         [
+    //             'path_gambar_optional' => $pathOptional,
+    //             'deskripsi' => $validated['deskripsi'] ?? null, // <-- Simpan deskripsi
+    //         ]
+    //     );
 
-        return response()->json($gambarOptional, 201);
-    }
+    //     return response()->json($gambarOptional, 201);
+    // }
 
     public function uploadGambarKelistrikan(Request $request)
     {
@@ -131,15 +131,15 @@ class GambarMasterController extends Controller
      * --- METHOD BARU ---
      * Menghapus data dan file fisik Gambar Optional berdasarkan ID Varian Body.
      */
-    public function destroyGambarOptional($e_varian_body_id)
-    {
-        $gambarOptional = HGambarOptional::where('e_varian_body_id', $e_varian_body_id)->firstOrFail();
+    // public function destroyGambarOptional($e_varian_body_id)
+    // {
+    //     $gambarOptional = HGambarOptional::where('e_varian_body_id', $e_varian_body_id)->firstOrFail();
 
-        Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
-        $gambarOptional->delete();
+    //     Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
+    //     $gambarOptional->delete();
 
-        return response()->json(null, 204);
-    }
+    //     return response()->json(null, 204);
+    // }
 
     /**
      * Helper function untuk membangun path folder dinamis yang bersih.
