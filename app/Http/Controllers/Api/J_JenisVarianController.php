@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\JJudulGambar;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class J_JenisVarianController extends Controller
 {
@@ -18,7 +19,12 @@ class J_JenisVarianController extends Controller
         $validated = $request->validate([
             'nama_judul' => 'required|string|unique:j_judul_gambars,nama_judul',
         ]);
-        return JJudulGambar::create($validated);
+
+        // Tambahkan mutator di sini karena modelnya sederhana
+        $validated['nama_judul'] = Str::upper($validated['nama_judul']);
+
+        $jenisVarian = JJudulGambar::create($validated);
+        return response()->json($jenisVarian, 201);
     }
 
     public function show(JJudulGambar $jJudulGambar)
@@ -31,13 +37,18 @@ class J_JenisVarianController extends Controller
         $validated = $request->validate([
             'nama_judul' => 'required|string|unique:j_judul_gambars,nama_judul,' . $jJudulGambar->id,
         ]);
+
+        $validated['nama_judul'] = Str::upper($validated['nama_judul']);
         $jJudulGambar->update($validated);
         return $jJudulGambar;
     }
 
     public function destroy(JJudulGambar $jJudulGambar)
     {
-        // Tambahkan proteksi jika diperlukan di masa depan
+        // Di masa depan, Anda bisa menambahkan proteksi di sini untuk mengecek
+        // apakah Jenis Varian ini sedang digunakan di tabel z_transaksi_varians.
+        // if ($jJudulGambar->transaksiVarians()->exists()) { ... }
+
         $jJudulGambar->delete();
         return response()->noContent();
     }
