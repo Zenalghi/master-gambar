@@ -37,12 +37,8 @@ class EVarianBody extends Model
     /**
      * Mendefinisikan bahwa satu Varian Body memiliki satu Gambar Optional.
      */
-    public function gambarOptional(): HasOne
+    public function gambarOptional(): HasMany
     {
-        return $this->hasOne(HGambarOptional::class, 'e_varian_body_id');
+        return $this->hasMany(HGambarOptional::class, 'e_varian_body_id');
     }
-    // public function pengajuan(): HasMany
-    // {
-    //     return $this->hasMany(FPengajuan::class, 'varian_body_id');
-    // }
 }

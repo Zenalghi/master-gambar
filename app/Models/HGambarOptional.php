@@ -11,6 +11,10 @@ class HGambarOptional extends Model
     use HasFactory;
     protected $table = 'h_gambar_optional';
     protected $fillable = [
+        'a_type_engine_id', // <-- Tambahkan
+        'b_merk_id',        // <-- Tambahkan
+        'c_type_chassis_id', // <-- Tambahkan
+        'd_jenis_kendaraan_id', // <-- Tambahkan
         'e_varian_body_id',
         'path_gambar_optional',
         'deskripsi',
