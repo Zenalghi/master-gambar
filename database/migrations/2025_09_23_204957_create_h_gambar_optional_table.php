@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('e_varian_body_id')->constrained('e_varian_body')->onDelete('cascade');
             $table->string('path_gambar_optional');
+            $table->text('deskripsi')->nullable();
             $table->timestamps();
         });
     }

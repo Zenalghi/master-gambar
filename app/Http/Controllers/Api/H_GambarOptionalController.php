@@ -10,9 +10,6 @@ use Illuminate\Support\Str;
 
 class H_GambarOptionalController extends Controller
 {
-    /**
-     * Menampilkan semua data Gambar Optional beserta silsilah lengkapnya.
-     */
     public function index()
     {
         return HGambarOptional::with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine')
@@ -20,9 +17,6 @@ class H_GambarOptionalController extends Controller
             ->get();
     }
 
-    /**
-     * Menyimpan data Gambar Optional baru.
-     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -33,7 +27,6 @@ class H_GambarOptionalController extends Controller
 
         $varianBody = \App\Models\EVarianBody::find($validated['e_varian_body_id']);
 
-        // Buat path dan nama file yang deskriptif
         $pathParts = [
             $varianBody->jenisKendaraan->typeChassis->merk->typeEngine->type_engine,
             $varianBody->jenisKendaraan->typeChassis->merk->merk,
@@ -52,12 +45,9 @@ class H_GambarOptionalController extends Controller
             'deskripsi' => Str::upper($validated['deskripsi']),
         ]);
 
-        return response()->json($gambarOptional->load('varianBody'), 201);
+        return response()->json($gambarOptional->load('varianBody.jenisKendaraan.typeChassis.merk.typeEngine'), 201);
     }
 
-    /**
-     * Memperbarui deskripsi Gambar Optional.
-     */
     public function update(Request $request, HGambarOptional $hGambarOptional)
     {
         $validated = $request->validate([
@@ -68,21 +58,20 @@ class H_GambarOptionalController extends Controller
             'deskripsi' => Str::upper($validated['deskripsi']),
         ]);
 
-        return response()->json($hGambarOptional->fresh());
+        // --- INI PERBAIKANNYA ---
+        // Muat kembali semua relasi yang dibutuhkan oleh model GambarOptional.fromJson di Flutter.
+        $hGambarOptional->load('varianBody.jenisKendaraan.typeChassis.merk.typeEngine');
+
+        return response()->json($hGambarOptional);
     }
 
-    /**
-     * Menghapus data Gambar Optional beserta filenya.
-     */
     public function destroy(HGambarOptional $hGambarOptional)
     {
-        // Hapus file fisik dari storage
-        if (Storage::disk('master_gambar')->exists($hGambarOptional->path_gambar_optional)) {
+        if ($hGambarOptional->path_gambar_optional && Storage::disk('master_gambar')->exists($hGambarOptional->path_gambar_optional)) {
             Storage::disk('master_gambar')->delete($hGambarOptional->path_gambar_optional);
         }
 
         $hGambarOptional->delete();
-
         return response()->noContent();
     }
 }

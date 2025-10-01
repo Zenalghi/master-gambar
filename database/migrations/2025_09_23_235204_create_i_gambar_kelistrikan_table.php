@@ -13,6 +13,7 @@ return new class extends Migration
             // Kunci asing ke c_type_chassis, yang merupakan string
             $table->string('c_type_chassis_id', 7);
             $table->string('path_gambar_kelistrikan');
+            $table->text('deskripsi')->nullable();
             $table->timestamps();
 
             $table->foreign('c_type_chassis_id')
