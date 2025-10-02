@@ -20,7 +20,7 @@ class I_GambarKelistrikanController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'c_type_chassis_id' => 'required|exists:c_type_chassis,id',
+            'c_type_chassis_id' => 'required|exists:c_type_chassis,id|unique:i_gambar_kelistrikan,c_type_chassis_id', // <-- Tambahkan unique
             'gambar_kelistrikan' => 'required|file|mimes:pdf',
             'deskripsi' => 'required|string|max:255',
         ]);
