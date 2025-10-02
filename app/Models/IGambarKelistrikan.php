@@ -11,6 +11,8 @@ class IGambarKelistrikan extends Model
     use HasFactory;
     protected $table = 'i_gambar_kelistrikan';
     protected $fillable = [
+        'a_type_engine_id', // <-- Tambahkan
+        'b_merk_id',        // <-- Tambahkan
         'c_type_chassis_id',
         'path_gambar_kelistrikan',
         'deskripsi',
