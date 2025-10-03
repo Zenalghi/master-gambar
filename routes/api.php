@@ -60,7 +60,8 @@ Route::middleware('auth.api')->group(
         Route::apiResource('transaksi', TransaksiController::class);
         Route::post('/transaksi/{transaksi}/detail', [ProsesTransaksiController::class, 'simpanDetail']);
         Route::post('/transaksi/{transaksi}/proses', [ProsesTransaksiController::class, 'proses']);
-
+        // File: routes/api.php
+        Route::post('/options/gambar-optional-by-varian', [OptionController::class, 'getGambarOptionalByVarian']);
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // Rute CRUD untuk mengelola User

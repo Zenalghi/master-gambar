@@ -99,4 +99,21 @@ class _OptionController extends Controller
     {
         return response()->json(JJudulGambar::select('id', 'nama_judul as name')->get());
     }
+
+    public function getGambarOptionalByVarian(Request $request)
+    {
+        // 1. Validasi input untuk memastikan kita menerima array
+        $validated = $request->validate([
+            'varian_ids' => 'required|array',
+            'varian_ids.*' => 'integer|exists:e_varian_body,id',
+        ]);
+
+        // 2. Ambil data Gambar Optional di mana 'e_varian_body_id'
+        //    ada di dalam array 'varian_ids' yang dikirim dari Flutter.
+        $gambarOptions = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_ids'])
+            ->select('id', 'deskripsi') // Hanya ambil kolom yang dibutuhkan untuk dropdown
+            ->get();
+
+        return response()->json($gambarOptions);
+    }
 }
