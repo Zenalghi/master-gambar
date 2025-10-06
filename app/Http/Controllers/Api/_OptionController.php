@@ -116,4 +116,29 @@ class _OptionController extends Controller
 
         return response()->json($gambarOptions);
     }
+
+    public function getDependentOptionals(Request $request)
+    {
+        $validated = $request->validate([
+            'varian_ids' => 'required|array',
+            'varian_ids.*' => 'integer|exists:e_varian_body,id',
+        ]);
+
+        // Cari ID Gambar Utama yang terkait dengan Varian Body yang dipilih
+        $gambarUtamaIds = \App\Models\GGambarUtama::whereIn('e_varian_body_id', $validated['varian_ids'])
+            ->pluck('id');
+
+        // Jika tidak ada, kembalikan array kosong
+        if ($gambarUtamaIds->isEmpty()) {
+            return response()->json([]);
+        }
+
+        // Ambil semua Gambar Optional Dependen yang terkait dengan Gambar Utama tersebut
+        $dependentOptionals = \App\Models\HGambarOptional::whereIn('g_gambar_utama_id', $gambarUtamaIds)
+            ->where('tipe', 'dependen')
+            ->select('id', 'deskripsi')
+            ->get();
+
+        return response()->json($dependentOptionals);
+    }
 }
