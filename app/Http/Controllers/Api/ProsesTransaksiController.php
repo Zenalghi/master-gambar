@@ -25,11 +25,11 @@ class ProsesTransaksiController extends Controller
 
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
-            'varian_body_ids' => 'required|array|min:1|max:100',
+            'varian_body_ids' => 'required|array|min:1|max:20',
             'varian_body_ids.*' => 'required|exists:e_varian_body,id',
             'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
             'judul_gambar_ids.*' => ['required', 'integer', 'exists:j_judul_gambars,id'],
-            'h_gambar_optional_ids' => 'nullable|array|min:1|max:5',
+            'h_gambar_optional_ids' => 'nullable|array|min:1|max:20',
             'h_gambar_optional_ids.*' => 'required|integer|exists:h_gambar_optional,id',
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
