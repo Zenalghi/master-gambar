@@ -22,7 +22,6 @@ class ProsesTransaksiController extends Controller
     public function proses(Request $request, Transaksi $transaksi)
     {
         $varianCount = count($request->input('varian_body_ids', []));
-
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
             'varian_body_ids' => 'required|array|min:1|max:20',
@@ -47,11 +46,9 @@ class ProsesTransaksiController extends Controller
                 ]
             );
 
-            // Hapus data lama
             $detail->varians()->delete();
             $detail->optionals()->delete();
 
-            // Buat data Varian Utama yang baru
             foreach ($validated['varian_body_ids'] as $index => $varian_id) {
                 TransaksiVarian::create([
                     'z_transaksi_detail_id' => $detail->id,
@@ -61,7 +58,6 @@ class ProsesTransaksiController extends Controller
                 ]);
             }
 
-            // Buat data Varian Optional yang baru
             if (!empty($validated['h_gambar_optional_ids'])) {
                 foreach ($validated['h_gambar_optional_ids'] as $index => $optional_id) {
                     TransaksiOptional::create([
@@ -72,7 +68,6 @@ class ProsesTransaksiController extends Controller
                 }
             }
 
-            // Hanya ada SATU commit di akhir
             DB::commit();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -87,7 +82,7 @@ class ProsesTransaksiController extends Controller
             'detail.pemeriksa',
             'detail.optionals.gambarOptional',
             'detail.gambarKelistrikan',
-            'detail.varians.varianBody.gambarUtama',
+            'detail.varians.varianBody.gambarUtama.gambarOptionals',
             'detail.varians.judulGambar',
             'detail.varians.varianBody.jenisKendaraan.typeChassis.merk.typeEngine'
         ]);
@@ -100,15 +95,27 @@ class ProsesTransaksiController extends Controller
         $chassis = $jenisKendaraan->typeChassis;
         $merk = $chassis->merk;
 
+        // --- PERUBAHAN 2: PROSES GAMBAR DEPENDEN ---
         foreach ($transaksi->detail->varians as $transaksiVarian) {
             $varianBody = $transaksiVarian->varianBody;
             $gambarUtamaData = $varianBody->gambarUtama;
             $jenisJudul = $transaksiVarian->judulGambar->nama_judul;
 
             if ($gambarUtamaData) {
+                // Proses 3 gambar utama (tidak berubah)
                 $drawingJobs[] = ['title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_utama];
                 $drawingJobs[] = ['title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_terurai];
                 $drawingJobs[] = ['title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_kontruksi];
+
+                // Loop melalui gambar optional dependen yang terikat pada gambar utama ini
+                foreach ($gambarUtamaData->gambarOptionals as $dependentOptional) {
+                    $drawingJobs[] = [
+                        'title' => $dependentOptional->deskripsi ?: 'GAMBAR OPTIONAL DEPENDEN',
+                        'varian' => '',
+                        'page' => $pageCounter++,
+                        'source_pdf' => $dependentOptional->path_gambar_optional
+                    ];
+                }
             }
         }
 
