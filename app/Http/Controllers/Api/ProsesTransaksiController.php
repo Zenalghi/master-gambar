@@ -156,11 +156,15 @@ class ProsesTransaksiController extends Controller
 
         // 5. Tentukan aksi final
         if ($validated['aksi'] === 'preview') {
+            // Logika preview tidak berubah
             return response($generatedPdfs[0]['content'], 200)->header('Content-Type', 'application/pdf');
-        } else {
-            // --- LOGIKA PEMBUATAN FOLDER ---
-            $folderName = sprintf(
-                '%s (%s) %s_%s_%s (%s)',
+        } else { // aksi === 'proses'
+            // --- LOGIKA PEMBUATAN NAMA FILE ZIP ---
+            $jenisKendaraan = $transaksi->detail->varians->first()->varianBody->jenisKendaraan;
+            $chassis = $jenisKendaraan->typeChassis;
+            $merk = $chassis->merk;
+            $zipFileName = sprintf(
+                '%s-(%s)-%s_%s_%s-(%s).zip',
                 $transaksi->user->username,
                 $transaksi->fPengajuan->jenis_pengajuan,
                 $transaksi->customer->nama_pt,
@@ -168,15 +172,25 @@ class ProsesTransaksiController extends Controller
                 $chassis->type_chassis,
                 $jenisKendaraan->jenis_kendaraan
             );
-            // Nama subfolder yang bersih (tanpa spasi/karakter aneh)
-            $folderPath = Str::slug($folderName);
+            $cleanZipFileName = Str::slug(pathinfo($zipFileName, PATHINFO_FILENAME)) . '.zip';
 
-            // --- LOGIKA PENYIMPANAN ---
-            foreach ($generatedPdfs as $pdfFile) {
-                // Gunakan disk 'hasil_transaksi' yang baru
-                Storage::disk('hasil_transaksi')->put($folderPath . '/' . $pdfFile['name'], $pdfFile['content']);
+            // --- LOGIKA PEMBUATAN FILE ZIP ---
+            $zip = new \ZipArchive();
+            $tempZipPath = tempnam(sys_get_temp_dir(), 'gambar_'); // Buat file sementara
+
+            if ($zip->open($tempZipPath, \ZipArchive::CREATE) !== TRUE) {
+                return response()->json(['message' => 'Gagal membuat file zip.'], 500);
             }
-            return response()->json(['message' => 'Proses berhasil!', 'folder_path' => 'D:/_Master/hasil/' . $folderPath]);
+
+            // Tambahkan setiap PDF yang sudah dibuat ke dalam arsip zip
+            foreach ($generatedPdfs as $pdfFile) {
+                $zip->addFromString($pdfFile['name'], $pdfFile['content']);
+            }
+
+            $zip->close();
+
+            // Kirim file zip sebagai respons download, lalu hapus file sementara setelah dikirim
+            return response()->download($tempZipPath, $cleanZipFileName)->deleteFileAfterSend(true);
         }
     }
 
