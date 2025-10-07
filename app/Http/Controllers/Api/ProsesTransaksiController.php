@@ -95,7 +95,9 @@ class ProsesTransaksiController extends Controller
         $chassis = $jenisKendaraan->typeChassis;
         $merk = $chassis->merk;
 
+
         // --- PERUBAHAN 2: PROSES GAMBAR DEPENDEN ---
+        // Loop ini SEKARANG HANYA memproses 3 gambar utama saja
         foreach ($transaksi->detail->varians as $transaksiVarian) {
             $varianBody = $transaksiVarian->varianBody;
             $gambarUtamaData = $varianBody->gambarUtama;
@@ -107,18 +109,11 @@ class ProsesTransaksiController extends Controller
                 $drawingJobs[] = ['title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_terurai];
                 $drawingJobs[] = ['title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_kontruksi];
 
-                // Loop melalui gambar optional dependen yang terikat pada gambar utama ini
-                foreach ($gambarUtamaData->gambarOptionals as $dependentOptional) {
-                    $drawingJobs[] = [
-                        'title' => $dependentOptional->deskripsi ?: 'GAMBAR OPTIONAL DEPENDEN',
-                        'varian' => '',
-                        'page' => $pageCounter++,
-                        'source_pdf' => $dependentOptional->path_gambar_optional
-                    ];
-                }
+                // Loop untuk gambar dependen yang sebelumnya ada di sini, SEKARANG DIHAPUS.
             }
         }
 
+        // Loop ini SEKARANG memproses SEMUA jenis gambar opsional (dependen & independen)
         foreach ($transaksi->detail->optionals as $transaksiOptional) {
             $gambarOptional = $transaksiOptional->gambarOptional;
             if ($gambarOptional) {
