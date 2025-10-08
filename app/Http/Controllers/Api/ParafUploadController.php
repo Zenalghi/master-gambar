@@ -25,13 +25,13 @@ class ParafUploadController extends Controller
         }
 
         $folderPath = $user->id . '-' . Str::slug($user->username);
-
-        // --- PERUBAHAN DI SINI ---
-        // Gunakan nama user sebagai nama file
         $fileName = Str::slug($user->name) . '.png';
 
         $path = $request->file('paraf')->storeAs($folderPath, $fileName, 'user_paraf');
+
+        // Update path dan paksa update timestamp
         $user->update(['signature' => $path]);
+        $user->touch();
 
         return response()->json($user->fresh());
     }
@@ -50,13 +50,13 @@ class ParafUploadController extends Controller
         }
 
         $folderPath = $customer->id . '-' . Str::slug($customer->nama_pt);
-
-        // --- PERUBAHAN DI SINI ---
-        // Gunakan nama penanggung jawab (pj) sebagai nama file
         $fileName = Str::slug($customer->pj) . '.png';
 
         $path = $request->file('paraf_pj')->storeAs($folderPath, $fileName, 'customer_paraf');
+
+        // Update path dan paksa update timestamp
         $customer->update(['signature_pj' => $path]);
+        $customer->touch();
 
         return response()->json($customer->fresh());
     }
