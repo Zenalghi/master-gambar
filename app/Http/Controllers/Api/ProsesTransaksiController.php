@@ -32,6 +32,7 @@ class ProsesTransaksiController extends Controller
             'h_gambar_optional_ids.*' => 'required|integer|exists:h_gambar_optional,id',
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
+            'preview_page' => 'nullable|integer|min:1',
         ]);
 
         // 1. Simpan semua detail transaksi dalam SATU transaction block
@@ -82,12 +83,12 @@ class ProsesTransaksiController extends Controller
             'detail.pemeriksa',
             'detail.optionals.gambarOptional',
             'detail.gambarKelistrikan',
-            'detail.varians.varianBody.gambarUtama.gambarOptionals',
+            'detail.varians.varianBody.gambarUtama',
             'detail.varians.judulGambar',
             'detail.varians.varianBody.jenisKendaraan.typeChassis.merk.typeEngine'
         ]);
 
-        // 3. Bangun "Daftar Pekerjaan Gambar"
+        // 3. Bangun "Daftar Pekerjaan Gambar" dengan urutan yang benar
         $drawingJobs = [];
         $pageCounter = 1;
 
@@ -95,31 +96,38 @@ class ProsesTransaksiController extends Controller
         $chassis = $jenisKendaraan->typeChassis;
         $merk = $chassis->merk;
 
-
-        // --- PERUBAHAN 2: PROSES GAMBAR DEPENDEN ---
-        // Loop ini SEKARANG HANYA memproses 3 gambar utama saja
+        // TAHAP 1: Loop HANYA untuk Gambar Utama, Terurai, dan Kontruksi
         foreach ($transaksi->detail->varians as $transaksiVarian) {
             $varianBody = $transaksiVarian->varianBody;
             $gambarUtamaData = $varianBody->gambarUtama;
             $jenisJudul = $transaksiVarian->judulGambar->nama_judul;
 
             if ($gambarUtamaData) {
-                // Proses 3 gambar utama (tidak berubah)
                 $drawingJobs[] = ['title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_utama];
                 $drawingJobs[] = ['title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_terurai];
                 $drawingJobs[] = ['title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_kontruksi];
-
-                // Loop untuk gambar dependen yang sebelumnya ada di sini, SEKARANG DIHAPUS.
             }
         }
 
-        // Loop ini SEKARANG memproses SEMUA jenis gambar opsional (dependen & independen)
+        // TAHAP 2: Loop HANYA untuk Gambar Optional Dependen
         foreach ($transaksi->detail->optionals as $transaksiOptional) {
             $gambarOptional = $transaksiOptional->gambarOptional;
-            if ($gambarOptional) {
+            // Proses hanya jika tipenya 'dependen'
+            if ($gambarOptional && $gambarOptional->tipe === 'dependen') {
+                $drawingJobs[] = ['title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL PAKET', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $gambarOptional->path_gambar_optional];
+            }
+        }
+
+        // TAHAP 3: Loop HANYA untuk Gambar Optional Independen
+        foreach ($transaksi->detail->optionals as $transaksiOptional) {
+            $gambarOptional = $transaksiOptional->gambarOptional;
+            // Proses hanya jika tipenya 'independen'
+            if ($gambarOptional && $gambarOptional->tipe === 'independen') {
                 $drawingJobs[] = ['title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $gambarOptional->path_gambar_optional];
             }
         }
+
+        // TAHAP 4: Proses Gambar Kelistrikan (terakhir)
         if ($transaksi->detail->gambarKelistrikan) {
             $drawingJobs[] = ['title' => $transaksi->detail->gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $transaksi->detail->gambarKelistrikan->path_gambar_kelistrikan];
         }
@@ -151,8 +159,17 @@ class ProsesTransaksiController extends Controller
 
         // 5. Tentukan aksi final
         if ($validated['aksi'] === 'preview') {
-            // Logika preview tidak berubah
-            return response($generatedPdfs[0]['content'], 200)->header('Content-Type', 'application/pdf');
+            $previewPage = $validated['preview_page'] ?? 1;
+            // Index array dimulai dari 0, jadi kurangi 1
+            $previewIndex = $previewPage - 1;
+
+            // Cek apakah halaman yang diminta ada di dalam hasil generate
+            if (isset($generatedPdfs[$previewIndex])) {
+                return response($generatedPdfs[$previewIndex]['content'], 200)->header('Content-Type', 'application/pdf');
+            } else {
+                // Jika halaman tidak ditemukan, beri pesan error
+                return response()->json(['message' => 'Halaman preview tidak ditemukan.'], 404);
+            }
         } else { // aksi === 'proses'
             // --- LOGIKA PEMBUATAN NAMA FILE ZIP ---
             $jenisKendaraan = $transaksi->detail->varians->first()->varianBody->jenisKendaraan;
