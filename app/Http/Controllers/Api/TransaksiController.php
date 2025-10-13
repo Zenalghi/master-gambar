@@ -15,20 +15,20 @@ class TransaksiController extends Controller
     use AuthorizesRequests;
     public function index(Request $request)
     {
-        // 1. Validasi parameter (termasuk untuk filter baru)
+        // 1. Validasi parameter (termasuk untuk filter teks baru)
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
             'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
-            'customer_id' => 'nullable|integer|exists:customers,id',
-            'a_type_engine_id' => 'nullable|string|exists:a_type_engines,id',
-            'b_merk_id' => 'nullable|string|exists:b_merks,id',
-            'c_type_chassis_id' => 'nullable|string|exists:c_type_chassis,id',
-            'd_jenis_kendaraan_id' => 'nullable|string|exists:d_jenis_kendaraan,id',
-            'f_pengajuan_id' => 'nullable|integer|exists:f_pengajuan,id',
-            'user_id' => 'nullable|integer|exists:users,id',
+            'customer' => 'nullable|string',
+            'type_engine' => 'nullable|string',
+            'merk' => 'nullable|string',
+            'type_chassis' => 'nullable|string',
+            'jenis_kendaraan' => 'nullable|string',
+            'jenis_pengajuan' => 'nullable|string',
+            'user' => 'nullable|string',
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
@@ -46,33 +46,39 @@ class TransaksiController extends Controller
             'fPengajuan'
         ]);
 
-        // Terapkan filter spesifik per kolom jika ada
-        if (isset($validated['customer_id'])) {
-            $query->where('customer_id', $validated['customer_id']);
-        }
-        if (isset($validated['a_type_engine_id'])) {
-            $query->where('a_type_engine_id', $validated['a_type_engine_id']);
-        }
-        if (isset($validated['b_merk_id'])) {
-            $query->where('b_merk_id', $validated['b_merk_id']);
-        }
-        if (isset($validated['c_type_chassis_id'])) {
-            $query->where('c_type_chassis_id', $validated['c_type_chassis_id']);
-        }
-        if (isset($validated['d_jenis_kendaraan_id'])) {
-            $query->where('d_jenis_kendaraan_id', $validated['d_jenis_kendaraan_id']);
-        }
-        if (isset($validated['f_pengajuan_id'])) {
-            $query->where('f_pengajuan_id', $validated['f_pengajuan_id']);
-        }
-        if (isset($validated['user_id'])) {
-            $query->where('user_id', $validated['user_id']);
+        // Buat mapping antara kunci filter dan relasinya
+        $filterMap = [
+            'customer' => ['customer', 'nama_pt'],
+            'type_engine' => ['aTypeEngine', 'type_engine'],
+            'merk' => ['bMerk', 'merk'],
+            'type_chassis' => ['cTypeChassis', 'type_chassis'],
+            'jenis_kendaraan' => ['dJenisKendaraan', 'jenis_kendaraan'],
+            'jenis_pengajuan' => ['fPengajuan', 'jenis_pengajuan'],
+            'user' => ['user', 'name'],
+        ];
+
+        // Loop melalui setiap kemungkinan filter
+        foreach ($filterMap as $key => $relation) {
+            if ($request->filled($key)) {
+                $value = $request->input($key);
+                // Gunakan whereHas untuk memfilter berdasarkan kondisi di relasi
+                $query->whereHas($relation[0], function ($q) use ($relation, $value) {
+                    $q->where($relation[1], 'like', "%{$value}%");
+                });
+            }
         }
 
         // Filter pencarian global (tidak berubah)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                // ... (logika search sama seperti sebelumnya)
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhereHas('customer', fn($sub) => $sub->where('nama_pt', 'like', "%{$search}%"))
+                    ->orWhereHas('aTypeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
+                    ->orWhereHas('bMerk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
+                    ->orWhereHas('cTypeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
+                    ->orWhereHas('dJenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"))
+                    ->orWhereHas('fPengajuan', fn($sub) => $sub->where('jenis_pengajuan', 'like', "%{$search}%"))
+                    ->orWhereHas('user', fn($sub) => $sub->where('name', 'like', "%{$search}%"));
             });
         }
 
