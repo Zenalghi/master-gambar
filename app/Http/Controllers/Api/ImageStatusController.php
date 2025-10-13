@@ -30,10 +30,10 @@ class ImageStatusController extends Controller
 
         // 3. Eager load relasi induk (untuk sorting & filtering) dan cek keberadaan relasi gambar
         $query->with([
-            'jenisKendaraan.typeChassis.merk.typeEngine'
-        ])
-            ->withExists('gambarUtama') // Cek apakah relasi 'gambarUtama' ada (menghasilkan kolom 'gambar_utama_exists' => true/false)
-            ->withExists('gambarOptional'); // Cek apakah relasi 'gambarOptional' ada (menghasilkan kolom 'gambar_optional_exists' => true/false)
+            'jenisKendaraan.typeChassis.merk.typeEngine',
+            'gambarUtama',
+            'latestGambarOptional'  
+        ]);
 
         // 4. Terapkan filter pencarian jika ada
         if (!empty($search)) {

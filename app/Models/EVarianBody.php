@@ -41,4 +41,9 @@ class EVarianBody extends Model
     {
         return $this->hasMany(HGambarOptional::class, 'e_varian_body_id');
     }
+
+    public function latestGambarOptional(): HasOne
+    {
+        return $this->hasOne(HGambarOptional::class, 'e_varian_body_id')->where('tipe', 'independen')->latestOfMany();
+    }
 }
