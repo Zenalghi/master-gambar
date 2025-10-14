@@ -7,6 +7,8 @@ use App\Http\Requests\StoreTypeChassisRequest;
 use App\Http\Requests\UpdateTypeChassisRequest;
 use App\Models\CTypeChassis;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class C_TypeChassisController extends Controller
 {
@@ -14,9 +16,57 @@ class C_TypeChassisController extends Controller
      * Menampilkan semua data, diurutkan berdasarkan ID.
      * Memuat relasi merk dan typeEngine induknya.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return CTypeChassis::with('merk.typeEngine')->orderBy('id')->get();
+        // 1. Validasi parameter dari frontend
+        $validated = $request->validate([
+            'page' => 'integer|min:1',
+            'perPage' => 'integer|in:25,50,100',
+            'sortBy' => 'nullable|string|in:id,type_chassis,merk,created_at,updated_at',
+            'sortDirection' => 'string|in:asc,desc',
+            'search' => 'nullable|string',
+        ]);
+
+        $perPage = $validated['perPage'] ?? 25;
+        $sortBy = $validated['sortBy'] ?? 'id';
+        $sortDirection = $validated['sortDirection'] ?? 'asc';
+        $search = $validated['search'] ?? '';
+
+        // 2. Query utama: Selalu JOIN ke tabel merk
+        $query = \App\Models\CTypeChassis::query()
+            // Lakukan JOIN dengan kondisi SUBSTRING berdasarkan ID komposit Anda
+            ->join('b_merks', function ($join) {
+                $join->on(DB::raw('SUBSTRING(c_type_chassis.id, 1, 4)'), '=', 'b_merks.id');
+            })
+            ->select('c_type_chassis.*'); // Pilih semua kolom dari c_type_chassis
+
+        // 3. Eager load relasi (tetap dibutuhkan untuk struktur JSON)
+        $query->with('merk.typeEngine');
+
+        // 4. Terapkan filter pencarian
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('c_type_chassis.id', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('b_merks.merk', 'like', "%{$search}%") // Cari di tabel yang di-join
+                    ->orWhere('c_type_chassis.created_at', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.updated_at', 'like', "%{$search}%");
+            });
+        }
+
+        // 5. Terapkan sorting
+        $sortColumn = match ($sortBy) {
+            'id' => 'c_type_chassis.id',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'merk' => 'b_merks.merk', // Sort berdasarkan kolom dari tabel yang di-join
+            'created_at' => 'c_type_chassis.created_at',
+            'updated_at' => 'c_type_chassis.updated_at',
+            default => 'c_type_chassis.id',
+        };
+        $query->orderBy($sortColumn, $sortDirection);
+
+        // 6. Lakukan paginasi
+        return $query->paginate($perPage);
     }
 
     /**
