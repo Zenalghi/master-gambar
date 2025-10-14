@@ -9,6 +9,7 @@ use App\Models\BMerk;
 use App\Models\CTypeChassis;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class B_MerkController extends Controller
 {
@@ -18,45 +19,52 @@ class B_MerkController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi parameter dari frontend
-        $request->validate([
+        // 1. Validasi: Tambahkan kolom tanggal ke 'sortBy'
+        $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,merk,type_engine',
+            'sortBy' => 'nullable|string|in:id,merk,type_engine,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
-        // 2. Ambil parameter dengan nilai default
-        $perPage = $request->input('perPage', 25);
-        $sortBy = $request->input('sortBy', 'id');
-        $sortDirection = $request->input('sortDirection', 'asc');
-        $search = $request->input('search', '');
+        $perPage = $validated['perPage'] ?? 25;
+        $sortBy = $validated['sortBy'] ?? 'id';
+        $sortDirection = $validated['sortDirection'] ?? 'asc';
+        $search = $validated['search'] ?? '';
 
-        // 3. Query utama dengan eager loading
-        $query = \App\Models\BMerk::with('typeEngine');
+        // 2. Query utama: Selalu JOIN ke tabel type_engine
+        $query = \App\Models\BMerk::query()
+            // Lakukan JOIN dengan kondisi SUBSTRING
+            ->join('a_type_engines', function ($join) {
+                $join->on(DB::raw('SUBSTRING(b_merks.id, 1, 2)'), '=', 'a_type_engines.id');
+            })
+            ->select('b_merks.*'); // Tetap pilih semua kolom dari b_merks
 
-        // 4. Terapkan filter pencarian
+        // Eager load relasi (tetap dibutuhkan untuk struktur JSON)
+        $query->with('typeEngine');
+
+        // 4. Terapkan filter pencarian yang lebih sederhana
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                    ->orWhere('merk', 'like', "%{$search}%")
-                    ->orWhereHas('typeEngine', function ($sub) use ($search) {
-                        $sub->where('type_engine', 'like', "%{$search}%");
-                    });
+                $q->where('b_merks.id', 'like', "%{$search}%")
+                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
+                    ->orWhere('b_merks.created_at', 'like', "%{$search}%")
+                    ->orWhere('b_merks.updated_at', 'like', "%{$search}%");
             });
         }
 
-        // 5. Terapkan sorting
-        if ($sortBy === 'type_engine') {
-            // Sorting berdasarkan relasi memerlukan JOIN
-            $query->join('a_type_engines', 'b_merks.type_engine_id_placeholder', '=', 'a_type_engines.id') // Ganti placeholder jika perlu
-                ->orderBy('a_type_engines.type_engine', $sortDirection)
-                ->select('b_merks.*');
-        } else {
-            // Sorting berdasarkan kolom di tabel b_merks
-            $query->orderBy($sortBy, $sortDirection);
-        }
+        // 5. Terapkan sorting yang lebih lengkap
+        $sortColumn = match ($sortBy) {
+            'id' => 'b_merks.id',
+            'merk' => 'b_merks.merk',
+            'type_engine' => 'a_type_engines.type_engine',
+            'created_at' => 'b_merks.created_at',
+            'updated_at' => 'b_merks.updated_at',
+            default => 'b_merks.id',
+        };
+        $query->orderBy($sortColumn, $sortDirection);
 
         // 6. Lakukan paginasi
         return $query->paginate($perPage);
