@@ -16,9 +16,50 @@ class B_MerkController extends Controller
      * Menampilkan semua data, diurutkan berdasarkan nama merk A-Z.
      * Kita juga memuat relasi typeEngine agar data induknya ikut terbawa.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return BMerk::with('typeEngine')->orderBy('merk')->get();
+        // 1. Validasi parameter dari frontend
+        $request->validate([
+            'page' => 'integer|min:1',
+            'perPage' => 'integer|in:25,50,100',
+            'sortBy' => 'nullable|string|in:id,merk,type_engine',
+            'sortDirection' => 'string|in:asc,desc',
+            'search' => 'nullable|string',
+        ]);
+
+        // 2. Ambil parameter dengan nilai default
+        $perPage = $request->input('perPage', 25);
+        $sortBy = $request->input('sortBy', 'id');
+        $sortDirection = $request->input('sortDirection', 'asc');
+        $search = $request->input('search', '');
+
+        // 3. Query utama dengan eager loading
+        $query = \App\Models\BMerk::with('typeEngine');
+
+        // 4. Terapkan filter pencarian
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('merk', 'like', "%{$search}%")
+                    ->orWhereHas('typeEngine', function ($sub) use ($search) {
+                        $sub->where('type_engine', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // 5. Terapkan sorting
+        if ($sortBy === 'type_engine') {
+            // Sorting berdasarkan relasi memerlukan JOIN
+            $query->join('a_type_engines', 'b_merks.type_engine_id_placeholder', '=', 'a_type_engines.id') // Ganti placeholder jika perlu
+                ->orderBy('a_type_engines.type_engine', $sortDirection)
+                ->select('b_merks.*');
+        } else {
+            // Sorting berdasarkan kolom di tabel b_merks
+            $query->orderBy($sortBy, $sortDirection);
+        }
+
+        // 6. Lakukan paginasi
+        return $query->paginate($perPage);
     }
 
     /**

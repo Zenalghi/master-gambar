@@ -77,13 +77,6 @@ return [
             'root' => 'D:/_Master/Customer',
             'throw' => false,
         ],
-
-        'hasil_transaksi' => [
-            'driver' => 'local',
-            // 'root' adalah path ke folder utama tempat penyimpanan akan dimulai.
-            'root' => 'D:/_Master/hasil',
-            'throw' => false,
-        ],
     ],
 
     /*
