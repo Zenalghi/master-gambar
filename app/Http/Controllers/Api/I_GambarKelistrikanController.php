@@ -10,11 +10,58 @@ use Illuminate\Support\Str;
 
 class I_GambarKelistrikanController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return IGambarKelistrikan::with('typeChassis.merk.typeEngine')
-            ->orderBy('id')
-            ->get();
+        // 1. Validasi parameter
+        $validated = $request->validate([
+            'page' => 'integer|min:1',
+            'perPage' => 'integer|in:25,50,100',
+            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,deskripsi,created_at,updated_at',
+            'sortDirection' => 'string|in:asc,desc',
+            'search' => 'nullable|string',
+        ]);
+
+        $perPage = $validated['perPage'] ?? 25;
+        $sortBy = $validated['sortBy'] ?? 'updated_at';
+        $sortDirection = $validated['sortDirection'] ?? 'desc';
+        $search = $validated['search'] ?? '';
+
+        // 2. Query utama: JOIN ke semua tabel induk
+        $query = \App\Models\IGambarKelistrikan::query()
+            ->join('c_type_chassis', 'i_gambar_kelistrikan.c_type_chassis_id', '=', 'c_type_chassis.id')
+            ->join('b_merks', 'i_gambar_kelistrikan.b_merk_id', '=', 'b_merks.id')
+            ->join('a_type_engines', 'i_gambar_kelistrikan.a_type_engine_id', '=', 'a_type_engines.id')
+            ->select('i_gambar_kelistrikan.*');
+
+        // 3. Eager load relasi untuk struktur JSON
+        $query->with('typeChassis.merk.typeEngine');
+
+        // 4. Terapkan filter pencarian
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
+                    ->orWhere('i_gambar_kelistrikan.created_at', 'like', "%{$search}%")
+                    ->orWhere('i_gambar_kelistrikan.updated_at', 'like', "%{$search}%");
+            });
+        }
+
+        // 5. Terapkan sorting
+        $sortColumn = match ($sortBy) {
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'deskripsi' => 'i_gambar_kelistrikan.deskripsi',
+            'created_at' => 'i_gambar_kelistrikan.created_at',
+            'updated_at' => 'i_gambar_kelistrikan.updated_at',
+            default => 'i_gambar_kelistrikan.updated_at',
+        };
+        $query->orderBy($sortColumn, $sortDirection);
+
+        // 6. Lakukan paginasi
+        return $query->paginate($perPage);
     }
 
     public function store(Request $request)
