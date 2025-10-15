@@ -10,12 +10,69 @@ use Illuminate\Support\Str;
 
 class H_GambarOptionalController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return HGambarOptional::with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine')
-            ->orderBy('id')
-            ->get();
+        // 1. Validasi parameter
+        $validated = $request->validate([
+            'page' => 'integer|min:1',
+            'perPage' => 'integer|in:25,50,100',
+            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,varian_body,deskripsi,created_at,updated_at',
+            'sortDirection' => 'string|in:asc,desc',
+            'search' => 'nullable|string',
+        ]);
+
+        $perPage = $validated['perPage'] ?? 25;
+        $sortBy = $validated['sortBy'] ?? 'updated_at';
+        $sortDirection = $validated['sortDirection'] ?? 'desc';
+        $search = $validated['search'] ?? '';
+
+        // 2. Query utama: JOIN ke semua tabel induk
+        $query = \App\Models\HGambarOptional::query()
+            // --- FILTER UTAMA: Hanya ambil yang tipe-nya independen ---
+            ->where('h_gambar_optional.tipe', 'independen')
+            // --------------------------------------------------------
+            ->join('e_varian_body', 'h_gambar_optional.e_varian_body_id', '=', 'e_varian_body.id')
+            ->join('d_jenis_kendaraan', 'h_gambar_optional.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->join('c_type_chassis', 'h_gambar_optional.c_type_chassis_id', '=', 'c_type_chassis.id')
+            ->join('b_merks', 'h_gambar_optional.b_merk_id', '=', 'b_merks.id')
+            ->join('a_type_engines', 'h_gambar_optional.a_type_engine_id', '=', 'a_type_engines.id')
+            ->select('h_gambar_optional.*'); // Pilih semua kolom dari tabel utama
+
+        // 3. Eager load relasi (untuk konsistensi struktur JSON)
+        $query->with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine');
+
+        // 4. Terapkan filter pencarian
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('h_gambar_optional.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
+                    ->orWhere('h_gambar_optional.created_at', 'like', "%{$search}%")
+                    ->orWhere('h_gambar_optional.updated_at', 'like', "%{$search}%");
+            });
+        }
+
+        // 5. Terapkan sorting
+        $sortColumn = match ($sortBy) {
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
+            'varian_body' => 'e_varian_body.varian_body',
+            'deskripsi' => 'h_gambar_optional.deskripsi',
+            'created_at' => 'h_gambar_optional.created_at',
+            'updated_at' => 'h_gambar_optional.updated_at',
+            default => 'h_gambar_optional.updated_at',
+        };
+        $query->orderBy($sortColumn, $sortDirection);
+
+        // 6. Lakukan paginasi
+        return $query->paginate($perPage);
     }
+
 
     // app/Http/Controllers/Api/H_GambarOptionalController.php
 
