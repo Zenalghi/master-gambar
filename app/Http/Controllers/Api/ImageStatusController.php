@@ -12,26 +12,25 @@ class ImageStatusController extends Controller
 
     public function index(Request $request)
     {
-        // 1. Validasi: Tambahkan semua kolom yang bisa di-sort
+        // 1. Validasi parameter: Tambahkan 'deskripsi_optional' untuk sorting
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,varian_body,gambar_utama_updated_at,gambar_optional_updated_at',
+            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,varian_body,updated_at,deskripsi_optional',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
-        // Default sort baru sesuai permintaan Anda
-        $sortBy = $validated['sortBy'] ?? 'gambar_utama_updated_at';
+        $sortBy = $validated['sortBy'] ?? 'updated_at'; // Default sort sesuai permintaan
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama ke EVarianBody
+        // 2. Query utama yang berpusat pada EVarianBody
         $query = \App\Models\EVarianBody::query();
 
         // 3. Lakukan JOIN yang BENAR untuk sorting dan searching
-        // Join untuk hirarki induk (Type Engine, Merk, dll.)
+        // JOIN untuk hirarki induk (Type Engine, Merk, dll.)
         $query->join('d_jenis_kendaraan', 'e_varian_body.jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
             ->join('c_type_chassis', function ($join) {
                 $join->on(DB::raw('SUBSTRING(d_jenis_kendaraan.id, 1, 7)'), '=', 'c_type_chassis.id');
@@ -43,31 +42,25 @@ class ImageStatusController extends Controller
                 $join->on(DB::raw('SUBSTRING(d_jenis_kendaraan.id, 1, 2)'), '=', 'a_type_engines.id');
             });
 
-        // LEFT JOIN untuk mendapatkan tanggal update gambar (jika ada)
+        // LEFT JOIN untuk mendapatkan tanggal update gambar utama (jika ada)
         $query->leftJoin('g_gambar_utama', 'e_varian_body.id', '=', 'g_gambar_utama.e_varian_body_id');
 
-        // Subquery untuk mendapatkan tanggal update gambar optional independen TERBARU
-        $latestOptionalSubquery = \App\Models\HGambarOptional::select('e_varian_body_id', DB::raw('MAX(updated_at) as latest_updated_at'))
-            ->where('tipe', 'independen')
-            ->groupBy('e_varian_body_id');
-
-        $query->leftJoinSub($latestOptionalSubquery, 'latest_optionals', function ($join) {
-            $join->on('e_varian_body.id', '=', 'latest_optionals.e_varian_body_id');
+        // LEFT JOIN untuk mendapatkan deskripsi gambar optional dependen (jika ada)
+        // Kita asumsikan satu gambar utama hanya punya satu dependen untuk laporan ini
+        $query->leftJoin('h_gambar_optional', function ($join) {
+            $join->on('g_gambar_utama.id', '=', 'h_gambar_optional.g_gambar_utama_id')
+                ->where('h_gambar_optional.tipe', '=', 'dependen');
         });
 
-        // 4. Pilih kolom secara eksplisit dan buat alias untuk tanggal update
+        // 4. Pilih kolom secara eksplisit untuk performa dan hindari ambiguitas
         $query->select([
-            'e_varian_body.*',
+            'e_varian_body.*', // Ambil semua dari varian body
             'g_gambar_utama.updated_at as gambar_utama_updated_at',
-            'latest_optionals.latest_updated_at as gambar_optional_updated_at',
+            'h_gambar_optional.deskripsi as deskripsi_optional',
         ]);
 
-        // 5. Eager load relasi untuk struktur JSON yang benar di frontend
-        $query->with([
-            'jenisKendaraan.typeChassis.merk.typeEngine',
-            'gambarUtama',
-            'latestGambarOptional'
-        ]);
+        // 5. Eager load relasi untuk membentuk struktur JSON yang kaya di frontend
+        $query->with(['jenisKendaraan.typeChassis.merk.typeEngine', 'gambarUtama', 'gambarUtama.gambarOptionals']);
 
         // 6. Terapkan filter pencarian yang efisien
         if (!empty($search)) {
@@ -77,9 +70,8 @@ class ImageStatusController extends Controller
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
-                    // Cari juga berdasarkan tanggal
-                    ->orWhere('g_gambar_utama.updated_at', 'like', "%{$search}%")
-                    ->orWhere('latest_optionals.latest_updated_at', 'like', "%{$search}%");
+                    ->orWhere('h_gambar_optional.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('g_gambar_utama.updated_at', 'like', "%{$search}%");
             });
         }
 
@@ -90,9 +82,8 @@ class ImageStatusController extends Controller
             'type_chassis' => 'c_type_chassis.type_chassis',
             'merk' => 'b_merks.merk',
             'type_engine' => 'a_type_engines.type_engine',
-            'gambar_utama_updated_at' => 'gambar_utama_updated_at',
-            'gambar_optional_updated_at' => 'gambar_optional_updated_at',
-            default => 'gambar_utama_updated_at', // Default sort baru
+            'deskripsi_optional' => 'deskripsi_optional',
+            default => 'g_gambar_utama.updated_at', // Default sort baru (updated at gambar utama)
         };
         $query->orderBy($sortColumn, $sortDirection);
 
