@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
 
             // Kolom Tipe untuk membedakan
-            $table->enum('tipe', ['independen', 'dependen'])->default('independen');
+            $table->enum('tipe', ['independen', 'paket'])->default('independen');
 
             // ID Induk (Parent IDs) untuk tipe 'independen'
             $table->string('a_type_engine_id', 2)->nullable();
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('d_jenis_kendaraan_id', 9)->nullable();
             $table->unsignedBigInteger('e_varian_body_id')->nullable();
 
-            // Relasi ke Gambar Utama untuk tipe 'dependen'
+            // Relasi ke Gambar Utama untuk tipe 'paket'
             $table->foreignId('g_gambar_utama_id')->nullable()->constrained('g_gambar_utama')->onDelete('cascade');
 
             // Data spesifik

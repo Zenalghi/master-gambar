@@ -16,7 +16,7 @@ class H_GambarOptionalController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,varian_body,deskripsi,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,tipe,varian_body,deskripsi,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -28,15 +28,12 @@ class H_GambarOptionalController extends Controller
 
         // 2. Query utama: JOIN ke semua tabel induk
         $query = \App\Models\HGambarOptional::query()
-            // --- FILTER UTAMA: Hanya ambil yang tipe-nya independen ---
-            ->where('h_gambar_optional.tipe', 'independen')
-            // --------------------------------------------------------
             ->join('e_varian_body', 'h_gambar_optional.e_varian_body_id', '=', 'e_varian_body.id')
             ->join('d_jenis_kendaraan', 'h_gambar_optional.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
             ->join('c_type_chassis', 'h_gambar_optional.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('b_merks', 'h_gambar_optional.b_merk_id', '=', 'b_merks.id')
             ->join('a_type_engines', 'h_gambar_optional.a_type_engine_id', '=', 'a_type_engines.id')
-            ->select('h_gambar_optional.*'); // Pilih semua kolom dari tabel utama
+            ->select('h_gambar_optional.*');
 
         // 3. Eager load relasi (untuk konsistensi struktur JSON)
         $query->with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine');
@@ -45,6 +42,7 @@ class H_GambarOptionalController extends Controller
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('h_gambar_optional.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('h_gambar_optional.tipe', 'like', "%{$search}%")
                     ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
@@ -62,6 +60,7 @@ class H_GambarOptionalController extends Controller
             'type_chassis' => 'c_type_chassis.type_chassis',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
+            'tipe' => 'h_gambar_optional.tipe',
             'deskripsi' => 'h_gambar_optional.deskripsi',
             'created_at' => 'h_gambar_optional.created_at',
             'updated_at' => 'h_gambar_optional.updated_at',
@@ -73,18 +72,14 @@ class H_GambarOptionalController extends Controller
         return $query->paginate($perPage);
     }
 
-
-    // app/Http/Controllers/Api/H_GambarOptionalController.php
-
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'tipe' => 'required|in:independen,dependen',
+            'tipe' => 'required|in:independen,paket',
             'deskripsi' => 'required|string|max:255',
             'gambar_optional' => 'required|file|mimes:pdf',
-            // Validasi kondisional: field ini wajib jika tipe-nya sesuai
             'e_varian_body_id' => 'required_if:tipe,independen|exists:e_varian_body,id',
-            'g_gambar_utama_id' => 'required_if:tipe,dependen|exists:g_gambar_utama,id',
+            'g_gambar_utama_id' => 'required_if:tipe,paket|exists:g_gambar_utama,id',
         ]);
 
         $tipe = $validated['tipe'];
@@ -103,7 +98,8 @@ class H_GambarOptionalController extends Controller
                 $varianBody->jenisKendaraan->typeChassis->merk->merk,
                 $varianBody->jenisKendaraan->typeChassis->type_chassis,
                 $varianBody->jenisKendaraan->jenis_kendaraan,
-                $varianBody->varian_body
+                $varianBody->varian_body,
+                'independen' // Tambahkan subfolder
             ];
 
             $createData += [
@@ -113,7 +109,7 @@ class H_GambarOptionalController extends Controller
                 'd_jenis_kendaraan_id' => $varianBody->jenisKendaraan->id,
                 'e_varian_body_id' => $validated['e_varian_body_id'],
             ];
-        } else { // tipe === 'dependen'
+        } else { // tipe === 'paket'
             $gambarUtama = \App\Models\GGambarUtama::with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine')
                 ->find($validated['g_gambar_utama_id']);
 
@@ -123,10 +119,17 @@ class H_GambarOptionalController extends Controller
                 $gambarUtama->varianBody->jenisKendaraan->typeChassis->type_chassis,
                 $gambarUtama->varianBody->jenisKendaraan->jenis_kendaraan,
                 $gambarUtama->varianBody->varian_body,
-                'dependen' // Tambahkan subfolder
+                'paket' // Tambahkan subfolder
             ];
 
-            $createData['g_gambar_utama_id'] = $validated['g_gambar_utama_id'];
+            $createData += [
+                'g_gambar_utama_id' => $validated['g_gambar_utama_id'],
+                'a_type_engine_id' => $gambarUtama->varianBody->jenisKendaraan->typeChassis->merk->typeEngine->id,
+                'b_merk_id' => $gambarUtama->varianBody->jenisKendaraan->typeChassis->merk->id,
+                'c_type_chassis_id' => $gambarUtama->varianBody->jenisKendaraan->typeChassis->id,
+                'd_jenis_kendaraan_id' => $gambarUtama->varianBody->jenisKendaraan->id,
+                'e_varian_body_id' => $gambarUtama->varianBody->id,
+            ];
         }
 
         $basePath = implode('/', array_map(fn($part) => Str::slug($part), $pathData));

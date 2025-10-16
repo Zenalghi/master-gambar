@@ -29,7 +29,7 @@ class HGambarOptional extends Model
         return $this->belongsTo(EVarianBody::class, 'e_varian_body_id');
     }
 
-    // Relasi untuk tipe 'dependen'
+    // Relasi untuk tipe 'paket'
     public function gambarUtama(): BelongsTo
     {
         return $this->belongsTo(GGambarUtama::class, 'g_gambar_utama_id');

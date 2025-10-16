@@ -45,11 +45,11 @@ class ImageStatusController extends Controller
         // LEFT JOIN untuk mendapatkan tanggal update gambar utama (jika ada)
         $query->leftJoin('g_gambar_utama', 'e_varian_body.id', '=', 'g_gambar_utama.e_varian_body_id');
 
-        // LEFT JOIN untuk mendapatkan deskripsi gambar optional dependen (jika ada)
-        // Kita asumsikan satu gambar utama hanya punya satu dependen untuk laporan ini
+        // LEFT JOIN untuk mendapatkan deskripsi gambar optional paket (jika ada)
+        // Kita asumsikan satu gambar utama hanya punya satu paket untuk laporan ini
         $query->leftJoin('h_gambar_optional', function ($join) {
             $join->on('g_gambar_utama.id', '=', 'h_gambar_optional.g_gambar_utama_id')
-                ->where('h_gambar_optional.tipe', '=', 'dependen');
+                ->where('h_gambar_optional.tipe', '=', 'paket');
         });
 
         // 4. Pilih kolom secara eksplisit untuk performa dan hindari ambiguitas

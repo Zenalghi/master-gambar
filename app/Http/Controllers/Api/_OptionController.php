@@ -133,9 +133,9 @@ class _OptionController extends Controller
             return response()->json([]);
         }
 
-        // Ambil semua Gambar Optional Dependen yang terkait dengan Gambar Utama tersebut
+        // Ambil semua Gambar Optional paket yang terkait dengan Gambar Utama tersebut
         $dependentOptionals = \App\Models\HGambarOptional::whereIn('g_gambar_utama_id', $gambarUtamaIds)
-            ->where('tipe', 'dependen')
+            ->where('tipe', 'paket')
             ->select('id', 'deskripsi')
             ->get();
 

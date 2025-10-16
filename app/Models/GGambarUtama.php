@@ -28,6 +28,6 @@ class GGambarUtama extends Model
 
     public function gambarOptionals(): HasMany
     {
-        return $this->hasMany(HGambarOptional::class, 'g_gambar_utama_id')->where('tipe', 'dependen');
+        return $this->hasMany(HGambarOptional::class, 'g_gambar_utama_id')->where('tipe', 'paket');
     }
 }

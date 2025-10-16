@@ -109,11 +109,11 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        // TAHAP 2: Loop HANYA untuk Gambar Optional Dependen
+        // TAHAP 2: Loop HANYA untuk Gambar Optional Paket
         foreach ($transaksi->detail->optionals as $transaksiOptional) {
             $gambarOptional = $transaksiOptional->gambarOptional;
-            // Proses hanya jika tipenya 'dependen'
-            if ($gambarOptional && $gambarOptional->tipe === 'dependen') {
+            // Proses hanya jika tipenya 'paket'
+            if ($gambarOptional && $gambarOptional->tipe === 'paket') {
                 $drawingJobs[] = ['title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL PAKET', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $gambarOptional->path_gambar_optional];
             }
         }
