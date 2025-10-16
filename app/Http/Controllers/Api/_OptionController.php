@@ -111,7 +111,8 @@ class _OptionController extends Controller
         // 2. Ambil data Gambar Optional di mana 'e_varian_body_id'
         //    ada di dalam array 'varian_ids' yang dikirim dari Flutter.
         $gambarOptions = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_ids'])
-            ->select('id', 'deskripsi') // Hanya ambil kolom yang dibutuhkan untuk dropdown
+            ->select('id', 'deskripsi')
+            ->where('tipe', 'independen')
             ->get();
 
         return response()->json($gambarOptions);
