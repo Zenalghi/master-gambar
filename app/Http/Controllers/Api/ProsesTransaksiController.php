@@ -33,6 +33,7 @@ class ProsesTransaksiController extends Controller
             'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
+            'deskripsi_optional' => 'nullable|string|max:255',
         ]);
 
         // 1. Simpan semua detail transaksi dalam SATU transaction block
@@ -103,9 +104,27 @@ class ProsesTransaksiController extends Controller
             $jenisJudul = $transaksiVarian->judulGambar->nama_judul;
 
             if ($gambarUtamaData) {
-                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_utama];
-                $drawingJobs[] = ['title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_terurai];
-                $drawingJobs[] = ['title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul, 'varian' => $varianBody->varian_body, 'page' => $pageCounter++, 'source_pdf' => $gambarUtamaData->path_gambar_kontruksi];
+                $drawingJobs[] = [
+                    'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul,
+                    'varian' => $varianBody->varian_body,
+                    'page' => $pageCounter++,
+                    'source_pdf' => $gambarUtamaData->path_gambar_utama,
+                    'deskripsi_optional' => $validated['deskripsi_optional'] ?? null
+                ];
+                $drawingJobs[] = [
+                    'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul,
+                    'varian' => $varianBody->varian_body,
+                    'page' => $pageCounter++,
+                    'source_pdf' => $gambarUtamaData->path_gambar_terurai,
+                    'deskripsi_optional' => null
+                ];
+                $drawingJobs[] = [
+                    'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul,
+                    'varian' => $varianBody->varian_body,
+                    'page' => $pageCounter++,
+                    'source_pdf' => $gambarUtamaData->path_gambar_kontruksi,
+                    'deskripsi_optional' => null
+                ];
             }
         }
 
@@ -273,6 +292,11 @@ class ProsesTransaksiController extends Controller
         $this->placeSignature($pdf, $data['signature_path_2'], $boxX, 177.625, $boxWidth, $boxHeight);
         $this->placeSignature($pdf, $data['signature_path_3'], $boxX, 180.188, $boxWidth, $boxHeight);
 
+        if (!empty($data['deskripsi_optional'])) {
+            $pdf->SetFont('arial', '', 6);
+            $pdf->SetXY(208.573, 163.897);
+            $pdf->Write(0, $data['deskripsi_optional']);
+        }
         return $pdf->Output('doc.pdf', 'S');
     }
 
