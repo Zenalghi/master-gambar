@@ -170,6 +170,7 @@ class ProsesTransaksiController extends Controller
                 'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
                 'signature_path_2' => $transaksi->detail->pemeriksa->signature ? Storage::disk('user_paraf')->path($transaksi->detail->pemeriksa->signature) : null,
                 'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
+                'deskripsi_optional' => $job['deskripsi_optional'] ?? null,
             ];
 
             $pdfContent = $this->generateSinglePdfPage($pdfData);
