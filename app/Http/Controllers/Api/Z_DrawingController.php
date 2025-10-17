@@ -15,18 +15,19 @@ class Z_DrawingController extends Controller
             // 'catatan' => '- Model Bak Besi 5 Way',
             // 'judul_gambar_2' => 'MEREK MITSUBISHI TIPE CANTER FE 74 N (4X2) M/T',
             // 'judul_gambar_3' => 'SEBAGAI MOBIL BARANG BAK MUATAN TERBUKA ( BAK BESI )',
-            
-            'digambar' => 'Ridho',
+
+            'digambar' => 'Deni',
             'diperiksa' => 'Umardani',
-            'disetujui' => 'Harsoyo',
+            'disetujui' => 'Yohannes',
             'tanggal' => '01.02.22',
             'judul_gambar_1' => 'GAMBAR TAMPAK UTAMA STANDAR',
             'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
             'total_halaman' => '13',
-            'signature_path' => 'D:/_Master/User/4-deni/deni-sutriyo.png',
-            'signature_path_2' => 'D:/_Master/User/3-umar/paraf umar dani.png',
+            'signature_path' => 'D:/_Master/paraf deni.png',
+            'signature_path_2' => 'D:/_Master/paraf umar dani.png',
             'signature_path_3' => 'D:/_Master/pt antika raya paraf.png',
+            'deskripsi_optional' => 'Contoh deskripsi tambahan jika diperlukan',
         ];
 
         // 1. Inisialisasi PDF dengan orientasi LANDSCAPE
@@ -36,7 +37,7 @@ class Z_DrawingController extends Controller
         $pdf->SetAutoPageBreak(false, 0);
 
         // 2. Impor halaman dari template
-        $templatePath = 'D:/_Master/pdf_kosong.pdf';
+        $templatePath = 'D:/_Master/pdf_kosong UTAMA.pdf';
         $pdf->setSourceFile($templatePath);
         $templateId = $pdf->importPage(1);
 
@@ -44,9 +45,8 @@ class Z_DrawingController extends Controller
         $pdf->useTemplate($templateId, ['adjustPageSize' => true]);
 
         $pdf->SetFont('arial', '', 4.3); // Gunakan 'arial'
-        $pdf->setFontSpacing(0);
+        $pdf->setFontSpacing(0); // Reset spasi font ke 0
 
-        // --- Koordinat diestimasi untuk A4 Landscape (297x210 mm) ---
         $pdf->SetXY(225.862, 175.205);
         $pdf->Write(0, $data['digambar']);
         // ... (sisa kode SetXY dan Write lainnya tetap sama) ...
@@ -70,6 +70,9 @@ class Z_DrawingController extends Controller
         $pdf->SetXY(215.686, 183.252);
         $pdf->Cell(68.654, 0, $data['judul_gambar_1'], 0, 0, 'C');
 
+        $pdf->SetXY(208.573, 163.897);
+        $pdf->Write(0, $data['deskripsi_optional']);
+
         $pdf->SetFont('arial', '', 8); // Gunakan 'arial'
         $pdf->setFontSpacing(0);
         $pdf->SetXY(217.004, 194.679);
@@ -78,7 +81,7 @@ class Z_DrawingController extends Controller
         $pdf->SetFont('arial', '', 7); // Gunakan 'arial'
         $pdf->SetXY(274.381, 194.118);
         $pdf->Write(0, $data['no_halaman']);
-        
+
         $pdf->SetFont('arial', '', 5); // Gunakan 'arial'
         $pdf->SetXY(275.342, 198.311);
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
