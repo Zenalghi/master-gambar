@@ -66,6 +66,8 @@ class ImageStatusController extends Controller
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('e_varian_body.varian_body', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.id', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.id', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")

@@ -42,6 +42,8 @@ class H_GambarOptionalController extends Controller
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('h_gambar_optional.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.id', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.id', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.tipe', 'like', "%{$search}%")
                     ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")

@@ -40,6 +40,8 @@ class I_GambarKelistrikanController extends Controller
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.id', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.id', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
