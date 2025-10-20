@@ -11,12 +11,36 @@ use Illuminate\Support\Facades\Storage;
 
 class X_CustomerController extends Controller
 {
-    /**
-     * Menampilkan semua data customer. (GET)
-     */
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(Customer::orderBy('nama_pt')->get());
+        // Ambil parameter dari request dengan nilai default
+        $perPage = $request->input('per_page', 25);
+        $sortBy = $request->input('sort_by', 'nama_pt');
+        $sortAsc = $request->input('sort_asc', 'true') === 'true';
+        $search = $request->input('search');
+
+        // Mulai query
+        $query = Customer::query();
+
+        // Jika ada pencarian, tambahkan kondisi where
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('nama_pt', 'like', "%{$search}%")
+                    ->orWhere('pj', 'like', "%{$search}%");
+            });
+        }
+
+        // Terapkan sorting
+        $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
+
+        // Ambil data dengan paginasi
+        $paginated = $query->paginate($perPage);
+
+        // Format response sesuai kebutuhan Flutter
+        return response()->json([
+            'data' => $paginated->items(),
+            'total' => $paginated->total(),
+        ]);
     }
 
     /**

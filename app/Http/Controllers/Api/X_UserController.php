@@ -8,18 +8,43 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class X_UserController extends Controller
 {
-    /**
-     * Menampilkan daftar semua user.
-     * Admin akan melihat nama, username, role, dan timestamps (created_at, updated_at).
-     */
-    public function index()
+    public function index(Request $request)
     {
-        // Hapus baris yang lama, dan sisakan hanya baris yang benar ini
-        return response()->json(User::with('role')->orderBy('name')->get());
+        // Ambil parameter dari request dengan nilai default
+        $perPage = $request->input('per_page', 10);
+        $sortBy = $request->input('sort_by', 'name');
+        $sortAsc = $request->input('sort_asc', 'true') === 'true';
+        $search = $request->input('search');
+
+        // Mulai query dengan relasi role
+        $query = User::with('role');
+
+        // Jika ada pencarian, tambahkan kondisi where
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%");
+            });
+        }
+
+        // Terapkan sorting
+        // Catatan: Sorting berdasarkan kolom relasi (role.name) memerlukan join.
+        // Untuk saat ini kita sort berdasarkan kolom tabel user saja.
+        $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
+
+        // Ambil data dengan paginasi
+        $paginated = $query->paginate($perPage);
+
+        // Format response sesuai kebutuhan Flutter
+        return response()->json([
+            'data' => $paginated->items(),
+            'total' => $paginated->total(),
+        ]);
     }
 
     /**
