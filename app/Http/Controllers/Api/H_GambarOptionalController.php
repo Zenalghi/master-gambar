@@ -174,4 +174,22 @@ class H_GambarOptionalController extends Controller
 
         return response()->noContent();
     }
+
+    public function showPdf(HGambarOptional $gambarOptional)
+    {
+        $path = $gambarOptional->path_gambar_optional;
+
+        // Cek apakah file ada di dalam disk 'master_gambar'
+        if (!Storage::disk('master_gambar')->exists($path)) {
+            return response()->json(['message' => 'File PDF tidak ditemukan.'], 404);
+        }
+
+        // Ambil path lengkap ke file
+        $filePath = Storage::disk('master_gambar')->path($path);
+
+        // Kirim file sebagai respons untuk diunduh/ditampilkan
+        return response()->file($filePath, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
 }

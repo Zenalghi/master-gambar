@@ -91,6 +91,9 @@ Route::middleware('auth.api')->group(
             Route::apiResource('gambar-optional', H_GambarOptionalController::class);
             Route::apiResource('gambar-kelistrikan', I_GambarKelistrikanController::class);
             Route::get('/image-status', [ImageStatusController::class, 'index']);
+
+            Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
+            Route::get('/gambar-optional/{gambarOptional}/pdf', [H_GambarOptionalController::class, 'showPdf']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

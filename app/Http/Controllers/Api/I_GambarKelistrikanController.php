@@ -157,4 +157,22 @@ class I_GambarKelistrikanController extends Controller
 
         return response()->noContent();
     }
+
+    public function showPdf(IGambarKelistrikan $gambarKelistrikan)
+    {
+        $path = $gambarKelistrikan->path_gambar_kelistrikan;
+
+        // Check if the file exists in the specified disk
+        if (!Storage::disk('master_gambar')->exists($path)) {
+            return response()->json(['message' => 'File PDF tidak ditemukan.'], 404);
+        }
+
+        // Get the full path to the file
+        $filePath = Storage::disk('master_gambar')->path($path);
+
+        // Return the file as a downloadable response
+        return response()->file($filePath, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
 }
