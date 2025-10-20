@@ -180,4 +180,41 @@ class GambarMasterController extends Controller
 
         return Str::slug($engine) . '/' . Str::slug($merk) . '/' . Str::slug($chassisName);
     }
+
+    public function showPaths(GGambarUtama $gambarUtama)
+    {
+        return response()->json([
+            'utama' => $gambarUtama->path_gambar_utama,
+            'terurai' => $gambarUtama->path_gambar_terurai,
+            'kontruksi' => $gambarUtama->path_gambar_kontruksi,
+        ]);
+    }
+
+    /**
+     * Mengirimkan konten file PDF dari disk 'master_gambar'
+     * berdasarkan path yang diberikan di query parameter.
+     */
+    public function viewPdf(Request $request)
+    {
+        $validated = $request->validate([
+            'path' => 'required|string',
+        ]);
+
+        $path = $validated['path'];
+
+        // Cek keamanan dasar agar tidak bisa mengakses file di luar direktori
+        if (Str::contains($path, '..')) {
+            abort(403, 'Akses tidak diizinkan.');
+        }
+
+        if (!Storage::disk('master_gambar')->exists($path)) {
+            return response()->json(['message' => 'File PDF tidak ditemukan.'], 404);
+        }
+
+        $filePath = Storage::disk('master_gambar')->path($path);
+
+        return response()->file($filePath, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
 }

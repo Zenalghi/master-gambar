@@ -94,6 +94,8 @@ Route::middleware('auth.api')->group(
 
             Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
             Route::get('/gambar-optional/{gambarOptional}/pdf', [H_GambarOptionalController::class, 'showPdf']);
+            Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
+            Route::get('/master-gambar/view', [GambarMasterController::class, 'viewPdf']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
