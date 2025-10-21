@@ -180,14 +180,35 @@ class ProsesTransaksiController extends Controller
         // 5. Tentukan aksi final
         if ($validated['aksi'] === 'preview') {
             $previewPage = $validated['preview_page'] ?? 1;
-            // Index array dimulai dari 0, jadi kurangi 1
             $previewIndex = $previewPage - 1;
 
-            // Cek apakah halaman yang diminta ada di dalam hasil generate
-            if (isset($generatedPdfs[$previewIndex])) {
-                return response($generatedPdfs[$previewIndex]['content'], 200)->header('Content-Type', 'application/pdf');
+            // Cek apakah pekerjaan untuk halaman yang diminta ada
+            if (isset($drawingJobs[$previewIndex])) {
+                $job = $drawingJobs[$previewIndex];
+
+                // Siapkan data HANYA untuk halaman ini
+                $pdfData = [
+                    'digambar' => $transaksi->user->name,
+                    'diperiksa' => $transaksi->detail->pemeriksa->name,
+                    'disetujui' => $transaksi->customer->pj,
+                    'tanggal' => now()->format('d.m.y'),
+                    'catatan' => $job['varian'],
+                    'judul_gambar' => $job['title'],
+                    'karoseri' => $transaksi->customer->nama_pt,
+                    'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
+                    'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
+                    'source_pdf_path' => $job['source_pdf'],
+                    'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
+                    'signature_path_2' => $transaksi->detail->pemeriksa->signature ? Storage::disk('user_paraf')->path($transaksi->detail->pemeriksa->signature) : null,
+                    'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
+                    'deskripsi_optional' => $job['deskripsi_optional'] ?? null,
+                ];
+
+                // Panggil generateSinglePdfPage HANYA SEKALI
+                $pdfContent = $this->generateSinglePdfPage($pdfData);
+
+                return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
             } else {
-                // Jika halaman tidak ditemukan, beri pesan error
                 return response()->json(['message' => 'Halaman preview tidak ditemukan.'], 404);
             }
         } else { // aksi === 'proses'
