@@ -21,13 +21,14 @@ class X_UserController extends Controller
         // 1. Tentukan parameter dari request
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search');
-        $sortBy = $request->input('sort_by', 'name');
-        $sortAsc = $request->input('sort_asc', 'true') === 'true';
+
+        $sortBy = $request->input('sort_by', 'updated_at');
+        $sortAsc = $request->input('sort_asc', 'false') === 'true';
 
         // 2. Tentukan kolom yang diizinkan untuk di-sort
         $allowedSorts = ['name', 'username', 'role', 'created_at', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
-            $sortBy = 'name'; // Kembalikan ke default
+            $sortBy = 'updated_at';
         }
 
         // 3. Mulai query
@@ -38,7 +39,6 @@ class X_UserController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('username', 'like', "%{$search}%")
-                    // Mencari di tabel relasi 'roles'
                     ->orWhereHas('role', function ($roleQuery) use ($search) {
                         $roleQuery->where('name', 'like', "%{$search}%");
                     });
@@ -47,12 +47,10 @@ class X_UserController extends Controller
 
         // 5. Terapkan logika sorting
         if ($sortBy == 'role') {
-            // Sorting berdasarkan nama di tabel relasi 'roles'
             $query->join('roles', 'users.role_id', '=', 'roles.id')
                 ->orderBy('roles.name', $sortAsc ? 'asc' : 'desc')
-                ->select('users.*'); // Penting agar tidak ada konflik kolom ID
+                ->select('users.*');
         } else {
-            // Sorting biasa di tabel 'users'
             $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
         }
 

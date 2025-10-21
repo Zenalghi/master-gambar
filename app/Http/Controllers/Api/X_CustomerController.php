@@ -20,14 +20,13 @@ class X_CustomerController extends Controller
         $perPage = $request->input('per_page', 25);
         $search = $request->input('search');
 
-        // Tentukan kolom sorting default
-        $sortBy = $request->input('sort_by', 'nama_pt');
-        $sortAsc = $request->input('sort_asc', 'true') === 'true';
+        $sortBy = $request->input('sort_by', 'updated_at');
+        $sortAsc = $request->input('sort_asc', 'false') === 'true';
 
         // 2. Tentukan kolom yang diizinkan untuk di-sort
         $allowedSorts = ['nama_pt', 'pj', 'created_at', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
-            $sortBy = 'nama_pt'; // Kembalikan ke default jika tidak valid
+            $sortBy = 'updated_at';
         }
 
         // 3. Mulai query

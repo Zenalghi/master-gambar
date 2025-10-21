@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Customer extends Model
 {
@@ -27,4 +28,10 @@ class Customer extends Model
         'pj', // Penanggung Jawab
         'signature_pj', // Path ke file gambar tanda tangan penanggung jawab
     ];
+    protected function namaPt(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => strtoupper($value),
+        );
+    }
 }
