@@ -6,41 +6,60 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class X_UserController extends Controller
 {
+    /**
+     * Menampilkan daftar user dengan paginasi, pencarian, dan sorting.
+     */
     public function index(Request $request)
     {
-        // Ambil parameter dari request dengan nilai default
+        // 1. Tentukan parameter dari request
         $perPage = $request->input('per_page', 10);
+        $search = $request->input('search');
         $sortBy = $request->input('sort_by', 'name');
         $sortAsc = $request->input('sort_asc', 'true') === 'true';
-        $search = $request->input('search');
 
-        // Mulai query dengan relasi role
+        // 2. Tentukan kolom yang diizinkan untuk di-sort
+        $allowedSorts = ['name', 'username', 'role', 'created_at', 'updated_at'];
+        if (!in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'name'; // Kembalikan ke default
+        }
+
+        // 3. Mulai query
         $query = User::with('role');
 
-        // Jika ada pencarian, tambahkan kondisi where
+        // 4. Terapkan logika pencarian
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('username', 'like', "%{$search}%");
+                    ->orWhere('username', 'like', "%{$search}%")
+                    // Mencari di tabel relasi 'roles'
+                    ->orWhereHas('role', function ($roleQuery) use ($search) {
+                        $roleQuery->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
-        // Terapkan sorting
-        // Catatan: Sorting berdasarkan kolom relasi (role.name) memerlukan join.
-        // Untuk saat ini kita sort berdasarkan kolom tabel user saja.
-        $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
+        // 5. Terapkan logika sorting
+        if ($sortBy == 'role') {
+            // Sorting berdasarkan nama di tabel relasi 'roles'
+            $query->join('roles', 'users.role_id', '=', 'roles.id')
+                ->orderBy('roles.name', $sortAsc ? 'asc' : 'desc')
+                ->select('users.*'); // Penting agar tidak ada konflik kolom ID
+        } else {
+            // Sorting biasa di tabel 'users'
+            $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
+        }
 
-        // Ambil data dengan paginasi
+        // 6. Ambil data dengan paginasi
         $paginated = $query->paginate($perPage);
 
-        // Format response sesuai kebutuhan Flutter
+        // 7. Format response sesuai kebutuhan Flutter
         return response()->json([
             'data' => $paginated->items(),
             'total' => $paginated->total(),
@@ -66,7 +85,8 @@ class X_UserController extends Controller
      */
     public function show(User $user)
     {
-        return response()->json($user);
+        // Eager load relasi role
+        return response()->json($user->load('role'));
     }
 
     /**
@@ -76,15 +96,15 @@ class X_UserController extends Controller
     {
         $data = $request->validated();
 
-        // Hanya update password jika admin mengisinya di form
         if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
         } else {
-            unset($data['password']); // Hapus password dari data jika kosong
+            unset($data['password']);
         }
 
         $user->update($data);
-        return response()->json($user->fresh()); // Kirim data terbaru
+        // Kirim data terbaru, termasuk relasi role
+        return response()->json($user->fresh()->load('role'));
     }
 
     /**
@@ -92,23 +112,15 @@ class X_UserController extends Controller
      */
     public function destroy(User $user)
     {
-        // Proteksi agar admin tidak bisa menghapus akunnya sendiri
         if (Auth::id() === $user->id) {
             return response()->json(['message' => 'Admin cannot delete their own account.'], 403);
         }
 
-        // --- LOGIKA BARU UNTUK MENGHAPUS PARAF ---
-        // 2. Cek apakah user memiliki file paraf (signature)
         if ($user->signature) {
-            // Dapatkan nama folder dari path file
             $folderPath = dirname($user->signature);
-
-            // Hapus seluruh folder milik user tersebut dari disk 'user_paraf'
             Storage::disk('user_paraf')->deleteDirectory($folderPath);
         }
-        // --- AKHIR LOGIKA BARU ---
 
-        // 3. Hapus data user dari database
         $user->delete();
 
         return response()->json(null, 204);

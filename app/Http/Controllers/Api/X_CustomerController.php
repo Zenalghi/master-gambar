@@ -11,18 +11,29 @@ use Illuminate\Support\Facades\Storage;
 
 class X_CustomerController extends Controller
 {
+    /**
+     * Menampilkan data customer dengan paginasi, pencarian, dan sorting.
+     */
     public function index(Request $request)
     {
-        // Ambil parameter dari request dengan nilai default
+        // 1. Tentukan parameter dari request
         $perPage = $request->input('per_page', 25);
-        $sortBy = $request->input('sort_by', 'nama_pt');
-        $sortAsc = $request->input('sort_asc', 'true') === 'true';
         $search = $request->input('search');
 
-        // Mulai query
+        // Tentukan kolom sorting default
+        $sortBy = $request->input('sort_by', 'nama_pt');
+        $sortAsc = $request->input('sort_asc', 'true') === 'true';
+
+        // 2. Tentukan kolom yang diizinkan untuk di-sort
+        $allowedSorts = ['nama_pt', 'pj', 'created_at', 'updated_at'];
+        if (!in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'nama_pt'; // Kembalikan ke default jika tidak valid
+        }
+
+        // 3. Mulai query
         $query = Customer::query();
 
-        // Jika ada pencarian, tambahkan kondisi where
+        // 4. Terapkan logika pencarian
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('nama_pt', 'like', "%{$search}%")
@@ -30,13 +41,13 @@ class X_CustomerController extends Controller
             });
         }
 
-        // Terapkan sorting
+        // 5. Terapkan logika sorting
         $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
 
-        // Ambil data dengan paginasi
+        // 6. Ambil data dengan paginasi
         $paginated = $query->paginate($perPage);
 
-        // Format response sesuai kebutuhan Flutter
+        // 7. Format response sesuai kebutuhan Flutter
         return response()->json([
             'data' => $paginated->items(),
             'total' => $paginated->total(),
@@ -66,7 +77,7 @@ class X_CustomerController extends Controller
     public function update(UpdateCustomerRequest $request, Customer $customer)
     {
         $customer->update($request->validated());
-        return response()->json($customer);
+        return response()->json($customer->fresh());
     }
 
     /**
