@@ -7,6 +7,7 @@ use App\Models\HGambarOptional;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class H_GambarOptionalController extends Controller
 {
@@ -81,7 +82,11 @@ class H_GambarOptionalController extends Controller
             'deskripsi' => 'required|string|max:255',
             'gambar_optional' => 'required|file|mimes:pdf',
             'e_varian_body_id' => 'required_if:tipe,independen|exists:e_varian_body,id',
-            'g_gambar_utama_id' => 'required_if:tipe,paket|exists:g_gambar_utama,id',
+            'g_gambar_utama_id' => [
+                'required_if:tipe,paket',
+                'exists:g_gambar_utama,id',
+                Rule::unique('h_gambar_optional', 'g_gambar_utama_id')->where('tipe', 'paket'),
+            ],
         ]);
 
         $tipe = $validated['tipe'];

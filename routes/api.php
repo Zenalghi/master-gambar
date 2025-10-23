@@ -96,6 +96,7 @@ Route::middleware('auth.api')->group(
             Route::get('/gambar-optional/{gambarOptional}/pdf', [H_GambarOptionalController::class, 'showPdf']);
             Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
             Route::get('/master-gambar/view', [GambarMasterController::class, 'viewPdf']);
+            Route::get('/options/check-paket-optional/{varianBodyId}', [OptionController::class, 'checkPaketOptionalExists']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

@@ -142,4 +142,22 @@ class _OptionController extends Controller
 
         return response()->json($dependentOptionals);
     }
+
+    public function checkPaketOptionalExists($varianBodyId)
+    {
+        $varianBody = EVarianBody::find($varianBodyId);
+        if (!$varianBody) {
+            return response()->json(['exists' => false]); // Atau error 404
+        }
+
+        // Cek apakah ada Gambar Utama yang terhubung ke Varian Body ini,
+        // DAN Gambar Utama tersebut memiliki Gambar Optional bertipe 'paket'
+        $exists = $varianBody->gambarUtama()
+            ->whereHas('gambarOptionals', function ($query) {
+                $query->where('tipe', 'paket');
+            })
+            ->exists();
+
+        return response()->json(['exists' => $exists]);
+    }
 }
