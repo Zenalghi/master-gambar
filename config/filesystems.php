@@ -62,19 +62,19 @@ return [
 
         'master_gambar' => [
             'driver' => 'local',
-            // 'root' adalah path ke folder utama tempat penyimpanan akan dimulai.
-            'root' => 'D:/_Master/_Master Gambar',
+            'root' => storage_path('app/master/gambar'),
             'throw' => false,
         ],
 
         'user_paraf' => [
             'driver' => 'local',
-            'root' => 'D:/_Master/User',
+            'root' => storage_path('app/master/user'),
             'throw' => false,
         ],
+
         'customer_paraf' => [
             'driver' => 'local',
-            'root' => 'D:/_Master/Customer',
+            'root' => storage_path('app/master/customer'),
             'throw' => false,
         ],
     ],
