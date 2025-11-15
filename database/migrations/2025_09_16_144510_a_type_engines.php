@@ -12,9 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('a_type_engines', function (Blueprint $table) {
-            $table->string('id', 2)->primary(); // ID 2 digit, cth: '01', '02'
+            $table->id(); // <-- BERUBAH: Menjadi auto-increment
             $table->string('type_engine');
             $table->timestamps();
+            $table->softDeletes(); // <-- TAMBAHKAN INI
         });
     }
 

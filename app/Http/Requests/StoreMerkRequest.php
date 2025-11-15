@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule; // <-- TAMBAHKAN INI
 
 class StoreMerkRequest extends FormRequest
 {
@@ -22,11 +23,16 @@ class StoreMerkRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Kita hanya perlu memvalidasi input dari pengguna
-            'type_engine_id' => 'required|string|size:2|exists:a_type_engines,id',
-            'merk' => 'required|string|max:255',
-
-            // Validasi untuk 'merk_code' dihapus karena sekarang dibuat otomatis oleh controller
+            'type_engine_id' => 'required|exists:a_type_engines,id', // Ganti ke integer jika ATypeEngine sudah diubah
+            'merk' => [
+                'required',
+                'string',
+                'max:255',
+                // Aturan ini berarti:
+                // "merk" harus unik di tabel "b_merks",
+                // TAPI abaikan baris yang "deleted_at"-nya TIDAK null.
+                Rule::unique('b_merks')->whereNull('deleted_at'),
+            ],
         ];
     }
 }

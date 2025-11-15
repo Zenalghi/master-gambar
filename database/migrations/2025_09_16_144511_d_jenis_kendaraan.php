@@ -12,12 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('d_jenis_kendaraan', function (Blueprint $table) {
-            $table->string('id', 9)->primary(); // ID 9 digit (7 sasis + 2 jenis), cth: '010100101'
+            $table->id(); // <-- BERUBAH
             $table->string('jenis_kendaraan');
             $table->timestamps();
+            $table->softDeletes(); // <-- TAMBAHKAN INI
         });
     }
-
     /**
      * Reverse the migrations.
      */

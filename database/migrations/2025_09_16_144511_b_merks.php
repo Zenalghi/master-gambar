@@ -12,9 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('b_merks', function (Blueprint $table) {
-            $table->string('id', 4)->primary(); // ID 4 digit (2 engine + 2 merk), cth: '0101'
+            $table->id(); // <-- BERUBAH
             $table->string('merk');
             $table->timestamps();
+            $table->softDeletes(); // <-- TAMBAHKAN INI
         });
     }
 

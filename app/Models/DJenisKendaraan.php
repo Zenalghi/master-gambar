@@ -6,17 +6,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes; // <-- Tambah
 use Illuminate\Support\Str; // <-- Tambahkan import
 
 class DJenisKendaraan extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
 
     protected $table = 'd_jenis_kendaraan';
-    public $incrementing = false;
-    protected $keyType = 'string';
-
-    protected $fillable = ['id', 'jenis_kendaraan'];
+    public $incrementing = true; // <-- BERUBAH
+    protected $keyType = 'int'; // <-- BERUBAH
+    protected $fillable = ['jenis_kendaraan'];
 
     /**
      * Secara otomatis mengubah nilai 'jenis_kendaraan' menjadi huruf kapital.
@@ -24,16 +24,6 @@ class DJenisKendaraan extends Model
     public function setJenisKendaraanAttribute($value)
     {
         $this->attributes['jenis_kendaraan'] = Str::upper($value);
-    }
-
-    public function getTypeChassisIdAttribute(): string
-    {
-        return substr($this->id, 0, 7);
-    }
-
-    public function typeChassis(): BelongsTo
-    {
-        return $this->belongsTo(CTypeChassis::class, 'type_chassis_id');
     }
 
     public function varianBody(): HasMany

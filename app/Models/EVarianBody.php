@@ -7,13 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes; // <-- Tambah
 use Illuminate\Support\Str; // <-- Tambahkan import
 
 class EVarianBody extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
     protected $table = 'e_varian_body';
-    protected $fillable = ['jenis_kendaraan_id', 'varian_body'];
+    protected $fillable = ['master_data_id', 'varian_body'];
 
     public function setVarianBodyAttribute($value)
     {
@@ -21,9 +22,9 @@ class EVarianBody extends Model
     }
     // ------------------------------------
 
-    public function jenisKendaraan(): BelongsTo
+    public function masterData(): BelongsTo
     {
-        return $this->belongsTo(DJenisKendaraan::class, 'jenis_kendaraan_id');
+        return $this->belongsTo(MasterData::class, 'master_data_id')->withTrashed();
     }
     // --- TAMBAHKAN DUA RELASI BARU INI ---
     /**

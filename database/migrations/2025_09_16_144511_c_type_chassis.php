@@ -12,9 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('c_type_chassis', function (Blueprint $table) {
-            $table->string('id', 7)->primary(); // ID 7 digit (4 merk + 3 sasis), cth: '0101001'
+            $table->id(); // <-- BERUBAH
             $table->string('type_chassis');
             $table->timestamps();
+            $table->softDeletes(); // <-- TAMBAHKAN INI
         });
     }
 

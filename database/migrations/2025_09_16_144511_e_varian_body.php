@@ -12,12 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('e_varian_body', function (Blueprint $table) {
-            $table->id(); // ID auto-increment biasa
-            $table->string('jenis_kendaraan_id', 9); // Foreign key ke ID 9 digit
+            $table->id();
+            $table->foreignId('master_data_id')->constrained('master_data')->onDelete('cascade');
             $table->string('varian_body');
             $table->timestamps();
+            $table->softDeletes();
 
-            $table->foreign('jenis_kendaraan_id')->references('id')->on('d_jenis_kendaraan')->onDelete('cascade');
+            // Mencegah nama varian body yang sama untuk master data yang sama
+            $table->unique(['master_data_id', 'varian_body']);
         });
     }
 

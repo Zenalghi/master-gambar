@@ -10,11 +10,11 @@ return new class extends Migration
     {
         Schema::create('z_transaksi_details', function (Blueprint $table) {
             $table->id();
-            $table->string('z_transaksi_id')->unique();
-            $table->foreignId('pemeriksa_id')->constrained('users');
-            $table->foreignId('i_gambar_kelistrikan_id')->nullable()->constrained('i_gambar_kelistrikan')->nullOnDelete();
+            $table->foreignId('z_transaksi_id')->constrained('z_transaksi')->onDelete('cascade');
+            $table->foreignId('pemeriksa_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('i_gambar_kelistrikan_id')->nullable()->constrained('i_gambar_kelistrikan')->nullOnDelete()->onDelete('cascade');
             $table->timestamps();
-            $table->foreign('z_transaksi_id')->references('id')->on('z_transaksi')->onDelete('cascade');
+            $table->softDeletes();
         });
     }
 

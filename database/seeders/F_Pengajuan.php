@@ -33,6 +33,12 @@ class F_Pengajuan extends Seeder
                 'created_at' => now(),
                 'updated_at' => now()
             ],
+            [
+                'jenis_pengajuan' => 'GAMBAR TU',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+
         ]);
     }
 }
