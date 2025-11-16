@@ -6,25 +6,25 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreVarianBodyRequest;
 use App\Http\Requests\UpdateVarianBodyRequest;
 use App\Models\EVarianBody;
+use App\Models\GGambarUtama; // <-- Tambahkan
+use App\Models\HGambarOptional; // <-- Tambahkan
 use App\Models\TransaksiVarian;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request; // <-- Tambahkan
 
 class E_VarianBodyController extends Controller
 {
     /**
-     * Mengambil semua varian body, diurutkan berdasarkan namanya,
-     * dan memuat data induknya.
+     * Mengambil semua varian body dengan server-side processing.
      */
-    public function index(Request $request)
+    public function index(Request $request) // <-- Tambahkan Request
     {
-        // 1. Validate parameters
+        // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,varian_body,jenis_kendaraan,type_chassis,merk,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:varian_body,master_data_string,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -34,81 +34,83 @@ class E_VarianBodyController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Main query with JOINs to all parent tables
-        $query = \App\Models\EVarianBody::query()
-            ->join('d_jenis_kendaraan', 'e_varian_body.jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-            ->join('c_type_chassis', function ($join) {
-                $join->on(DB::raw('SUBSTRING(e_varian_body.jenis_kendaraan_id, 1, 7)'), '=', 'c_type_chassis.id');
-            })
-            ->join('b_merks', function ($join) {
-                $join->on(DB::raw('SUBSTRING(e_varian_body.jenis_kendaraan_id, 1, 4)'), '=', 'b_merks.id');
-            })
-            ->select('e_varian_body.*'); // Select all columns from the main table
+        // 2. Query utama
+        $query = EVarianBody::query()
+            ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
+            ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
+            ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
+            ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
+            ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->select('e_varian_body.*'); // Penting!
 
-        // 3. Eager load relationships for the JSON response structure
-        $query->with('jenisKendaraan.typeChassis.merk.typeEngine');
+        // 3. Eager load relasi
+        $query->with('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan');
 
-        // 4. Apply search filter
+        // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('e_varian_body.id', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.id', 'like', "%{$search}%")
-                    ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                $q->where('e_varian_body.varian_body', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
-                    ->orWhere('e_varian_body.created_at', 'like', "%{$search}%")
-                    ->orWhere('e_varian_body.updated_at', 'like', "%{$search}%");
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%");
             });
         }
 
-        // 5. Apply sorting
+        // 5. Terapkan sorting
         $sortColumn = match ($sortBy) {
-            'id' => 'e_varian_body.id',
             'varian_body' => 'e_varian_body.varian_body',
-            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
-            'type_chassis' => 'c_type_chassis.type_chassis',
-            'merk' => 'b_merks.merk',
+            'master_data_string' => 'a_type_engines.type_engine', // Contoh sort berdasarkan gabungan
             'created_at' => 'e_varian_body.created_at',
             'updated_at' => 'e_varian_body.updated_at',
             default => 'e_varian_body.updated_at',
         };
-        $query->orderBy($sortColumn, $sortDirection);
+        // Jika sort by 'master_data_string', kita bisa sort berdasarkan beberapa kolom
+        if ($sortBy == 'master_data_string') {
+            $query->orderBy('a_type_engines.type_engine', $sortDirection)
+                ->orderBy('b_merks.merk', $sortDirection)
+                ->orderBy('c_type_chassis.type_chassis', $sortDirection)
+                ->orderBy('d_jenis_kendaraan.jenis_kendaraan', $sortDirection);
+        } else {
+            $query->orderBy($sortColumn, $sortDirection);
+        }
 
-        // 6. Paginate the results
+        // 6. Lakukan paginasi
         return $query->paginate($perPage);
     }
 
     public function store(StoreVarianBodyRequest $request)
     {
         $varianBody = EVarianBody::create($request->validated());
-        return response()->json($varianBody->load('jenisKendaraan.typeChassis.merk.typeEngine'), 201);
+        $varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan');
+        return response()->json($varianBody, 201);
     }
 
     public function show(EVarianBody $varianBody)
     {
-        return response()->json($varianBody->load('jenisKendaraan.typeChassis.merk.typeEngine'));
+        $varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan');
+        return response()->json($varianBody);
     }
 
     public function update(UpdateVarianBodyRequest $request, EVarianBody $varianBody)
     {
         $varianBody->update($request->validated());
-        return response()->json($varianBody->fresh()->load('jenisKendaraan.typeChassis.merk.typeEngine'));
+        $varianBody->fresh()->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan');
+        return response()->json($varianBody);
     }
 
     public function destroy(EVarianBody $varianBody)
     {
-        // --- TAMBAHKAN PROTEKSI BARU ---
-        if (TransaksiVarian::where('e_varian_body_id', $varianBody->id)->exists()) {
+        // Cek semua relasi anak
+        if (
+            TransaksiVarian::where('e_varian_body_id', $varianBody->id)->exists() ||
+            GGambarUtama::where('e_varian_body_id', $varianBody->id)->exists() ||
+            HGambarOptional::where('e_varian_body_id', $varianBody->id)->exists()
+        ) {
             throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Varian Body karena sudah digunakan dalam transaksi.']
+                'general' => ['Tidak dapat menghapus Varian Body karena sudah digunakan oleh Transaksi atau Gambar Master.']
             ]);
         }
-        // -----------------------------
-
-        // Logika hapus file-file terkait (sudah ada dan benar)
-        $varianBody->load(['gambarUtama', 'gambarOptional']);
-        // ... (sisa logika hapus file)
 
         $varianBody->delete();
         return response()->json(null, 204);

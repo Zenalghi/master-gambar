@@ -14,18 +14,17 @@ class UpdateVarianBodyRequest extends FormRequest
 
     public function rules(): array
     {
-        // Dapatkan ID Varian Body dari rute, misalnya /api/varian-body/123
         $varianBodyId = $this->route('varian_body')->id;
 
         return [
-            'jenis_kendaraan_id' => 'required|string|size:9|exists:d_jenis_kendaraan,id',
+            'master_data_id' => 'required|integer|exists:master_data,id', // <-- BERUBAH
             'varian_body' => [
                 'required',
                 'string',
                 'max:255',
-                // Unik, tapi abaikan untuk Varian Body yang sedang di-update
                 Rule::unique('e_varian_body')
-                    ->where('jenis_kendaraan_id', $this->jenis_kendaraan_id)
+                    ->where('master_data_id', $this->master_data_id) // <-- BERUBAH
+                    ->whereNull('deleted_at')
                     ->ignore($varianBodyId),
             ],
         ];

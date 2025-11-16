@@ -36,9 +36,9 @@ class _OptionController extends Controller
         return response()->json(CTypeChassis::where('id', 'like', $merk_id . '%')->get());
     }
 
-    public function getJenisKendaraan($chassis_id)
+    public function getJenisKendaraan()
     {
-        return response()->json(DJenisKendaraan::where('id', 'like', $chassis_id . '%')->get());
+        return response()->json(DJenisKendaraan::all());
     }
 
     public function getVarianBody($jenis_kendaraan_id)

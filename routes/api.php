@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\J_JenisVarianController;
 use App\Http\Controllers\Api\H_GambarOptionalController;
 use App\Http\Controllers\Api\I_GambarKelistrikanController;
 use App\Http\Controllers\Api\ImageStatusController;
+use App\Http\Controllers\Api\MasterDataController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -97,6 +98,9 @@ Route::middleware('auth.api')->group(
             Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
             Route::get('/master-gambar/view', [GambarMasterController::class, 'viewPdf']);
             Route::get('/options/check-paket-optional/{varianBodyId}', [OptionController::class, 'checkPaketOptionalExists']);
+            Route::apiResource('master-data', MasterDataController::class)->parameters([
+                'master-data' => 'masterDatum' // Penyesuaian nama parameter
+            ]);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

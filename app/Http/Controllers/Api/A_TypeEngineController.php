@@ -7,6 +7,7 @@ use App\Models\ATypeEngine;
 use App\Models\BMerk;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rule;
 
 class A_TypeEngineController extends Controller
 {
@@ -24,24 +25,17 @@ class A_TypeEngineController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type_engine' => 'required|string|max:255|unique:a_type_engines,type_engine',
+            'type_engine' => [ // <-- Ubah menjadi array
+                'required',
+                'string',
+                'max:255',
+                // Cek unik hanya pada data yang tidak di-soft-delete
+                Rule::unique('a_type_engines')->whereNull('deleted_at'),
+            ],
         ]);
 
-        // --- LOGIKA ID OTOMATIS ---
-        // 1. Cari ID tertinggi yang sudah ada.
-        $lastTypeEngine = ATypeEngine::orderBy('id', 'desc')->first();
-
-        // 2. Tentukan ID berikutnya.
-        $nextId = $lastTypeEngine ? intval($lastTypeEngine->id) + 1 : 1;
-
-        // 3. Format menjadi 2 digit (misal: 1 -> "01", 10 -> "10").
-        $newId = str_pad($nextId, 2, '0', STR_PAD_LEFT);
-        // -------------------------
-
-        $typeEngine = ATypeEngine::create([
-            'id' => $newId,
-            'type_engine' => $validated['type_engine'],
-        ]);
+        // --- HAPUS SEMUA LOGIKA ID OTOMATIS ---
+        $typeEngine = ATypeEngine::create($validated);
 
         return response()->json($typeEngine, 201);
     }
@@ -51,27 +45,38 @@ class A_TypeEngineController extends Controller
         return $typeEngine;
     }
 
+    /**
+     * Memperbarui data.
+     */
     public function update(Request $request, ATypeEngine $typeEngine)
     {
         $validated = $request->validate([
-            // Validasi unik, tapi abaikan data yang sedang diedit
-            'type_engine' => 'required|string|max:255|unique:a_type_engines,type_engine,' . $typeEngine->id,
+            'type_engine' => [ // <-- Ubah menjadi array
+                'required',
+                'string',
+                'max:255',
+                // Cek unik, abaikan ID saat ini dan yang sudah di-soft-delete
+                Rule::unique('a_type_engines')->whereNull('deleted_at')->ignore($typeEngine->id),
+            ],
         ]);
 
         $typeEngine->update($validated);
         return response()->json($typeEngine);
     }
 
+    /**
+     * Menghapus data (sekarang menggunakan SoftDeletes).
+     */
     public function destroy(ATypeEngine $typeEngine)
     {
-        if (BMerk::where('id', 'like', $typeEngine->id . '%')->exists()) {
-            // --- KIRIM PESAN ERROR DALAM FORMAT JSON YANG KONSISTEN ---
+        // Cek relasi ke B_Merk (sekarang cek berdasarkan foreign key integer)
+        if (BMerk::where('a_type_engine_id', $typeEngine->id)->exists()) {
             throw ValidationException::withMessages([
                 'general' => ['Tidak dapat menghapus Tipe Engine karena masih digunakan oleh data Merk.']
             ]);
         }
 
-        $typeEngine->delete();
+        $typeEngine->delete(); // Ini akan melakukan soft delete
         return response()->json(null, 204);
     }
 }

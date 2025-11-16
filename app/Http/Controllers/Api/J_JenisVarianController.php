@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\JJudulGambar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class J_JenisVarianController extends Controller
 {
@@ -17,9 +18,13 @@ class J_JenisVarianController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nama_judul' => 'required|string|unique:j_judul_gambars,nama_judul',
+            'nama_judul' => [ // <-- Ubah menjadi array
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('j_judul_gambars')->whereNull('deleted_at'),
+            ],
         ]);
-
         // Tambahkan mutator di sini karena modelnya sederhana
         $validated['nama_judul'] = Str::upper($validated['nama_judul']);
 
@@ -35,7 +40,12 @@ class J_JenisVarianController extends Controller
     public function update(Request $request, JJudulGambar $jJudulGambar)
     {
         $validated = $request->validate([
-            'nama_judul' => 'required|string|unique:j_judul_gambars,nama_judul,' . $jJudulGambar->id,
+            'nama_judul' => [ // <-- Ubah menjadi array
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('j_judul_gambars')->whereNull('deleted_at')->ignore($jJudulGambar->id),
+            ],
         ]);
 
         $validated['nama_judul'] = Str::upper($validated['nama_judul']);

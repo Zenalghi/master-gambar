@@ -23,14 +23,11 @@ class StoreMerkRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type_engine_id' => 'required|exists:a_type_engines,id', // Ganti ke integer jika ATypeEngine sudah diubah
-            'merk' => [
+            'type_engine_id' => 'required|integer|exists:a_type_engines,id', // <-- Ubah ke integer
+            'merk' => [ // <-- Ubah menjadi array
                 'required',
                 'string',
                 'max:255',
-                // Aturan ini berarti:
-                // "merk" harus unik di tabel "b_merks",
-                // TAPI abaikan baris yang "deleted_at"-nya TIDAK null.
                 Rule::unique('b_merks')->whereNull('deleted_at'),
             ],
         ];

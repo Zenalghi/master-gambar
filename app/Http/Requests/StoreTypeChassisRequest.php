@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreTypeChassisRequest extends FormRequest
 {
@@ -14,8 +15,13 @@ class StoreTypeChassisRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'merk_id' => 'required|string|size:4|exists:b_merks,id',
-            'type_chassis' => 'required|string|max:255',
+            'merk_id' => 'required|integer|exists:b_merks,id', // <-- Ubah ke integer
+            'type_chassis' => [ // <-- Ubah menjadi array
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('c_type_chassis')->whereNull('deleted_at'),
+            ],
         ];
     }
 }

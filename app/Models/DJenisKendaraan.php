@@ -14,8 +14,8 @@ class DJenisKendaraan extends Model
     use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
 
     protected $table = 'd_jenis_kendaraan';
-    public $incrementing = true; // <-- BERUBAH
-    protected $keyType = 'int'; // <-- BERUBAH
+    // public $incrementing = true; // <-- BERUBAH
+    // protected $keyType = 'int'; // <-- BERUBAH
     protected $fillable = ['jenis_kendaraan'];
 
     /**
@@ -26,8 +26,8 @@ class DJenisKendaraan extends Model
         $this->attributes['jenis_kendaraan'] = Str::upper($value);
     }
 
-    public function varianBody(): HasMany
-    {
-        return $this->hasMany(EVarianBody::class, 'jenis_kendaraan_id');
-    }
+    // public function varianBody(): HasMany
+    // {
+    //     return $this->hasMany(EVarianBody::class, 'jenis_kendaraan_id');
+    // }
 }

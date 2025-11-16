@@ -9,6 +9,7 @@ use App\Models\CTypeChassis;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\DJenisKendaraan;
 
 class C_TypeChassisController extends Controller
 {
@@ -18,11 +19,11 @@ class C_TypeChassisController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi parameter dari frontend
+        // 1. Validasi parameter
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,type_chassis,merk,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,type_chassis,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -32,40 +33,23 @@ class C_TypeChassisController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'asc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama: Selalu JOIN ke tabel merk
-        $query = \App\Models\CTypeChassis::query()
-            // Lakukan JOIN dengan kondisi SUBSTRING berdasarkan ID komposit Anda
-            ->join('b_merks', function ($join) {
-                $join->on(DB::raw('SUBSTRING(c_type_chassis.id, 1, 4)'), '=', 'b_merks.id');
-            })
-            ->select('c_type_chassis.*'); // Pilih semua kolom dari c_type_chassis
+        // 2. Query utama (HANYA ke tabel c_type_chassis)
+        $query = \App\Models\CTypeChassis::query();
 
-        // 3. Eager load relasi (tetap dibutuhkan untuk struktur JSON)
-        $query->with('merk.typeEngine');
-
-        // 4. Terapkan filter pencarian
+        // 3. Terapkan filter pencarian (HANYA di kolom c_type_chassis)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('c_type_chassis.id', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
-                    ->orWhere('b_merks.merk', 'like', "%{$search}%") // Cari di tabel yang di-join
-                    ->orWhere('c_type_chassis.created_at', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.updated_at', 'like', "%{$search}%");
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('type_chassis', 'like', "%{$search}%")
+                    ->orWhere('created_at', 'like', "%{$search}%")
+                    ->orWhere('updated_at', 'like', "%{$search}%");
             });
         }
 
-        // 5. Terapkan sorting
-        $sortColumn = match ($sortBy) {
-            'id' => 'c_type_chassis.id',
-            'type_chassis' => 'c_type_chassis.type_chassis',
-            'merk' => 'b_merks.merk', // Sort berdasarkan kolom dari tabel yang di-join
-            'created_at' => 'c_type_chassis.created_at',
-            'updated_at' => 'c_type_chassis.updated_at',
-            default => 'c_type_chassis.id',
-        };
-        $query->orderBy($sortColumn, $sortDirection);
+        // 4. Terapkan sorting (HANYA di kolom c_type_chassis)
+        $query->orderBy($sortBy, $sortDirection);
 
-        // 6. Lakukan paginasi
+        // 5. Lakukan paginasi
         return $query->paginate($perPage);
     }
 
@@ -75,27 +59,10 @@ class C_TypeChassisController extends Controller
     public function store(StoreTypeChassisRequest $request)
     {
         $validated = $request->validated();
-        $merkId = $validated['merk_id'];
 
-        // --- LOGIKA ID OTOMATIS (7 DIGIT) ---
-        $lastChassis = CTypeChassis::where('id', 'like', $merkId . '%')
-            ->orderBy('id', 'desc')
-            ->first();
+        // --- HAPUS SEMUA LOGIKA ID OTOMATIS (7 DIGIT) ---
 
-        $nextCode = '001';
-        if ($lastChassis) {
-            $lastCode = intval(substr($lastChassis->id, 4, 3));
-            $nextCodeInt = $lastCode + 1;
-            $nextCode = str_pad($nextCodeInt, 3, '0', STR_PAD_LEFT);
-        }
-
-        $newId = $merkId . $nextCode;
-        // ------------------------------------
-
-        $typeChassis = CTypeChassis::create([
-            'id' => $newId,
-            'type_chassis' => $validated['type_chassis'],
-        ]);
+        $typeChassis = CTypeChassis::create($validated);
 
         return response()->json($typeChassis->load('merk.typeEngine'), 201);
     }
@@ -113,12 +80,13 @@ class C_TypeChassisController extends Controller
 
     public function destroy(CTypeChassis $typeChassis)
     {
-        if ($typeChassis->getJenisKendaraanChildren()->isNotEmpty()) {
+        // Cek relasi ke D_JenisKendaraan (sekarang cek berdasarkan foreign key integer)
+        if (DJenisKendaraan::where('c_type_chassis_id', $typeChassis->id)->exists()) {
             throw ValidationException::withMessages([
                 'general' => ['Tidak dapat menghapus Tipe Chassis karena masih memiliki data Jenis Kendaraan.']
             ]);
         }
-        $typeChassis->delete();
+        $typeChassis->delete(); // Soft delete
         return response()->json(null, 204);
     }
 }

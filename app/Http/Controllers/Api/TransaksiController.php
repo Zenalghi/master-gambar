@@ -129,30 +129,14 @@ class TransaksiController extends Controller
     public function store(StoreTransaksiRequest $request)
     {
         $validated = $request->validated();
-        $jenisKendaraanId = $validated['d_jenis_kendaraan_id'];
 
-        $lastTransaksi = Transaksi::where('id', 'like', $jenisKendaraanId . '-%')->orderBy('id', 'desc')->first();
-        $counter = 1;
-        if ($lastTransaksi) {
-            $parts = explode('-', $lastTransaksi->id);
-            $counter = intval(end($parts)) + 1;
-        }
-        $newId = $jenisKendaraanId . '-' . str_pad($counter, 4, '0', STR_PAD_LEFT);
+        // --- HAPUS SEMUA LOGIKA ID OTOMATIS ---
 
-        $engineId = substr($jenisKendaraanId, 0, 2);
-        $merkId = substr($jenisKendaraanId, 0, 4);
-        $chassisId = substr($jenisKendaraanId, 0, 7);
+        // Tambahkan user_id yang sedang login
+        $data = $validated + ['user_id' => Auth::id()];
 
-        $transaksi = Transaksi::create([
-            'id' => $newId,
-            'a_type_engine_id' => $engineId,
-            'b_merk_id' => $merkId,
-            'c_type_chassis_id' => $chassisId,
-            'd_jenis_kendaraan_id' => $jenisKendaraanId,
-            'customer_id' => $validated['customer_id'],
-            'f_pengajuan_id' => $validated['f_pengajuan_id'],
-            'user_id' => Auth::id(),
-        ]);
+        // 'id' sekarang akan diisi oleh auto-increment
+        $transaksi = Transaksi::create($data);
 
         return response()->json($transaksi->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']), 201);
     }

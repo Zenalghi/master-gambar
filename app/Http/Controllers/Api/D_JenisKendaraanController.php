@@ -9,6 +9,7 @@ use App\Models\DJenisKendaraan;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\EVarianBody;
 
 class D_JenisKendaraanController extends Controller
 {
@@ -21,7 +22,7 @@ class D_JenisKendaraanController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,jenis_kendaraan,type_chassis,merk,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,jenis_kendaraan,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -31,44 +32,23 @@ class D_JenisKendaraanController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'asc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama dengan JOIN ke semua tabel induk
-        $query = \App\Models\DJenisKendaraan::query()
-            ->join('c_type_chassis', function ($join) {
-                $join->on(DB::raw('SUBSTRING(d_jenis_kendaraan.id, 1, 7)'), '=', 'c_type_chassis.id');
-            })
-            ->join('b_merks', function ($join) {
-                $join->on(DB::raw('SUBSTRING(d_jenis_kendaraan.id, 1, 4)'), '=', 'b_merks.id');
-            })
-            ->select('d_jenis_kendaraan.*'); // Pilih semua kolom dari tabel utama
+        // 2. Query utama (HANYA ke tabel d_jenis_kendaraan)
+        $query = \App\Models\DJenisKendaraan::query();
 
-        // 3. Eager load relasi (tetap dibutuhkan untuk struktur JSON)
-        $query->with('typeChassis.merk.typeEngine');
-
-        // 4. Terapkan filter pencarian
+        // 3. Terapkan filter pencarian (HANYA di kolom d_jenis_kendaraan)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('d_jenis_kendaraan.id', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%") // Cari di tabel join
-                    ->orWhere('b_merks.merk', 'like', "%{$search}%") // Cari di tabel join
-                    ->orWhere('d_jenis_kendaraan.created_at', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.updated_at', 'like', "%{$search}%");
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('created_at', 'like', "%{$search}%")
+                    ->orWhere('updated_at', 'like', "%{$search}%");
             });
         }
 
-        // 5. Terapkan sorting
-        $sortColumn = match ($sortBy) {
-            'id' => 'd_jenis_kendaraan.id',
-            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
-            'type_chassis' => 'c_type_chassis.type_chassis',
-            'merk' => 'b_merks.merk',
-            'created_at' => 'd_jenis_kendaraan.created_at',
-            'updated_at' => 'd_jenis_kendaraan.updated_at',
-            default => 'd_jenis_kendaraan.id',
-        };
-        $query->orderBy($sortColumn, $sortDirection);
+        // 4. Terapkan sorting (HANYA di kolom d_jenis_kendaraan)
+        $query->orderBy($sortBy, $sortDirection);
 
-        // 6. Lakukan paginasi
+        // 5. Lakukan paginasi
         return $query->paginate($perPage);
     }
 
@@ -78,28 +58,8 @@ class D_JenisKendaraanController extends Controller
     public function store(StoreJenisKendaraanRequest $request)
     {
         $validated = $request->validated();
-        $typeChassisId = $validated['type_chassis_id'];
-
-        // --- LOGIKA ID OTOMATIS (9 DIGIT) ---
-        $lastJenis = DJenisKendaraan::where('id', 'like', $typeChassisId . '%')
-            ->orderBy('id', 'desc')
-            ->first();
-
-        $nextCode = 'AA'; // Default jika ini adalah jenis pertama
-        if ($lastJenis) {
-            $lastCode = substr($lastJenis->id, 7, 2); // Ambil 2 karakter terakhir
-            $nextCode = ++$lastCode; // Increment karakter (e.g., 'AA' -> 'AB')
-        }
-
-        $newId = $typeChassisId . $nextCode;
-        // ------------------------------------
-
-        $jenisKendaraan = DJenisKendaraan::create([
-            'id' => $newId,
-            'jenis_kendaraan' => $validated['jenis_kendaraan'],
-        ]);
-
-        return response()->json($jenisKendaraan->load('typeChassis.merk.typeEngine'), 201);
+        $jenisKendaraan = DJenisKendaraan::create($validated);
+        return response()->json($jenisKendaraan, 201);
     }
 
     public function show(DJenisKendaraan $jenisKendaraan)
@@ -115,13 +75,14 @@ class D_JenisKendaraanController extends Controller
 
     public function destroy(DJenisKendaraan $jenisKendaraan)
     {
-        if ($jenisKendaraan->varianBody()->exists()) {
+        // Cek relasi ke E_VarianBody (sekarang cek berdasarkan foreign key integer)
+        if (EVarianBody::where('d_jenis_kendaraan_id', $jenisKendaraan->id)->exists()) {
             throw ValidationException::withMessages([
                 'general' => ['Tidak dapat menghapus Jenis Kendaraan karena masih memiliki data Varian Body.']
             ]);
         }
 
-        $jenisKendaraan->delete();
+        $jenisKendaraan->delete(); // Soft delete
         return response()->json(null, 204);
     }
 }

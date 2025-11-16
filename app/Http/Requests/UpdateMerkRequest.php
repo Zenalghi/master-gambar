@@ -14,17 +14,13 @@ class UpdateMerkRequest extends FormRequest
 
     public function rules(): array
     {
-        // Dapatkan ID Merk yang sedang diedit dari route
         $merkId = $this->route('merk')->id;
 
         return [
-            'merk' => [
+            'merk' => [ // <-- Ubah menjadi array
                 'required',
                 'string',
                 'max:255',
-                // Aturan ini berarti:
-                // "merk" harus unik, tapi abaikan baris yang 'deleted_at'-nya tidak null,
-                // DAN abaikan juga baris dengan ID yang sedang kita edit ini.
                 Rule::unique('b_merks')->whereNull('deleted_at')->ignore($merkId),
             ],
         ];

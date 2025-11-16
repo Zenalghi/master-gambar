@@ -19,11 +19,11 @@ class B_MerkController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi: Tambahkan kolom tanggal ke 'sortBy'
+        // 1. Validasi parameter
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,merk,type_engine,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,merk,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -33,40 +33,23 @@ class B_MerkController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'asc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama: Selalu JOIN ke tabel type_engine
-        $query = \App\Models\BMerk::query()
-            // Lakukan JOIN dengan kondisi SUBSTRING
-            ->join('a_type_engines', function ($join) {
-                $join->on(DB::raw('SUBSTRING(b_merks.id, 1, 2)'), '=', 'a_type_engines.id');
-            })
-            ->select('b_merks.*'); // Tetap pilih semua kolom dari b_merks
+        // 2. Query utama (HANYA ke tabel b_merks)
+        $query = \App\Models\BMerk::query();
 
-        // Eager load relasi (tetap dibutuhkan untuk struktur JSON)
-        $query->with('typeEngine');
-
-        // 4. Terapkan filter pencarian yang lebih sederhana
+        // 3. Terapkan filter pencarian (HANYA di kolom b_merks)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('b_merks.id', 'like', "%{$search}%")
-                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
-                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
-                    ->orWhere('b_merks.created_at', 'like', "%{$search}%")
-                    ->orWhere('b_merks.updated_at', 'like', "%{$search}%");
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhere('merk', 'like', "%{$search}%")
+                    ->orWhere('created_at', 'like', "%{$search}%")
+                    ->orWhere('updated_at', 'like', "%{$search}%");
             });
         }
 
-        // 5. Terapkan sorting yang lebih lengkap
-        $sortColumn = match ($sortBy) {
-            'id' => 'b_merks.id',
-            'merk' => 'b_merks.merk',
-            'type_engine' => 'a_type_engines.type_engine',
-            'created_at' => 'b_merks.created_at',
-            'updated_at' => 'b_merks.updated_at',
-            default => 'b_merks.id',
-        };
-        $query->orderBy($sortColumn, $sortDirection);
+        // 4. Terapkan sorting (HANYA di kolom b_merks)
+        $query->orderBy($sortBy, $sortDirection);
 
-        // 6. Lakukan paginasi
+        // 5. Lakukan paginasi
         return $query->paginate($perPage);
     }
 
@@ -76,33 +59,11 @@ class B_MerkController extends Controller
     public function store(StoreMerkRequest $request)
     {
         $validated = $request->validated();
-        $typeEngineId = $validated['type_engine_id'];
 
-        // --- LOGIKA ID OTOMATIS (4 DIGIT) ---
-        // 1. Cari Merk terakhir yang memiliki type_engine_id yang sama.
-        $lastMerk = BMerk::where('id', 'like', $typeEngineId . '%')
-            ->orderBy('id', 'desc')
-            ->first();
+        // --- HAPUS SEMUA LOGIKA ID OTOMATIS (4 DIGIT) ---
 
-        $nextCode = '01'; // Default jika ini adalah merk pertama untuk type engine tsb.
-        if ($lastMerk) {
-            // 2. Ambil 2 digit terakhir dari ID, ubah ke integer, tambah 1.
-            $lastCode = intval(substr($lastMerk->id, 2, 2));
-            $nextCodeInt = $lastCode + 1;
-            // 3. Format kembali menjadi 2 digit.
-            $nextCode = str_pad($nextCodeInt, 2, '0', STR_PAD_LEFT);
-        }
+        $merk = BMerk::create($validated);
 
-        // 4. Gabungkan untuk membuat ID komposit baru (contoh: '01' . '02' -> '0102').
-        $newId = $typeEngineId . $nextCode;
-        // ------------------------------------
-
-        $merk = BMerk::create([
-            'id' => $newId,
-            'merk' => $validated['merk'],
-        ]);
-
-        // Muat relasi agar respons JSON berisi data typeEngine
         return response()->json($merk->load('typeEngine'), 201);
     }
 
@@ -119,13 +80,14 @@ class B_MerkController extends Controller
 
     public function destroy(BMerk $merk)
     {
-        if (CTypeChassis::where('id', 'like', $merk->id . '%')->exists()) {
+        // Cek relasi ke C_TypeChassis (sekarang cek berdasarkan foreign key integer)
+        if (CTypeChassis::where('b_merk_id', $merk->id)->exists()) {
             throw ValidationException::withMessages([
                 'general' => ['Tidak dapat menghapus Merk karena masih memiliki data Tipe Chassis.']
             ]);
         }
 
-        $merk->delete();
+        $merk->delete(); // Ini akan melakukan soft delete
         return response()->json(null, 204);
     }
 }
