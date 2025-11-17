@@ -29,14 +29,14 @@ class B_MerkController extends Controller
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
-        $sortBy = $validated['sortBy'] ?? 'id';
-        $sortDirection = $validated['sortDirection'] ?? 'asc';
+        $sortBy = $validated['sortBy'] ?? 'id'; // Default sort
+        $sortDirection = $validated['sortDirection'] ?? 'asc'; // Default direction
         $search = $validated['search'] ?? '';
 
         // 2. Query utama (HANYA ke tabel b_merks)
         $query = \App\Models\BMerk::query();
 
-        // 3. Terapkan filter pencarian (HANYA di kolom b_merks)
+        // 3. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
@@ -46,7 +46,7 @@ class B_MerkController extends Controller
             });
         }
 
-        // 4. Terapkan sorting (HANYA di kolom b_merks)
+        // 4. Terapkan sorting
         $query->orderBy($sortBy, $sortDirection);
 
         // 5. Lakukan paginasi

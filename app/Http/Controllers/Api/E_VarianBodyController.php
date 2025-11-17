@@ -18,24 +18,24 @@ class E_VarianBodyController extends Controller
     /**
      * Mengambil semua varian body dengan server-side processing.
      */
-    public function index(Request $request) // <-- Tambahkan Request
+    public function index(Request $request)
     {
         // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:varian_body,master_data_string,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,varian_body,type_engine,merk,type_chassis,jenis_kendaraan,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
-        $sortBy = $validated['sortBy'] ?? 'updated_at';
-        $sortDirection = $validated['sortDirection'] ?? 'desc';
+        $sortBy = $validated['sortBy'] ?? 'updated_at'; // Default sort
+        $sortDirection = $validated['sortDirection'] ?? 'desc'; // Default direction
         $search = $validated['search'] ?? '';
 
         // 2. Query utama
-        $query = EVarianBody::query()
+        $query = \App\Models\EVarianBody::query()
             ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
@@ -49,31 +49,30 @@ class E_VarianBodyController extends Controller
         // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('e_varian_body.varian_body', 'like', "%{$search}%")
+                $q->where('e_varian_body.id', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%");
+                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.created_at', 'like', "%{$search}%")
+                    ->orWhere('e_varian_body.updated_at', 'like', "%{$search}%");
             });
         }
 
         // 5. Terapkan sorting
         $sortColumn = match ($sortBy) {
+            'id' => 'e_varian_body.id',
             'varian_body' => 'e_varian_body.varian_body',
-            'master_data_string' => 'a_type_engines.type_engine', // Contoh sort berdasarkan gabungan
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'e_varian_body.created_at',
             'updated_at' => 'e_varian_body.updated_at',
             default => 'e_varian_body.updated_at',
         };
-        // Jika sort by 'master_data_string', kita bisa sort berdasarkan beberapa kolom
-        if ($sortBy == 'master_data_string') {
-            $query->orderBy('a_type_engines.type_engine', $sortDirection)
-                ->orderBy('b_merks.merk', $sortDirection)
-                ->orderBy('c_type_chassis.type_chassis', $sortDirection)
-                ->orderBy('d_jenis_kendaraan.jenis_kendaraan', $sortDirection);
-        } else {
-            $query->orderBy($sortColumn, $sortDirection);
-        }
+        $query->orderBy($sortColumn, $sortDirection);
 
         // 6. Lakukan paginasi
         return $query->paginate($perPage);

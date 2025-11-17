@@ -21,18 +21,18 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan',
+            'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
-        $sortBy = $validated['sortBy'] ?? 'id';
-        $sortDirection = $validated['sortDirection'] ?? 'asc';
+        $sortBy = $validated['sortBy'] ?? 'updated_at'; // Default sort
+        $sortDirection = $validated['sortDirection'] ?? 'desc'; // Default direction
         $search = $validated['search'] ?? '';
 
         // 2. Query utama dengan JOIN ke semua tabel master
-        $query = MasterData::query()
+        $query = \App\Models\MasterData::query()
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
@@ -45,20 +45,26 @@ class MasterDataController extends Controller
         // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('a_type_engines.type_engine', 'like', "%{$search}%")
+                $q->where('master_data.id', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%");
+                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('master_data.created_at', 'like', "%{$search}%")
+                    ->orWhere('master_data.updated_at', 'like', "%{$search}%");
             });
         }
 
         // 5. Terapkan sorting
         $sortColumn = match ($sortBy) {
+            'id' => 'master_data.id',
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
-            default => 'master_data.id',
+            'created_at' => 'master_data.created_at',
+            'updated_at' => 'master_data.updated_at',
+            default => 'master_data.updated_at',
         };
         $query->orderBy($sortColumn, $sortDirection);
 

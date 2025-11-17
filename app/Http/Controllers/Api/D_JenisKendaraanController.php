@@ -28,14 +28,14 @@ class D_JenisKendaraanController extends Controller
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
-        $sortBy = $validated['sortBy'] ?? 'id';
-        $sortDirection = $validated['sortDirection'] ?? 'asc';
+        $sortBy = $validated['sortBy'] ?? 'id'; // Default sort
+        $sortDirection = $validated['sortDirection'] ?? 'asc'; // Default direction
         $search = $validated['search'] ?? '';
 
         // 2. Query utama (HANYA ke tabel d_jenis_kendaraan)
         $query = \App\Models\DJenisKendaraan::query();
 
-        // 3. Terapkan filter pencarian (HANYA di kolom d_jenis_kendaraan)
+        // 3. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
@@ -45,7 +45,7 @@ class D_JenisKendaraanController extends Controller
             });
         }
 
-        // 4. Terapkan sorting (HANYA di kolom d_jenis_kendaraan)
+        // 4. Terapkan sorting
         $query->orderBy($sortBy, $sortDirection);
 
         // 5. Lakukan paginasi

@@ -16,40 +16,103 @@ use App\Models\Role;
 use App\Models\HGambarOptional;
 use App\Models\IGambarKelistrikan;
 use App\Models\JJudulGambar;
+use App\Models\MasterData;
 
 class _OptionController extends Controller
 {
     // === DATA DROPDOWN KENDARAAN ===
 
-    public function getTypeEngines()
+    public function getOptionsTypeEngine(Request $request)
     {
-        return response()->json(ATypeEngine::all());
+        $search = $request->input('search', '');
+        return ATypeEngine::query()
+            ->where('type_engine', 'like', "%{$search}%")
+            ->whereNull('deleted_at') // Hanya ambil yang tidak di-soft-delete
+            ->orderBy('created_at', 'desc')
+            ->limit(30)
+            ->get(['id', 'type_engine as name']); // Format 'name' agar seragam
     }
 
-    public function getMerks($engine_id)
+    /**
+     * Mengambil daftar Merk (searchable, limit 30).
+     */
+    public function getOptionsMerk(Request $request)
     {
-        return response()->json(BMerk::where('id', 'like', $engine_id . '%')->get());
+        $search = $request->input('search', '');
+        return BMerk::query()
+            ->where('merk', 'like', "%{$search}%")
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->limit(30)
+            ->get(['id', 'merk as name']);
     }
 
-    public function getTypeChassis($merk_id)
+    /**
+     * Mengambil daftar Type Chassis (searchable, limit 30).
+     */
+    public function getOptionsTypeChassis(Request $request)
     {
-        return response()->json(CTypeChassis::where('id', 'like', $merk_id . '%')->get());
+        $search = $request->input('search', '');
+        return CTypeChassis::query()
+            ->where('type_chassis', 'like', "%{$search}%")
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->limit(30)
+            ->get(['id', 'type_chassis as name']);
     }
 
-    public function getJenisKendaraan()
+    /**
+     * Mengambil daftar Jenis Kendaraan (searchable, limit 30).
+     */
+    public function getOptionsJenisKendaraan(Request $request)
     {
-        return response()->json(DJenisKendaraan::all());
+        $search = $request->input('search', '');
+        return DJenisKendaraan::query()
+            ->where('jenis_kendaraan', 'like', "%{$search}%")
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->limit(30)
+            ->get(['id', 'jenis_kendaraan as name']);
     }
 
-    public function getVarianBody($jenis_kendaraan_id)
-    {
-        return response()->json(EVarianBody::where('jenis_kendaraan_id', $jenis_kendaraan_id)->get());
-    }
+    // === 2. DROPDOWN CERDAS (UNTUK FORM VARIAN BODY) ===
 
-    // public function getPengajuan($varian_body_id)
-    // {
-    //     return response()->json(FPengajuan::where('varian_body_id', $varian_body_id)->get());
-    // }
+    /**
+     * Mengambil daftar MasterData yang sudah jadi (searchable, limit 30).
+     */
+    public function getOptionsMasterData(Request $request)
+    {
+        $search = $request->input('search', '');
+
+        $query = MasterData::query()
+            ->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan'])
+            ->where(function ($q) use ($search) {
+                // Cari di semua kolom relasi
+                $q->whereHas('typeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
+                    ->orWhereHas('merk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
+                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
+                    ->orWhereHas('jenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"));
+            })
+            ->whereNull('deleted_at')
+            ->orderBy('created_at', 'desc')
+            ->limit(30);
+
+        // Ubah format data agar mudah dibaca di dropdown Flutter
+        $results = $query->get()->map(function ($item) {
+            // Cek untuk jaga-jaga jika ada relasi yang terhapus
+            $engine = $item->typeEngine->type_engine ?? 'N/A';
+            $merk = $item->merk->merk ?? 'N/A';
+            $chassis = $item->typeChassis->type_chassis ?? 'N/A';
+            $jenis = $item->jenisKendaraan->jenis_kendaraan ?? 'N/A';
+
+            return [
+                'id' => $item->id,
+                'name' => "$engine / $merk / $chassis / $jenis"
+            ];
+        });
+
+        return response()->json($results);
+    }
 
     // === DATA DROPDOWN FORM UTAMA ===
 
