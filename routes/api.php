@@ -37,12 +37,15 @@ Route::middleware('auth.api')->group(
             return $request->user();
         });
 
-        // Rute untuk mendapatkan data dropdown
-        Route::get('/options/type-engines', [OptionController::class, 'getTypeEngines']);
-        Route::get('/options/merks/{engine_id}', [OptionController::class, 'getMerks']);
-        Route::get('/options/type-chassis/{merk_id}', [OptionController::class, 'getTypeChassis']);
-        Route::get('/options/jenis-kendaraan/{chassis_id}', [OptionController::class, 'getJenisKendaraan']);
-        Route::get('/options/varian-body/{jenis_kendaraan_id}', [OptionController::class, 'getVarianBody']);
+        // Dropdown untuk form Transaksi & Master Data (independen & searchable)
+        Route::get('/options/type-engines', [OptionController::class, 'getOptionsTypeEngine']);
+        Route::get('/options/merks', [OptionController::class, 'getOptionsMerk']);
+        Route::get('/options/type-chassis', [OptionController::class, 'getOptionsTypeChassis']);
+        Route::get('/options/jenis-kendaraan', [OptionController::class, 'getOptionsJenisKendaraan']);
+
+        // Dropdown untuk form Varian Body (searchable)
+        Route::get('/options/master-data', [OptionController::class, 'getOptionsMasterData']);
+
         Route::get('/options/pengajuan', [OptionController::class, 'getPengajuan']);
         Route::get('/options/users', [OptionController::class, 'getUsers']);
         Route::get('/options/customers', [OptionController::class, 'getCustomers']);
@@ -99,7 +102,7 @@ Route::middleware('auth.api')->group(
             Route::get('/master-gambar/view', [GambarMasterController::class, 'viewPdf']);
             Route::get('/options/check-paket-optional/{varianBodyId}', [OptionController::class, 'checkPaketOptionalExists']);
             Route::apiResource('master-data', MasterDataController::class)->parameters([
-                'master-data' => 'masterDatum' // Penyesuaian nama parameter
+                'master-data' => 'masterDatum'
             ]);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);

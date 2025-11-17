@@ -2,26 +2,33 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use App\Http\Requests\UpdateTransaksiRequest;
-use App\Http\Requests\StoreTransaksiRequest;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreTransaksiRequest;
+use App\Http\Requests\UpdateTransaksiRequest;
+use App\Models\MasterData;
 use App\Models\Transaksi;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class TransaksiController extends Controller
 {
     use AuthorizesRequests;
+
+    /**
+     * Menampilkan data transaksi dengan paginasi, filter, dan sort
+     * yang sesuai dengan arsitektur MasterData.
+     */
     public function index(Request $request)
     {
-        // 1. Validasi parameter (termasuk untuk filter teks baru)
+        // 1. Validasi parameter
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string',
+            'sortBy' => 'nullable|string|in:id,customer,type_engine,merk,type_chassis,jenis_kendaraan,jenis_pengajuan,user,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
+            // Filter lanjutan (berbasis teks)
             'customer' => 'nullable|string',
             'type_engine' => 'nullable|string',
             'merk' => 'nullable|string',
@@ -36,91 +43,79 @@ class TransaksiController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        $query = Transaksi::with([
+        // 2. Query utama
+        $query = Transaksi::query()
+            // JOIN ke tabel relasi untuk sorting dan advanced filter
+            ->join('customers', 'transaksis.customer_id', '=', 'customers.id')
+            ->join('f_pengajuan', 'transaksis.f_pengajuan_id', '=', 'f_pengajuan.id')
+            ->join('users', 'transaksis.user_id', '=', 'users.id')
+            ->join('master_data', 'transaksis.master_data_id', '=', 'master_data.id')
+            ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
+            ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
+            ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
+            ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->select('transaksis.*'); // <-- Penting!
+
+        // 3. Eager load relasi (untuk struktur JSON)
+        $query->with([
             'user:id,name',
             'customer:id,nama_pt',
-            'aTypeEngine',
-            'bMerk',
-            'cTypeChassis',
-            'dJenisKendaraan',
-            'fPengajuan'
+            'fPengajuan',
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
         ]);
 
-        // Buat mapping antara kunci filter dan relasinya
+        // 4. Terapkan Advanced Filter (berbasis teks)
         $filterMap = [
-            'customer' => ['customer', 'nama_pt'],
-            'type_engine' => ['aTypeEngine', 'type_engine'],
-            'merk' => ['bMerk', 'merk'],
-            'type_chassis' => ['cTypeChassis', 'type_chassis'],
-            'jenis_kendaraan' => ['dJenisKendaraan', 'jenis_kendaraan'],
-            'jenis_pengajuan' => ['fPengajuan', 'jenis_pengajuan'],
-            'user' => ['user', 'name'],
+            'customer' => 'customers.nama_pt',
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
+            'jenis_pengajuan' => 'f_pengajuan.jenis_pengajuan',
+            'user' => 'users.name',
         ];
 
-        // Loop melalui setiap kemungkinan filter
-        foreach ($filterMap as $key => $relation) {
+        foreach ($filterMap as $key => $column) {
             if ($request->filled($key)) {
-                $value = $request->input($key);
-                // Gunakan whereHas untuk memfilter berdasarkan kondisi di relasi
-                $query->whereHas($relation[0], function ($q) use ($relation, $value) {
-                    $q->where($relation[1], 'like', "%{$value}%");
-                });
+                $query->where($column, 'like', '%' . $request->input($key) . '%');
             }
         }
 
-        // Filter pencarian global (tidak berubah)
+        // 5. Terapkan Global Search
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('id', 'like', "%{$search}%")
-                    ->orWhereHas('customer', fn($sub) => $sub->where('nama_pt', 'like', "%{$search}%"))
-                    ->orWhereHas('aTypeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
-                    ->orWhereHas('bMerk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
-                    ->orWhereHas('cTypeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
-                    ->orWhereHas('dJenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"))
-                    ->orWhereHas('fPengajuan', fn($sub) => $sub->where('jenis_pengajuan', 'like', "%{$search}%"))
-                    ->orWhereHas('user', fn($sub) => $sub->where('name', 'like', "%{$search}%"));
+                $q->where('transaksis.id', 'like', "%{$search}%")
+                    ->orWhere('customers.nama_pt', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
+                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('f_pengajuan.jenis_pengajuan', 'like', "%{$search}%")
+                    ->orWhere('users.name', 'like', "%{$search}%");
             });
         }
 
-        // Daftar kolom yang bisa di-sort dari tabel relasi
-        $sortableRelations = [
-            'customer' => ['customers', 'nama_pt'],
-            'type_engine' => ['a_type_engines', 'type_engine'],
-            'merk' => ['b_merks', 'merk'],
-            'type_chassis' => ['c_type_chassis', 'type_chassis'],
-            'jenis_kendaraan' => ['d_jenis_kendaraan', 'jenis_kendaraan'],
-            'jenis_pengajuan' => ['f_pengajuan', 'jenis_pengajuan'],
-            'user' => ['users', 'name'],
-        ];
+        // 6. Terapkan Sorting
+        $sortColumn = match ($sortBy) {
+            'id' => 'transaksis.id',
+            'customer' => 'customers.nama_pt',
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
+            'jenis_pengajuan' => 'f_pengajuan.jenis_pengajuan',
+            'user' => 'users.name',
+            'created_at' => 'transaksis.created_at',
+            'updated_at' => 'transaksis.updated_at',
+            default => 'transaksis.updated_at',
+        };
+        $query->orderBy($sortColumn, $sortDirection);
 
-        // Jika sorting berdasarkan relasi
-        if (array_key_exists($sortBy, $sortableRelations)) {
-            $relation = $sortableRelations[$sortBy];
-            $relationTable = $relation[0];
-            $relationColumn = $relation[1];
-            $foreignKey = substr($relationTable, 0, 1) . '_' . str_replace('s', '', $relationTable) . '_id';
-            if ($sortBy == 'jenis_pengajuan') { // Pengecualian untuk f_pengajuan
-                $foreignKey = 'f_pengajuan_id';
-            }
-            if ($sortBy == 'customer') { // Pengecualian untuk customers
-                $foreignKey = 'customer_id';
-            }
-            if ($sortBy == 'user') { // Pengecualian untuk users
-                $foreignKey = 'user_id';
-            }
-
-
-            $query->join($relationTable, "transaksis.{$foreignKey}", '=', "{$relationTable}.id")
-                ->orderBy($relationColumn, $sortDirection)
-                ->select('transaksis.*'); // Penting untuk menghindari ambiguitas kolom 'id'
-        } else {
-            // Sorting berdasarkan kolom di tabel transaksi itu sendiri (default)
-            $query->orderBy($sortBy, $sortDirection);
-        }
-
-        $transaksis = $query->paginate($perPage);
-
-        return response()->json($transaksis);
+        // 7. Lakukan paginasi
+        return $query->paginate($perPage);
     }
 
     /**
@@ -130,15 +125,37 @@ class TransaksiController extends Controller
     {
         $validated = $request->validated();
 
-        // --- HAPUS SEMUA LOGIKA ID OTOMATIS ---
+        // 1. Temukan (atau buat baru) MasterData berdasarkan 4 ID
+        $masterData = MasterData::firstOrCreate(
+            [
+                'a_type_engine_id' => $validated['a_type_engine_id'],
+                'b_merk_id' => $validated['b_merk_id'],
+                'c_type_chassis_id' => $validated['c_type_chassis_id'],
+                'd_jenis_kendaraan_id' => $validated['d_jenis_kendaraan_id'],
+            ]
+        );
 
-        // Tambahkan user_id yang sedang login
-        $data = $validated + ['user_id' => Auth::id()];
+        // 2. Buat Transaksi baru
+        $transaksi = Transaksi::create([
+            'master_data_id' => $masterData->id,
+            'customer_id' => $validated['customer_id'],
+            'f_pengajuan_id' => $validated['f_pengajuan_id'],
+            'user_id' => Auth::id(),
+        ]);
+        // ID (mmyy-xxxx) akan dibuat secara otomatis oleh Model Transaksi
 
-        // 'id' sekarang akan diisi oleh auto-increment
-        $transaksi = Transaksi::create($data);
+        // 3. Muat relasi baru untuk respons
+        $transaksi->load([
+            'user',
+            'customer',
+            'fPengajuan',
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
+        ]);
 
-        return response()->json($transaksi->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']), 201);
+        return response()->json($transaksi, 201);
     }
 
     /**
@@ -146,7 +163,16 @@ class TransaksiController extends Controller
      */
     public function show(Transaksi $transaksi)
     {
-        return response()->json($transaksi->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']));
+        $transaksi->load([
+            'user',
+            'customer',
+            'fPengajuan',
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
+        ]);
+        return response()->json($transaksi);
     }
 
     /**
@@ -155,17 +181,42 @@ class TransaksiController extends Controller
     public function update(UpdateTransaksiRequest $request, Transaksi $transaksi)
     {
         $this->authorize('update', $transaksi);
-        $transaksi->update($request->validated());
-        return response()->json($transaksi->fresh()->load(['user', 'customer', 'aTypeEngine', 'bMerk', 'cTypeChassis', 'dJenisKendaraan', 'fPengajuan']));
+        $validated = $request->validated();
+
+        // Temukan (atau buat) MasterData baru jika ada perubahan
+        $masterData = MasterData::firstOrCreate([
+            'a_type_engine_id' => $validated['a_type_engine_id'],
+            'b_merk_id' => $validated['b_merk_id'],
+            'c_type_chassis_id' => $validated['c_type_chassis_id'],
+            'd_jenis_kendaraan_id' => $validated['d_jenis_kendaraan_id'],
+        ]);
+
+        $transaksi->update([
+            'master_data_id' => $masterData->id,
+            'customer_id' => $validated['customer_id'],
+            'f_pengajuan_id' => $validated['f_pengajuan_id'],
+        ]);
+
+        $transaksi->fresh()->load([
+            'user',
+            'customer',
+            'fPengajuan',
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
+        ]);
+
+        return response()->json($transaksi);
     }
 
     /**
-     * Menghapus data transaksi.
+     * Menghapus (Soft Delete) data transaksi.
      */
     public function destroy(Transaksi $transaksi)
     {
         $this->authorize('delete', $transaksi);
-        $transaksi->delete();
-        return response()->json(null, 204);
+        $transaksi->delete(); // Asumsi Transaksi juga pakai SoftDeletes
+        return response()->noContent();
     }
 }

@@ -5,25 +5,58 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- Import
+use Illuminate\Database\Eloquent\SoftDeletes; // <-- Import
+use Illuminate\Support\Str; // <-- Import
 
 class Transaksi extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes; // <-- Tambahkan SoftDeletes
 
     protected $table = 'z_transaksi';
     public $incrementing = false;
     protected $keyType = 'string';
 
+    // Sesuaikan $fillable dengan migrasi baru
     protected $fillable = [
         'id',
-        'a_type_engine_id',         // <-- Tambahkan
-        'b_merk_id',                // <-- Tambahkan
-        'c_type_chassis_id',        // <-- Tambahkan
-        'd_jenis_kendaraan_id',
+        'master_data_id', // <-- BERUBAH
         'f_pengajuan_id',
         'customer_id',
         'user_id',
     ];
+
+    /**
+     * Boot logic untuk membuat ID mmyy-xxxx secara otomatis.
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            // 1. Dapatkan format mmyy (misal: 1125)
+            $prefix = date('my');
+
+            // 2. Cari ID terakhir di bulan & tahun ini
+            $lastTransaksi = static::where('id', 'like', $prefix . '-%')
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $counter = 1;
+            if ($lastTransaksi) {
+                // 3. Ambil counter (xxxx) dari ID terakhir dan tambahkan 1
+                $counter = (int)substr($lastTransaksi->id, -4) + 1;
+            }
+
+            // 4. Buat ID baru
+            $model->id = $prefix . '-' . str_pad($counter, 4, '0', STR_PAD_LEFT);
+        });
+    }
+
+    public function masterData(): BelongsTo
+    {
+        return $this->belongsTo(MasterData::class, 'master_data_id')->withTrashed();
+    }
 
     // Relasi yang sudah ada
     public function user()
@@ -34,27 +67,9 @@ class Transaksi extends Model
     {
         return $this->belongsTo(Customer::class);
     }
-    public function dJenisKendaraan()
-    {
-        return $this->belongsTo(DJenisKendaraan::class, 'd_jenis_kendaraan_id');
-    }
     public function fPengajuan()
     {
         return $this->belongsTo(FPengajuan::class, 'f_pengajuan_id');
-    }
-
-    // --- RELASI BARU ---
-    public function aTypeEngine()
-    {
-        return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id');
-    }
-    public function bMerk()
-    {
-        return $this->belongsTo(BMerk::class, 'b_merk_id');
-    }
-    public function cTypeChassis()
-    {
-        return $this->belongsTo(CTypeChassis::class, 'c_type_chassis_id');
     }
 
     public function detail(): HasOne

@@ -7,12 +7,13 @@ use App\Models\IGambarKelistrikan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class I_GambarKelistrikanController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Validasi parameter
+        // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
@@ -26,21 +27,20 @@ class I_GambarKelistrikanController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama: JOIN ke semua tabel induk
+        // 2. Query utama: JOIN ke Type Chassis dan induk-induknya
         $query = \App\Models\IGambarKelistrikan::query()
             ->join('c_type_chassis', 'i_gambar_kelistrikan.c_type_chassis_id', '=', 'c_type_chassis.id')
-            ->join('b_merks', 'i_gambar_kelistrikan.b_merk_id', '=', 'b_merks.id')
-            ->join('a_type_engines', 'i_gambar_kelistrikan.a_type_engine_id', '=', 'a_type_engines.id')
+            ->join('b_merks', 'c_type_chassis.b_merk_id', '=', 'b_merks.id') // Asumsi relasi baru
+            ->join('a_type_engines', 'b_merks.a_type_engine_id', '=', 'a_type_engines.id') // Asumsi relasi baru
             ->select('i_gambar_kelistrikan.*');
 
-        // 3. Eager load relasi untuk struktur JSON
+        // 3. Eager load relasi (untuk struktur JSON)
         $query->with('typeChassis.merk.typeEngine');
 
         // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.id', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
@@ -67,30 +67,36 @@ class I_GambarKelistrikanController extends Controller
 
     public function store(Request $request)
     {
+        // 1. Validasi: c_type_chassis_id sekarang integer
         $validated = $request->validate([
-            'c_type_chassis_id' => 'required|exists:c_type_chassis,id|unique:i_gambar_kelistrikan,c_type_chassis_id', // <-- Tambahkan unique
+            'c_type_chassis_id' => [
+                'required',
+                'integer',
+                'exists:c_type_chassis,id',
+                // Pastikan unik dan belum di soft-delete
+                Rule::unique('i_gambar_kelistrikan')->whereNull('deleted_at'),
+            ],
             'gambar_kelistrikan' => 'required|file|mimes:pdf',
             'deskripsi' => 'required|string|max:255',
         ]);
 
-        // 1. Ambil data Type Chassis beserta semua relasi induknya
+        // 2. Ambil data Type Chassis beserta relasi induknya
         $typeChassis = \App\Models\CTypeChassis::with('merk.typeEngine')
             ->find($validated['c_type_chassis_id']);
 
-        // 2. Bangun path file
-        $pathParts = [
+        // 3. Bangun path file baru
+        $pathData = [
             $typeChassis->merk->typeEngine->type_engine,
             $typeChassis->merk->merk,
             $typeChassis->type_chassis,
+            'kelistrikan' // Subfolder baru
         ];
-        $basePath = implode('/', array_map(fn($part) => Str::slug($part), $pathParts));
+        $basePath = implode('/', array_map(fn($part) => Str::slug($part), $pathData));
         $fileName = Str::slug($validated['deskripsi']) . '.pdf';
         $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
 
-        // 3. Buat entri baru dengan menyertakan SEMUA ID induk
+        // 4. Buat entri baru (tanpa ID induk A dan B, karena tidak perlu)
         $gambarKelistrikan = IGambarKelistrikan::create([
-            'a_type_engine_id' => $typeChassis->merk->typeEngine->id,
-            'b_merk_id' => $typeChassis->merk->id,
             'c_type_chassis_id' => $validated['c_type_chassis_id'],
             'path_gambar_kelistrikan' => $path,
             'deskripsi' => Str::upper($validated['deskripsi']),

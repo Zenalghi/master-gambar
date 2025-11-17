@@ -12,10 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('c_type_chassis', function (Blueprint $table) {
-            $table->id(); // <-- BERUBAH
+            $table->id();
+            $table->foreignId('b_merk_id')->constrained('b_merks');
             $table->string('type_chassis');
             $table->timestamps();
-            $table->softDeletes(); // <-- TAMBAHKAN INI
+            $table->softDeletes();
+            $table->unique(['b_merk_id', 'type_chassis']);
         });
     }
 

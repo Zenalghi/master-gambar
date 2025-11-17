@@ -16,25 +16,38 @@ class GambarMasterController extends Controller
 {
     public function uploadGambarUtama(Request $request)
     {
-        $request->validate([
-            'e_varian_body_id' => 'required|exists:e_varian_body,id',
+        // 1. Validasi: Sekarang kita menerima master_data_id
+        $validated = $request->validate([
+            'master_data_id' => 'required|integer|exists:master_data,id',
+            'varian_body' => 'required|string|max:255', // <-- Terima nama varian body
             'gambar_utama' => 'required|file|mimes:pdf',
             'gambar_terurai' => 'required|file|mimes:pdf',
             'gambar_kontruksi' => 'required|file|mimes:pdf',
         ]);
 
-        $varianBody = EVarianBody::with('jenisKendaraan.typeChassis.merk.typeEngine')->find($request->e_varian_body_id);
+        // 2. Buat atau ambil Varian Body
+        // Ini memastikan Varian Body ada sebelum kita menggunakannya
+        $varianBody = EVarianBody::firstOrCreate(
+            [
+                'master_data_id' => $validated['master_data_id'],
+                'varian_body' => Str::upper($validated['varian_body']),
+            ]
+        );
+
+        // 3. Bangun path folder (menggunakan helper baru)
         $basePath = $this->buildPath($varianBody);
 
-        // --- Gunakan helper baru untuk membuat nama file dinamis ---
+        // 4. Bangun nama file (menggunakan helper baru)
         $fileNameUtama = $this->buildFileName($varianBody, 'Gambar Utama');
         $fileNameTerurai = $this->buildFileName($varianBody, 'Gambar Terurai');
         $fileNameKontruksi = $this->buildFileName($varianBody, 'Gambar Kontruksi');
 
+        // 5. Simpan file-file
         $pathUtama = $request->file('gambar_utama')->storeAs($basePath, $fileNameUtama, 'master_gambar');
         $pathTerurai = $request->file('gambar_terurai')->storeAs($basePath, $fileNameTerurai, 'master_gambar');
         $pathKontruksi = $request->file('gambar_kontruksi')->storeAs($basePath, $fileNameKontruksi, 'master_gambar');
 
+        // 6. Simpan data ke database
         $gambarUtama = GGambarUtama::updateOrCreate(
             ['e_varian_body_id' => $varianBody->id],
             [
@@ -44,7 +57,35 @@ class GambarMasterController extends Controller
             ]
         );
 
+        // Muat relasi baru untuk dikirim kembali sebagai konfirmasi
+        $gambarUtama->load('varianBody.masterData');
+
         return response()->json($gambarUtama, 201);
+    }
+
+    /**
+     * Helper function untuk membangun path folder baru.
+     * Format: {id_master_data}/{nama_varian_body_slug}
+     */
+    private function buildPath(EVarianBody $varianBody): string
+    {
+        // Cukup gunakan ID Master Data dan nama Varian Body
+        $masterDataId = $varianBody->master_data_id;
+        $varianNameSlug = Str::slug($varianBody->varian_body);
+
+        return $masterDataId . '/' . $varianNameSlug;
+    }
+
+    /**
+     * Helper function untuk membangun nama file baru.
+     * Format: {nama_varian_body_slug}_{suffix}.pdf
+     */
+    private function buildFileName(EVarianBody $varianBody, string $suffix): string
+    {
+        $varianNameSlug = Str::slug($varianBody->varian_body, '-');
+        $suffixSlug = Str::slug($suffix, '-');
+
+        return $varianNameSlug . '_' . $suffixSlug . '.pdf';
     }
 
     /**
@@ -66,46 +107,6 @@ class GambarMasterController extends Controller
         $gambarUtama->delete();
 
         return response()->json(null, 204); // 204 No Content
-    }
-
-    /**
-     * Helper function untuk membangun path folder dinamis yang bersih.
-     */
-    private function buildPath(EVarianBody $varianBody): string
-    {
-        $engine = $varianBody->jenisKendaraan->typeChassis->merk->typeEngine->type_engine;
-        $merk = $varianBody->jenisKendaraan->typeChassis->merk->merk;
-        $chassis = $varianBody->jenisKendaraan->typeChassis->type_chassis;
-        $jenis = $varianBody->jenisKendaraan->jenis_kendaraan;
-        $varian = $varianBody->varian_body;
-
-        // Membersihkan setiap bagian path dari karakter yang tidak valid untuk nama folder
-        return Str::slug($engine) . '/' . Str::slug($merk) . '/' . Str::slug($chassis) . '/' . Str::slug($jenis) . '/' . Str::slug($varian);
-    }
-
-    private function buildFileName(EVarianBody $varianBody, string $suffix): string
-    {
-        $engine = $varianBody->jenisKendaraan->typeChassis->merk->typeEngine->type_engine;
-        $merk = $varianBody->jenisKendaraan->typeChassis->merk->merk;
-        $chassis = $varianBody->jenisKendaraan->typeChassis->type_chassis;
-        $jenis = $varianBody->jenisKendaraan->jenis_kendaraan;
-        $varian = $varianBody->varian_body;
-
-        // Gabungkan semua nama dengan pemisah '-' dan tambahkan akhiran
-        $baseName = collect([$engine, $merk, $chassis, $jenis, $varian, $suffix])
-            ->map(fn($item) => Str::slug($item, '-')) // Bersihkan setiap bagian
-            ->implode('_');
-
-        return $baseName . '.pdf';
-    }
-
-    private function buildChassisPath(CTypeChassis $chassis): string
-    {
-        $engine = $chassis->merk->typeEngine->type_engine;
-        $merk = $chassis->merk->merk;
-        $chassisName = $chassis->type_chassis;
-
-        return Str::slug($engine) . '/' . Str::slug($merk) . '/' . Str::slug($chassisName);
     }
 
     public function showPaths(GGambarUtama $gambarUtama)

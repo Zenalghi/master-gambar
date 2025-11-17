@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\EVarianBody;
+use App\Models\GGambarUtama;
+use App\Models\HGambarOptional;
+use App\Models\IGambarKelistrikan;
+use App\Models\JJudulGambar;
 use App\Models\Transaksi;
-use App\Models\TransaksiOptional;
-use App\Models\TransaksiDetail;
-use App\Models\TransaksiVarian;
+use App\Models\User; // <-- Import User untuk data pemeriksa
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class ProsesTransaksiController extends Controller
 {
@@ -21,105 +23,64 @@ class ProsesTransaksiController extends Controller
      */
     public function proses(Request $request, Transaksi $transaksi)
     {
+        // 1. Validasi (sedikit penyesuaian pada i_gambar_kelistrikan_id)
         $varianCount = count($request->input('varian_body_ids', []));
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
             'varian_body_ids' => 'required|array|min:1|max:20',
-            'varian_body_ids.*' => 'required|exists:e_varian_body,id',
+            'varian_body_ids.*' => 'required|integer|exists:e_varian_body,id',
             'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
-            'judul_gambar_ids.*' => ['required', 'integer', 'exists:j_judul_gambars,id'],
+            'judul_gambar_ids.*' => 'required|integer|exists:j_judul_gambars,id',
             'h_gambar_optional_ids' => 'nullable|array|min:1|max:20',
             'h_gambar_optional_ids.*' => 'required|integer|exists:h_gambar_optional,id',
-            'i_gambar_kelistrikan_id' => 'nullable|exists:i_gambar_kelistrikan,id',
+            'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
             'deskripsi_optional' => 'nullable|string|max:255',
         ]);
 
-        // 1. Simpan semua detail transaksi dalam SATU transaction block
-        try {
-            DB::beginTransaction();
-
-            $detail = TransaksiDetail::updateOrCreate(
-                ['z_transaksi_id' => $transaksi->id],
-                [
-                    'pemeriksa_id' => $validated['pemeriksa_id'],
-                    'i_gambar_kelistrikan_id' => $validated['i_gambar_kelistrikan_id'] ?? null,
-                ]
-            );
-
-            $detail->varians()->delete();
-            $detail->optionals()->delete();
-
-            foreach ($validated['varian_body_ids'] as $index => $varian_id) {
-                TransaksiVarian::create([
-                    'z_transaksi_detail_id' => $detail->id,
-                    'e_varian_body_id' => $varian_id,
-                    'urutan' => $index + 1,
-                    'j_judul_gambar_id' => $validated['judul_gambar_ids'][$index],
-                ]);
-            }
-
-            if (!empty($validated['h_gambar_optional_ids'])) {
-                foreach ($validated['h_gambar_optional_ids'] as $index => $optional_id) {
-                    TransaksiOptional::create([
-                        'z_transaksi_detail_id' => $detail->id,
-                        'h_gambar_optional_id' => $optional_id,
-                        'urutan' => $index + 1,
-                    ]);
-                }
-            }
-
-            DB::commit();
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Gagal menyimpan detail transaksi.', 'error' => $e->getMessage()], 500);
-        }
-
-        // 2. Muat semua data yang diperlukan (kode ini tidak berubah)
+        // 2. Muat semua data yang diperlukan
         $transaksi->load([
-            'user',
-            'customer',
+            'user:id,name,username,signature', // Ambil signature user
+            'customer:id,nama_pt,pj,signature_pj', // Ambil signature customer
             'fPengajuan',
-            'detail.pemeriksa',
-            'detail.optionals.gambarOptional',
-            'detail.gambarKelistrikan',
-            'detail.varians.varianBody.gambarUtama',
-            'detail.varians.judulGambar',
-            'detail.varians.varianBody.jenisKendaraan.typeChassis.merk.typeEngine'
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
         ]);
 
-        // 3. Bangun "Daftar Pekerjaan Gambar" dengan urutan yang benar
+        // Ambil data pemeriksa secara manual dari ID yang divalidasi
+        $pemeriksa = User::find($validated['pemeriksa_id']);
+
+        // 3. Bangun "Daftar Pekerjaan Gambar"
         $drawingJobs = [];
         $pageCounter = 1;
-
-        $jenisKendaraan = $transaksi->detail->varians->first()->varianBody->jenisKendaraan;
-        $chassis = $jenisKendaraan->typeChassis;
-        $merk = $chassis->merk;
+        $masterData = $transaksi->masterData;
 
         // TAHAP 1: Loop HANYA untuk Gambar Utama, Terurai, dan Kontruksi
-        foreach ($transaksi->detail->varians as $transaksiVarian) {
-            $varianBody = $transaksiVarian->varianBody;
-            $gambarUtamaData = $varianBody->gambarUtama;
-            $jenisJudul = $transaksiVarian->judulGambar->nama_judul;
+        foreach ($validated['varian_body_ids'] as $index => $varian_id) {
+            $varianBody = EVarianBody::find($varian_id);
+            $gambarUtamaData = $varianBody->gambarUtama; // Relasi HasOne
+            $jenisJudul = JJudulGambar::find($validated['judul_gambar_ids'][$index]);
 
-            if ($gambarUtamaData) {
+            if ($gambarUtamaData && $jenisJudul) {
                 $drawingJobs[] = [
-                    'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul,
+                    'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                     'varian' => $varianBody->varian_body,
                     'page' => $pageCounter++,
                     'source_pdf' => $gambarUtamaData->path_gambar_utama,
                     'deskripsi_optional' => $validated['deskripsi_optional'] ?? null
                 ];
                 $drawingJobs[] = [
-                    'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul,
+                    'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
                     'varian' => $varianBody->varian_body,
                     'page' => $pageCounter++,
                     'source_pdf' => $gambarUtamaData->path_gambar_terurai,
                     'deskripsi_optional' => null
                 ];
                 $drawingJobs[] = [
-                    'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul,
+                    'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
                     'varian' => $varianBody->varian_body,
                     'page' => $pageCounter++,
                     'source_pdf' => $gambarUtamaData->path_gambar_kontruksi,
@@ -128,123 +89,115 @@ class ProsesTransaksiController extends Controller
             }
         }
 
+        // Ambil data gambar opsional (paket & independen) dalam satu query
+        $gambarOptionals = HGambarOptional::whereIn('id', $validated['h_gambar_optional_ids'] ?? [])
+            ->orderBy('id', 'asc') // Jaga urutan
+            ->get();
+
         // TAHAP 2: Loop HANYA untuk Gambar Optional Paket
-        foreach ($transaksi->detail->optionals as $transaksiOptional) {
-            $gambarOptional = $transaksiOptional->gambarOptional;
-            // Proses hanya jika tipenya 'paket'
-            if ($gambarOptional && $gambarOptional->tipe === 'paket') {
-                $drawingJobs[] = ['title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL PAKET', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $gambarOptional->path_gambar_optional];
-            }
+        foreach ($gambarOptionals->where('tipe', 'paket') as $gambarOptional) {
+            $drawingJobs[] = [
+                'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL PAKET',
+                'varian' => '',
+                'page' => $pageCounter++,
+                'source_pdf' => $gambarOptional->path_gambar_optional,
+                'deskripsi_optional' => null
+            ];
         }
 
         // TAHAP 3: Loop HANYA untuk Gambar Optional Independen
-        foreach ($transaksi->detail->optionals as $transaksiOptional) {
-            $gambarOptional = $transaksiOptional->gambarOptional;
-            // Proses hanya jika tipenya 'independen'
-            if ($gambarOptional && $gambarOptional->tipe === 'independen') {
-                $drawingJobs[] = ['title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $gambarOptional->path_gambar_optional];
-            }
+        foreach ($gambarOptionals->where('tipe', 'independen') as $gambarOptional) {
+            $drawingJobs[] = [
+                'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
+                'varian' => '',
+                'page' => $pageCounter++,
+                'source_pdf' => $gambarOptional->path_gambar_optional,
+                'deskripsi_optional' => null
+            ];
         }
 
         // TAHAP 4: Proses Gambar Kelistrikan (terakhir)
-        if ($transaksi->detail->gambarKelistrikan) {
-            $drawingJobs[] = ['title' => $transaksi->detail->gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN', 'varian' => '', 'page' => $pageCounter++, 'source_pdf' => $transaksi->detail->gambarKelistrikan->path_gambar_kelistrikan];
+        if (isset($validated['i_gambar_kelistrikan_id'])) {
+            $gambarKelistrikan = IGambarKelistrikan::find($validated['i_gambar_kelistrikan_id']);
+            if ($gambarKelistrikan) {
+                $drawingJobs[] = [
+                    'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
+                    'varian' => '',
+                    'page' => $pageCounter++,
+                    'source_pdf' => $gambarKelistrikan->path_gambar_kelistrikan,
+                    'deskripsi_optional' => null
+                ];
+            }
         }
 
         $totalHalaman = count($drawingJobs);
-        $generatedPdfs = [];
-
-        // 4. Proses setiap pekerjaan
-        foreach ($drawingJobs as $job) {
-            $pdfData = [
-                'digambar' => $transaksi->user->name,
-                'diperiksa' => $transaksi->detail->pemeriksa->name,
-                'disetujui' => $transaksi->customer->pj,
-                'tanggal' => now()->format('d.m.y'),
-                'catatan' => $job['varian'],
-                'judul_gambar' => $job['title'],
-                'karoseri' => $transaksi->customer->nama_pt,
-                'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
-                'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
-                'source_pdf_path' => $job['source_pdf'],
-                'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
-                'signature_path_2' => $transaksi->detail->pemeriksa->signature ? Storage::disk('user_paraf')->path($transaksi->detail->pemeriksa->signature) : null,
-                'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
-                'deskripsi_optional' => $job['deskripsi_optional'] ?? null,
-            ];
-
-            $pdfContent = $this->generateSinglePdfPage($pdfData);
-            $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
-        }
 
         // 5. Tentukan aksi final
         if ($validated['aksi'] === 'preview') {
             $previewPage = $validated['preview_page'] ?? 1;
             $previewIndex = $previewPage - 1;
 
-            // Cek apakah pekerjaan untuk halaman yang diminta ada
             if (isset($drawingJobs[$previewIndex])) {
                 $job = $drawingJobs[$previewIndex];
-
-                // Siapkan data HANYA untuk halaman ini
-                $pdfData = [
-                    'digambar' => $transaksi->user->name,
-                    'diperiksa' => $transaksi->detail->pemeriksa->name,
-                    'disetujui' => $transaksi->customer->pj,
-                    'tanggal' => now()->format('d.m.y'),
-                    'catatan' => $job['varian'],
-                    'judul_gambar' => $job['title'],
-                    'karoseri' => $transaksi->customer->nama_pt,
-                    'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
-                    'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
-                    'source_pdf_path' => $job['source_pdf'],
-                    'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
-                    'signature_path_2' => $transaksi->detail->pemeriksa->signature ? Storage::disk('user_paraf')->path($transaksi->detail->pemeriksa->signature) : null,
-                    'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
-                    'deskripsi_optional' => $job['deskripsi_optional'] ?? null,
-                ];
-
-                // Panggil generateSinglePdfPage HANYA SEKALI
+                $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                 $pdfContent = $this->generateSinglePdfPage($pdfData);
-
                 return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
             } else {
                 return response()->json(['message' => 'Halaman preview tidak ditemukan.'], 404);
             }
         } else { // aksi === 'proses'
-            // --- LOGIKA PEMBUATAN NAMA FILE ZIP ---
-            $jenisKendaraan = $transaksi->detail->varians->first()->varianBody->jenisKendaraan;
-            $chassis = $jenisKendaraan->typeChassis;
-            $merk = $chassis->merk;
+            $generatedPdfs = [];
+            foreach ($drawingJobs as $job) {
+                $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
+                $pdfContent = $this->generateSinglePdfPage($pdfData);
+                $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
+            }
+
+            // --- LOGIKA PEMBUATAN NAMA FILE ZIP (DIPERBARUI) ---
             $zipFileName = sprintf(
                 '%s-(%s)-%s_%s_%s-(%s).zip',
                 $transaksi->user->username,
                 $transaksi->fPengajuan->jenis_pengajuan,
                 $transaksi->customer->nama_pt,
-                $merk->merk,
-                $chassis->type_chassis,
-                $jenisKendaraan->jenis_kendaraan
+                $masterData->merk->merk,
+                $masterData->typeChassis->type_chassis,
+                $masterData->jenisKendaraan->jenis_kendaraan
             );
             $cleanZipFileName = Str::slug(pathinfo($zipFileName, PATHINFO_FILENAME)) . '.zip';
 
-            // --- LOGIKA PEMBUATAN FILE ZIP ---
+            // ... (Logika pembuatan file ZIP tidak berubah) ...
             $zip = new \ZipArchive();
-            $tempZipPath = tempnam(sys_get_temp_dir(), 'gambar_'); // Buat file sementara
-
-            if ($zip->open($tempZipPath, \ZipArchive::CREATE) !== TRUE) {
-                return response()->json(['message' => 'Gagal membuat file zip.'], 500);
-            }
-
-            // Tambahkan setiap PDF yang sudah dibuat ke dalam arsip zip
+            $tempZipPath = tempnam(sys_get_temp_dir(), 'gambar_');
+            $zip->open($tempZipPath, \ZipArchive::CREATE);
             foreach ($generatedPdfs as $pdfFile) {
                 $zip->addFromString($pdfFile['name'], $pdfFile['content']);
             }
-
             $zip->close();
-
-            // Kirim file zip sebagai respons download, lalu hapus file sementara setelah dikirim
             return response()->download($tempZipPath, $cleanZipFileName)->deleteFileAfterSend(true);
         }
+    }
+
+    /**
+     * Helper function untuk membangun array data PDF.
+     */
+    private function buildPdfData(array $job, Transaksi $transaksi, User $pemeriksa, int $totalHalaman): array
+    {
+        return [
+            'digambar' => $transaksi->user->name,
+            'diperiksa' => $pemeriksa->name,
+            'disetujui' => $transaksi->customer->pj,
+            'tanggal' => now()->format('d.m.y'),
+            'catatan' => $job['varian'],
+            'judul_gambar' => $job['title'],
+            'karoseri' => $transaksi->customer->nama_pt,
+            'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
+            'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
+            'source_pdf_path' => $job['source_pdf'],
+            'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
+            'signature_path_2' => $pemeriksa->signature ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null,
+            'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
+            'deskripsi_optional' => $job['deskripsi_optional'] ?? null,
+        ];
     }
 
     /**

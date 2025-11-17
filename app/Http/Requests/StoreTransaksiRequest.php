@@ -21,12 +21,12 @@ class StoreTransaksiRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'customer_id' => 'required|exists:customers,id',
-            'a_type_engine_id' => 'required|string|exists:a_type_engines,id',
-            'b_merk_id' => 'required|string|exists:b_merks,id',
-            'c_type_chassis_id' => 'required|string|exists:c_type_chassis,id',
-            'd_jenis_kendaraan_id' => 'required|string|exists:d_jenis_kendaraan,id',
-            'f_pengajuan_id' => 'required|exists:f_pengajuan,id',
+            'customer_id' => 'required|integer|exists:customers,id',
+            'a_type_engine_id' => 'required|integer|exists:a_type_engines,id', // <-- Ubah ke integer
+            'b_merk_id' => 'required|integer|exists:b_merks,id', // <-- Ubah ke integer
+            'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id', // <-- Ubah ke integer
+            'd_jenis_kendaraan_id' => 'required|integer|exists:d_jenis_kendaraan,id', // <-- Ubah ke integer
+            'f_pengajuan_id' => 'required|integer|exists:f_pengajuan,id',
         ];
     }
 }

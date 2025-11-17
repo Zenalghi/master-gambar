@@ -102,7 +102,7 @@ class E_VarianBodyController extends Controller
     {
         // Cek semua relasi anak
         if (
-            TransaksiVarian::where('e_varian_body_id', $varianBody->id)->exists() ||
+            // TransaksiVarian::where('e_varian_body_id', $varianBody->id)->exists() ||
             GGambarUtama::where('e_varian_body_id', $varianBody->id)->exists() ||
             HGambarOptional::where('e_varian_body_id', $varianBody->id)->exists()
         ) {

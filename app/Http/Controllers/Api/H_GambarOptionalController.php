@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\EVarianBody; // <-- Pastikan EVarianBody di-import
 use App\Models\HGambarOptional;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -11,6 +12,10 @@ use Illuminate\Validation\Rule;
 
 class H_GambarOptionalController extends Controller
 {
+    /**
+     * Menampilkan data gambar optional dengan paginasi, filter, dan sort
+     * (Sekarang menggunakan relasi MasterData)
+     */
     public function index(Request $request)
     {
         // 1. Validasi parameter
@@ -27,24 +32,24 @@ class H_GambarOptionalController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama: JOIN ke semua tabel induk
-        $query = \App\Models\HGambarOptional::query()
+        // 2. Query utama (berpusat pada h_gambar_optional)
+        $query = HGambarOptional::query()
             ->join('e_varian_body', 'h_gambar_optional.e_varian_body_id', '=', 'e_varian_body.id')
-            ->join('d_jenis_kendaraan', 'h_gambar_optional.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-            ->join('c_type_chassis', 'h_gambar_optional.c_type_chassis_id', '=', 'c_type_chassis.id')
-            ->join('b_merks', 'h_gambar_optional.b_merk_id', '=', 'b_merks.id')
-            ->join('a_type_engines', 'h_gambar_optional.a_type_engine_id', '=', 'a_type_engines.id')
-            ->select('h_gambar_optional.*');
+            ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
+            ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
+            ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
+            ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
+            ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->select('h_gambar_optional.*'); // <-- Selalu select tabel utama
 
-        // 3. Eager load relasi (untuk konsistensi struktur JSON)
-        $query->with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine');
+        // 3. Eager load relasi (untuk struktur JSON)
+        // Kita load relasi VarianBody, yang di dalamnya sudah me-load MasterData
+        $query->with('varianBody.masterData.typeEngine', 'varianBody.masterData.merk', 'varianBody.masterData.typeChassis', 'varianBody.masterData.jenisKendaraan');
 
         // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('h_gambar_optional.deskripsi', 'like', "%{$search}%")
-                    ->orWhere('e_varian_body.id', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.id', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.tipe', 'like', "%{$search}%")
                     ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
@@ -75,6 +80,9 @@ class H_GambarOptionalController extends Controller
         return $query->paginate($perPage);
     }
 
+    /**
+     * Menyimpan gambar optional baru.
+     */
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -85,116 +93,106 @@ class H_GambarOptionalController extends Controller
             'g_gambar_utama_id' => [
                 'required_if:tipe,paket',
                 'exists:g_gambar_utama,id',
-                Rule::unique('h_gambar_optional', 'g_gambar_utama_id')->where('tipe', 'paket'),
+                Rule::unique('h_gambar_optional', 'g_gambar_utama_id')->where('tipe', 'paket')->whereNull('deleted_at'), // <-- Tambah whereNull
             ],
         ]);
 
         $tipe = $validated['tipe'];
-        $pathData = []; // Untuk menyimpan data path
         $createData = [
             'tipe' => $tipe,
             'deskripsi' => Str::upper($validated['deskripsi']),
         ];
 
+        $varianBody = null; // Variabel untuk menampung Varian Body
+
         if ($tipe === 'independen') {
-            $varianBody = \App\Models\EVarianBody::with('jenisKendaraan.typeChassis.merk.typeEngine')
-                ->find($validated['e_varian_body_id']);
-
-            $pathData = [
-                $varianBody->jenisKendaraan->typeChassis->merk->typeEngine->type_engine,
-                $varianBody->jenisKendaraan->typeChassis->merk->merk,
-                $varianBody->jenisKendaraan->typeChassis->type_chassis,
-                $varianBody->jenisKendaraan->jenis_kendaraan,
-                $varianBody->varian_body,
-                'independen' // Tambahkan subfolder
-            ];
-
-            $createData += [
-                'a_type_engine_id' => $varianBody->jenisKendaraan->typeChassis->merk->typeEngine->id,
-                'b_merk_id' => $varianBody->jenisKendaraan->typeChassis->merk->id,
-                'c_type_chassis_id' => $varianBody->jenisKendaraan->typeChassis->id,
-                'd_jenis_kendaraan_id' => $varianBody->jenisKendaraan->id,
-                'e_varian_body_id' => $validated['e_varian_body_id'],
-            ];
+            $varianBody = EVarianBody::with('masterData')->find($validated['e_varian_body_id']);
+            $createData['e_varian_body_id'] = $varianBody->id;
+            $subfolder = 'independen';
         } else { // tipe === 'paket'
-            $gambarUtama = \App\Models\GGambarUtama::with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine')
+            $gambarUtama = \App\Models\GGambarUtama::with('varianBody.masterData')
                 ->find($validated['g_gambar_utama_id']);
 
-            $pathData = [
-                $gambarUtama->varianBody->jenisKendaraan->typeChassis->merk->typeEngine->type_engine,
-                $gambarUtama->varianBody->jenisKendaraan->typeChassis->merk->merk,
-                $gambarUtama->varianBody->jenisKendaraan->typeChassis->type_chassis,
-                $gambarUtama->varianBody->jenisKendaraan->jenis_kendaraan,
-                $gambarUtama->varianBody->varian_body,
-                'paket' // Tambahkan subfolder
-            ];
+            $varianBody = $gambarUtama->varianBody; // Ambil Varian Body dari relasi
 
-            $createData += [
-                'g_gambar_utama_id' => $validated['g_gambar_utama_id'],
-                'a_type_engine_id' => $gambarUtama->varianBody->jenisKendaraan->typeChassis->merk->typeEngine->id,
-                'b_merk_id' => $gambarUtama->varianBody->jenisKendaraan->typeChassis->merk->id,
-                'c_type_chassis_id' => $gambarUtama->varianBody->jenisKendaraan->typeChassis->id,
-                'd_jenis_kendaraan_id' => $gambarUtama->varianBody->jenisKendaraan->id,
-                'e_varian_body_id' => $gambarUtama->varianBody->id,
-            ];
+            $createData['g_gambar_utama_id'] = $validated['g_gambar_utama_id'];
+            $createData['e_varian_body_id'] = $varianBody->id;
+            $subfolder = 'paket';
         }
 
-        $basePath = implode('/', array_map(fn($part) => Str::slug($part), $pathData));
+        // --- PENGISIAN DATA INDUK YANG BARU ---
+        // Ambil masterData dari $varianBody yang sudah kita dapatkan
+        $masterData = $varianBody->masterData;
+
+        $createData += [
+            'a_type_engine_id' => $masterData->a_type_engine_id,
+            'b_merk_id' => $masterData->b_merk_id,
+            'c_type_chassis_id' => $masterData->c_type_chassis_id,
+            'd_jenis_kendaraan_id' => $masterData->d_jenis_kendaraan_id,
+        ];
+        // ------------------------------------
+
+        // --- PATH BARU ---
+        // Format: {id_master_data}/{nama_varian_body_slug}/{subfolder}
+        $basePath = $varianBody->master_data_id . '/' . Str::slug($varianBody->varian_body) . '/' . $subfolder;
         $fileName = Str::slug($validated['deskripsi']) . '.pdf';
+        // ---------------
+
         $path = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
         $createData['path_gambar_optional'] = $path;
 
         $gambarOptional = HGambarOptional::create($createData);
+        $gambarOptional->load('varianBody.masterData'); // Muat relasi baru untuk response
 
         return response()->json($gambarOptional, 201);
     }
 
-    public function update(Request $request, HGambarOptional $gambarOptional) // <-- DIUBAH DI SINI
+    /**
+     * Memperbarui deskripsi gambar optional.
+     */
+    public function update(Request $request, HGambarOptional $gambarOptional)
     {
         $validated = $request->validate([
             'deskripsi' => 'required|string|max:255',
         ]);
 
-        // Lakukan update pada variabel yang benar
-        $gambarOptional->update([ // <-- DIUBAH DI SINI
+        $gambarOptional->update([
             'deskripsi' => Str::upper($validated['deskripsi']),
         ]);
 
-        // Ambil kembali data berdasarkan ID dari variabel yang benar
-        $updatedItem = HGambarOptional::with('varianBody.jenisKendaraan.typeChassis.merk.typeEngine')
-            ->findOrFail($gambarOptional->id); // <-- DIUBAH DI SINI
+        // Ambil kembali data dengan relasi yang benar
+        $updatedItem = $gambarOptional->fresh()->load('varianBody.masterData.typeEngine', 'varianBody.masterData.merk', 'varianBody.masterData.typeChassis', 'varianBody.masterData.jenisKendaraan');
 
         return response()->json($updatedItem);
     }
 
-    public function destroy(HGambarOptional $gambarOptional) // <-- DIUBAH DI SINI
+    /**
+     * Menghapus (Soft Delete) gambar optional.
+     */
+    public function destroy(HGambarOptional $gambarOptional)
     {
-        // Gunakan variabel yang benar untuk mengambil path
-        if ($gambarOptional->path_gambar_optional && Storage::disk('master_gambar')->exists($gambarOptional->path_gambar_optional)) { // <-- DIUBAH DI SINI
-            Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional); // <-- DIUBAH DI SINI
-        }
+        // File fisik tidak dihapus saat soft delete
+        // if ($gambarOptional->path_gambar_optional && Storage::disk('master_gambar')->exists($gambarOptional->path_gambar_optional)) {
+        //     Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
+        // }
 
-        // Hapus data dengan variabel yang benar
-        $gambarOptional->delete(); // <-- DIUBAH DI SINI
+        $gambarOptional->delete(); // Lakukan Soft Delete
 
         return response()->noContent();
     }
 
+    /**
+     * Menampilkan file PDF.
+     */
     public function showPdf(HGambarOptional $gambarOptional)
     {
         $path = $gambarOptional->path_gambar_optional;
 
-        // Cek apakah file ada di dalam disk 'master_gambar'
         if (!Storage::disk('master_gambar')->exists($path)) {
             return response()->json(['message' => 'File PDF tidak ditemukan.'], 404);
         }
 
-        // Ambil path lengkap ke file
         $filePath = Storage::disk('master_gambar')->path($path);
-
-        // Kirim file sebagai respons untuk diunduh/ditampilkan
-        return response()->file($filePath, [
-            'Content-Type' => 'application/pdf',
-        ]);
+        return response()->file($filePath, ['Content-Type' => 'application/pdf']);
     }
 }
