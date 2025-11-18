@@ -3,11 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\CTypeChassis;
 use App\Models\EVarianBody;
 use App\Models\GGambarUtama;
-// use App\Models\HGambarOptional;
-// use App\Models\IGambarKelistrikan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -16,38 +13,42 @@ class GambarMasterController extends Controller
 {
     public function uploadGambarUtama(Request $request)
     {
-        // 1. Validasi: Sekarang kita menerima master_data_id
+        // 1. Validasi (tidak berubah)
         $validated = $request->validate([
             'master_data_id' => 'required|integer|exists:master_data,id',
-            'varian_body' => 'required|string|max:255', // <-- Terima nama varian body
+            'varian_body' => 'required|string|max:255',
             'gambar_utama' => 'required|file|mimes:pdf',
             'gambar_terurai' => 'required|file|mimes:pdf',
             'gambar_kontruksi' => 'required|file|mimes:pdf',
         ]);
 
-        // 2. Buat atau ambil Varian Body
-        // Ini memastikan Varian Body ada sebelum kita menggunakannya
+        // 2. Buat atau ambil Varian Body (tidak berubah)
         $varianBody = EVarianBody::firstOrCreate(
             [
                 'master_data_id' => $validated['master_data_id'],
                 'varian_body' => Str::upper($validated['varian_body']),
             ]
         );
+        // Pada titik ini, $varianBody dijamin memiliki ID yang permanen
+        // (misal: 45)
 
-        // 3. Bangun path folder (menggunakan helper baru)
+        // 3. Bangun path folder BARU (menggunakan ID, bukan nama)
+        // Hasilnya akan seperti: "12/45"
         $basePath = $this->buildPath($varianBody);
 
-        // 4. Bangun nama file (menggunakan helper baru)
-        $fileNameUtama = $this->buildFileName($varianBody, 'Gambar Utama');
-        $fileNameTerurai = $this->buildFileName($varianBody, 'Gambar Terurai');
-        $fileNameKontruksi = $this->buildFileName($varianBody, 'Gambar Kontruksi');
+        // 4. Bangun nama file BARU (hanya berdasarkan suffix)
+        // Hasilnya akan seperti: "gambar-utama.pdf"
+        $fileNameUtama = $this->buildFileName('Gambar Utama');
+        $fileNameTerurai = $this->buildFileName('Gambar Terurai');
+        $fileNameKontruksi = $this->buildFileName('Gambar Kontruksi');
 
-        // 5. Simpan file-file
+        // 5. Simpan file-file (logika sama, path & nama file baru)
+        // Path final cth: "12/45/gambar-utama.pdf"
         $pathUtama = $request->file('gambar_utama')->storeAs($basePath, $fileNameUtama, 'master_gambar');
         $pathTerurai = $request->file('gambar_terurai')->storeAs($basePath, $fileNameTerurai, 'master_gambar');
         $pathKontruksi = $request->file('gambar_kontruksi')->storeAs($basePath, $fileNameKontruksi, 'master_gambar');
 
-        // 6. Simpan data ke database
+        // 6. Simpan data ke database (logika sama)
         $gambarUtama = GGambarUtama::updateOrCreate(
             ['e_varian_body_id' => $varianBody->id],
             [
@@ -57,35 +58,26 @@ class GambarMasterController extends Controller
             ]
         );
 
-        // Muat relasi baru untuk dikirim kembali sebagai konfirmasi
         $gambarUtama->load('varianBody.masterData');
-
         return response()->json($gambarUtama, 201);
     }
 
     /**
-     * Helper function untuk membangun path folder baru.
-     * Format: {id_master_data}/{nama_varian_body_slug}
+     * Helper function untuk membangun path folder baru yang stabil.
+     * Format: {id_master_data}/{id_varian_body}
      */
     private function buildPath(EVarianBody $varianBody): string
     {
-        // Cukup gunakan ID Master Data dan nama Varian Body
-        $masterDataId = $varianBody->master_data_id;
-        $varianNameSlug = Str::slug($varianBody->varian_body);
-
-        return $masterDataId . '/' . $varianNameSlug;
+        return $varianBody->master_data_id . '/' . $varianBody->id;
     }
 
     /**
-     * Helper function untuk membangun nama file baru.
-     * Format: {nama_varian_body_slug}_{suffix}.pdf
+     * Helper function untuk membangun nama file baru yang stabil.
+     * Format: {suffix_slug}.pdf
      */
-    private function buildFileName(EVarianBody $varianBody, string $suffix): string
+    private function buildFileName(string $suffix): string
     {
-        $varianNameSlug = Str::slug($varianBody->varian_body, '-');
-        $suffixSlug = Str::slug($suffix, '-');
-
-        return $varianNameSlug . '_' . $suffixSlug . '.pdf';
+        return Str::slug($suffix, '-') . '.pdf';
     }
 
     /**
@@ -105,8 +97,7 @@ class GambarMasterController extends Controller
 
         // 2. Hapus record dari database
         $gambarUtama->delete();
-
-        return response()->json(null, 204); // 204 No Content
+        return response()->json(null, 204);
     }
 
     public function showPaths(GGambarUtama $gambarUtama)
@@ -124,10 +115,7 @@ class GambarMasterController extends Controller
      */
     public function viewPdf(Request $request)
     {
-        $validated = $request->validate([
-            'path' => 'required|string',
-        ]);
-
+        $validated = $request->validate(['path' => 'required|string']);
         $path = $validated['path'];
 
         // Cek keamanan dasar agar tidak bisa mengakses file di luar direktori
@@ -140,9 +128,6 @@ class GambarMasterController extends Controller
         }
 
         $filePath = Storage::disk('master_gambar')->path($path);
-
-        return response()->file($filePath, [
-            'Content-Type' => 'application/pdf',
-        ]);
+        return response()->file($filePath, ['Content-Type' => 'application/pdf']);
     }
 }
