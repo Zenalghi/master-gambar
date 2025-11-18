@@ -93,7 +93,7 @@ class H_GambarOptionalController extends Controller
             'g_gambar_utama_id' => [
                 'required_if:tipe,paket',
                 'exists:g_gambar_utama,id',
-                Rule::unique('h_gambar_optional', 'g_gambar_utama_id')->where('tipe', 'paket')->whereNull('deleted_at'), // <-- Tambah whereNull
+                Rule::unique('h_gambar_optional', 'g_gambar_utama_id')->where('tipe', 'paket')->whereNull('deleted_at'),
             ],
         ]);
 
@@ -106,22 +106,20 @@ class H_GambarOptionalController extends Controller
         $varianBody = null; // Variabel untuk menampung Varian Body
 
         if ($tipe === 'independen') {
-            $varianBody = EVarianBody::with('masterData')->find($validated['e_varian_body_id']);
+            $varianBody = \App\Models\EVarianBody::with('masterData')->find($validated['e_varian_body_id']);
             $createData['e_varian_body_id'] = $varianBody->id;
             $subfolder = 'independen';
         } else { // tipe === 'paket'
             $gambarUtama = \App\Models\GGambarUtama::with('varianBody.masterData')
                 ->find($validated['g_gambar_utama_id']);
 
-            $varianBody = $gambarUtama->varianBody; // Ambil Varian Body dari relasi
+            $varianBody = $gambarUtama->varianBody;
 
             $createData['g_gambar_utama_id'] = $validated['g_gambar_utama_id'];
             $createData['e_varian_body_id'] = $varianBody->id;
             $subfolder = 'paket';
         }
 
-        // --- PENGISIAN DATA INDUK YANG BARU ---
-        // Ambil masterData dari $varianBody yang sudah kita dapatkan
         $masterData = $varianBody->masterData;
 
         $createData += [
@@ -130,19 +128,16 @@ class H_GambarOptionalController extends Controller
             'c_type_chassis_id' => $masterData->c_type_chassis_id,
             'd_jenis_kendaraan_id' => $masterData->d_jenis_kendaraan_id,
         ];
-        // ------------------------------------
 
-        // --- PATH BARU ---
-        // Format: {id_master_data}/{nama_varian_body_slug}/{subfolder}
-        $basePath = $varianBody->master_data_id . '/' . Str::slug($varianBody->varian_body) . '/' . $subfolder;
+        // Format: {id_master_data}/{id_varian_body}/{subfolder}
+        $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/' . $subfolder;
         $fileName = Str::slug($validated['deskripsi']) . '.pdf';
-        // ---------------
 
         $path = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
         $createData['path_gambar_optional'] = $path;
 
         $gambarOptional = HGambarOptional::create($createData);
-        $gambarOptional->load('varianBody.masterData'); // Muat relasi baru untuk response
+        $gambarOptional->load('varianBody.masterData');
 
         return response()->json($gambarOptional, 201);
     }
