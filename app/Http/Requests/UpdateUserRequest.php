@@ -21,6 +21,7 @@ class UpdateUserRequest extends FormRequest
             'username' => 'sometimes|required|string|max:255|unique:users,username,' . $userId,
             'password' => 'sometimes|nullable|string|min:8|confirmed', // Password tidak wajib diubah
             'role_id' => 'required|exists:roles,id',
+            'hint' => 'sometimes|nullable|string|max:255',
         ];
     }
 }

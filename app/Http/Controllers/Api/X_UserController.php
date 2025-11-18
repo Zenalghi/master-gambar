@@ -18,17 +18,17 @@ class X_UserController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Tentukan parameter dari request
+        // 1. Tentukan parameter
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search');
-
         $sortBy = $request->input('sort_by', 'updated_at');
         $sortAsc = $request->input('sort_asc', 'false') === 'true';
 
         // 2. Tentukan kolom yang diizinkan untuk di-sort
-        $allowedSorts = ['name', 'username', 'role', 'created_at', 'updated_at'];
+        // --- TAMBAHKAN 'hint' DI SINI ---
+        $allowedSorts = ['name', 'username', 'role', 'hint', 'created_at', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
-            $sortBy = 'updated_at';
+            $sortBy = 'updated_at'; // Kembalikan ke default
         }
 
         // 3. Mulai query
@@ -39,6 +39,7 @@ class X_UserController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('username', 'like', "%{$search}%")
+                    ->orWhere('hint', 'like', "%{$search}%") // <-- TAMBAHKAN PENCARIAN 'hint'
                     ->orWhereHas('role', function ($roleQuery) use ($search) {
                         $roleQuery->where('name', 'like', "%{$search}%");
                     });
@@ -51,13 +52,14 @@ class X_UserController extends Controller
                 ->orderBy('roles.name', $sortAsc ? 'asc' : 'desc')
                 ->select('users.*');
         } else {
+            // Sorting 'hint' akan berfungsi normal di sini
             $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
         }
 
-        // 6. Ambil data dengan paginasi
+        // 6. Ambil data
         $paginated = $query->paginate($perPage);
 
-        // 7. Format response sesuai kebutuhan Flutter
+        // 7. Format response
         return response()->json([
             'data' => $paginated->items(),
             'total' => $paginated->total(),
@@ -74,6 +76,7 @@ class X_UserController extends Controller
             'username' => $request->username,
             'password' => Hash::make($request->password),
             'role_id' => $request->role_id,
+            'hint' => $request->hint, // <-- TAMBAHKAN BARIS INI
         ]);
         return response()->json($user, 201);
     }
@@ -83,7 +86,6 @@ class X_UserController extends Controller
      */
     public function show(User $user)
     {
-        // Eager load relasi role
         return response()->json($user->load('role'));
     }
 
@@ -92,7 +94,7 @@ class X_UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user)
     {
-        $data = $request->validated();
+        $data = $request->validated(); // 'hint' sudah otomatis ada di sini
 
         if (!empty($data['password'])) {
             $data['password'] = Hash::make($data['password']);
@@ -100,8 +102,7 @@ class X_UserController extends Controller
             unset($data['password']);
         }
 
-        $user->update($data);
-        // Kirim data terbaru, termasuk relasi role
+        $user->update($data); // 'hint' akan ter-update jika ada di $data
         return response()->json($user->fresh()->load('role'));
     }
 

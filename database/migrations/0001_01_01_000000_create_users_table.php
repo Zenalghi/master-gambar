@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('username')->unique(); // Ganti dari email ke username
             // $table->timestamp('email_verified_at')->nullable(); // Hapus baris ini
             $table->string('password');
+            $table->string('hint')->nullable();
             $table->foreignId('role_id')->constrained('roles')->default(3);
             $table->string('signature')->nullable();
             $table->rememberToken();

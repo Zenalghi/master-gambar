@@ -22,6 +22,7 @@ class User extends Authenticatable
         'name',
         'username',
         'password',
+        'hint',
         'role_id',
         'signature', // Path ke file gambar tanda tangan
     ];
