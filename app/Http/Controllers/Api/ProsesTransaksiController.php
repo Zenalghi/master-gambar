@@ -41,8 +41,8 @@ class ProsesTransaksiController extends Controller
 
         // 2. Muat semua data yang diperlukan
         $transaksi->load([
-            'user:id,name,username,signature', // Ambil signature user
-            'customer:id,nama_pt,pj,signature_pj', // Ambil signature customer
+            'user:id,name,username,signature',
+            'customer:id,nama_pt,pj,signature_pj',
             'fPengajuan',
             'masterData.typeEngine',
             'masterData.merk',
@@ -57,14 +57,19 @@ class ProsesTransaksiController extends Controller
         $drawingJobs = [];
         $pageCounter = 1;
         $masterData = $transaksi->masterData;
-
-        // TAHAP 1: Loop HANYA untuk Gambar Utama, Terurai, dan Kontruksi
+        // TAHAP 1 & 2: Loop untuk Gambar Utama, Terurai, Kontruksi, DAN PAKET
         foreach ($validated['varian_body_ids'] as $index => $varian_id) {
             $varianBody = EVarianBody::find($varian_id);
-            $gambarUtamaData = $varianBody->gambarUtama; // Relasi HasOne
+
+            // Load relasi gambarUtama DAN gambarOptionals-nya
+            $gambarUtamaData = GGambarUtama::with('gambarOptionals')
+                ->where('e_varian_body_id', $varian_id)
+                ->first();
+
             $jenisJudul = JJudulGambar::find($validated['judul_gambar_ids'][$index]);
 
             if ($gambarUtamaData && $jenisJudul) {
+                // Proses 3 gambar utama
                 $drawingJobs[] = [
                     'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                     'varian' => $varianBody->varian_body,
@@ -86,34 +91,40 @@ class ProsesTransaksiController extends Controller
                     'source_pdf' => $gambarUtamaData->path_gambar_kontruksi,
                     'deskripsi_optional' => null
                 ];
+
+                // LANGSUNG proses gambar "paket" yang terikat pada $gambarUtamaData ini
+                foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
+                    // Pastikan ID gambar paket ini ada di dalam request (jika tidak, lewati)
+                    // Ini penting jika user bisa memilih/membatalkan pilihan gambar paket
+                    if (in_array($gambarPaket->id, $validated['h_gambar_optional_ids'] ?? [])) {
+                        $drawingJobs[] = [
+                            'title' => $gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET',
+                            'varian' => '',
+                            'page' => $pageCounter++,
+                            'source_pdf' => $gambarPaket->path_gambar_optional,
+                            'deskripsi_optional' => null
+                        ];
+                    }
+                }
             }
         }
 
-        // Ambil data gambar opsional (paket & independen) dalam satu query
-        $gambarOptionals = HGambarOptional::whereIn('id', $validated['h_gambar_optional_ids'] ?? [])
-            ->orderBy('id', 'asc') // Jaga urutan
-            ->get();
-
-        // TAHAP 2: Loop HANYA untuk Gambar Optional Paket
-        foreach ($gambarOptionals->where('tipe', 'paket') as $gambarOptional) {
-            $drawingJobs[] = [
-                'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL PAKET',
-                'varian' => '',
-                'page' => $pageCounter++,
-                'source_pdf' => $gambarOptional->path_gambar_optional,
-                'deskripsi_optional' => null
-            ];
-        }
-
         // TAHAP 3: Loop HANYA untuk Gambar Optional Independen
-        foreach ($gambarOptionals->where('tipe', 'independen') as $gambarOptional) {
-            $drawingJobs[] = [
-                'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
-                'varian' => '',
-                'page' => $pageCounter++,
-                'source_pdf' => $gambarOptional->path_gambar_optional,
-                'deskripsi_optional' => null
-            ];
+        if (!empty($validated['h_gambar_optional_ids'])) {
+            // Ambil hanya gambar independen
+            $gambarIndependen = HGambarOptional::whereIn('id', $validated['h_gambar_optional_ids'])
+                ->where('tipe', 'independen')
+                ->get();
+
+            foreach ($gambarIndependen as $gambarOptional) {
+                $drawingJobs[] = [
+                    'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
+                    'varian' => '',
+                    'page' => $pageCounter++,
+                    'source_pdf' => $gambarOptional->path_gambar_optional,
+                    'deskripsi_optional' => null
+                ];
+            }
         }
 
         // TAHAP 4: Proses Gambar Kelistrikan (terakhir)
