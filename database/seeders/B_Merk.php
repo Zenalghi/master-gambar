@@ -16,111 +16,55 @@ class B_Merk extends Seeder
         DB::table('b_merks')->insert([
             // EURO 2 Merks
             [
-                'id' => '0101',
+                'id' => '1',
                 'merk' => 'MITSUBISHI',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0102',
+                'id' => '2',
                 'merk' => 'HINO',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0103',
+                'id' => '3',
                 'merk' => 'ISUZU',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0104',
+                'id' => '4',
                 'merk' => 'UDTRUCKS',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0105',
+                'id' => '5',
                 'merk' => 'MERCEDES BENZ',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0106',
+                'id' => '6',
                 'merk' => 'TATA',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0107',
+                'id' => '7',
                 'merk' => 'FAW',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0108',
+                'id' => '8',
                 'merk' => 'SUZUKI',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0109',
-                'merk' => 'DAIHATSU',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-
-            // EURO 4 Merks
-            [
-                'id' => '0201',
-                'merk' => 'MITSUBISHI',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0202',
-                'merk' => 'HINO',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0203',
-                'merk' => 'ISUZU',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0204',
-                'merk' => 'UDTRUCKS',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0205',
-                'merk' => 'MERCEDES BENZ',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0206',
-                'merk' => 'TATA',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0207',
-                'merk' => 'FAW',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0208',
-                'merk' => 'SUZUKI',
-                'created_at' => now(),
-                'updated_at' => now()
-            ],
-            [
-                'id' => '0209',
+                'id' => '9',
                 'merk' => 'DAIHATSU',
                 'created_at' => now(),
                 'updated_at' => now()

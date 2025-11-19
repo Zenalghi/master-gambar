@@ -16,155 +16,155 @@ class C_TypeChassis extends Seeder
         DB::table('c_type_chassis')->insert([
             //mitshubisi
             [
-                'id' => '0101001',
+                'id' => '1',
                 'type_chassis' => 'COLT DIESEL FE 71 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0101002',
+                'id' => '2',
                 'type_chassis' => 'COLT DIESEL FE 71 PS (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0101003',
+                'id' => '3',
                 'type_chassis' => 'COLT DIESEL FE 71 L (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0101004',
+                'id' => '4',
                 'type_chassis' => 'COLT DIESEL FE 73 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0101005',
+                'id' => '5',
                 'type_chassis' => 'COLT DIESEL FE 73 HD (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             //Hino
             [
-                'id' => '0102001',
+                'id' => '6',
                 'type_chassis' => 'FC9JNKA-NNJ (4X2) M/T',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0102002',
+                'id' => '7',
                 'type_chassis' => 'FG8JJ1D-BGJ (FG 235 JJ)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0102003',
+                'id' => '8',
                 'type_chassis' => 'FG8JJ1D-JGJ (FG 245 JJ)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0102004',
+                'id' => '9',
                 'type_chassis' => 'FG8JK1A-BGJ (FG 235 JK)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0102005',
+                'id' => '10',
                 'type_chassis' => 'FG8JK1A-JGJ (FG 245 JK)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             //isuzu : NMR 71T SD (4X2) NMR 71T HD 5.8 (4X2) NMR 71T HD 6.1 (4X2) NMR 71T HD 6.5 (4X2) NMR 71T SD L (4x2)
             [
-                'id' => '0103001',
+                'id' => '11',
                 'type_chassis' => 'NMR 71T SD (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0103002',
+                'id' => '12',
                 'type_chassis' => 'NMR 71T HD 5.8 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0103003',
+                'id' => '13',
                 'type_chassis' => 'NMR 71T HD 6.1 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0103004',
+                'id' => '14',
                 'type_chassis' => 'NMR 71T HD 6.5 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0103005',
+                'id' => '15',
                 'type_chassis' => 'NMR 71T SD L (4x2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             //UD Trucks CKE 250 4X2R WB4600MM CKE 250 4X2R WB5200MM CKE 250 4X2R WB6000MM CKE 250 6X2R WB6000MM CDE 250 6X2R WB5100MM
             [
-                'id' => '0104001',
+                'id' => '16',
                 'type_chassis' => 'CKE 250 4X2R WB4600MM',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0104002',
+                'id' => '17',
                 'type_chassis' => 'CKE 250 4X2R WB5200MM',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0104003',
+                'id' => '18',
                 'type_chassis' => 'CKE 250 4X2R WB6000MM',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0104004',
+                'id' => '19',
                 'type_chassis' => 'CKE 250 6X2R WB6000MM',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0104005',
+                'id' => '20',
                 'type_chassis' => 'CDE 250 6X2R WB5100MM',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             //Mercedes Benz : MERCEDEZ-BENZ 1623C (4X2) MERCEDEZ-BENZ 1623 R/51 (4X2) MERCEDEZ-BENZ 1623 R/60 (4X2) MERCEDEZ-BENZ 2523 R/45 6X2) MERCEDEZ-BENZ 2528 R (6X2)
             [
-                'id' => '0105001',
+                'id' => '21',
                 'type_chassis' => 'MERCEDEZ-BENZ 1623C (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0105002',
+                'id' => '22',
                 'type_chassis' => 'MERCEDEZ-BENZ 1623 R/51 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0105003',
+                'id' => '23',
                 'type_chassis' => 'MERCEDEZ-BENZ 1623 R/60 (4X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0105004',
+                'id' => '24',
                 'type_chassis' => 'MERCEDEZ-BENZ 2523 R/45 (6X2)',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
-                'id' => '0105005',
+                'id' => '25',
                 'type_chassis' => 'MERCEDEZ-BENZ 2528 R (6X2)',
                 'created_at' => now(),
                 'updated_at' => now()

@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
             B_Merk::class,
             C_TypeChassis::class,
             D_JenisKendaraan::class,
-            E_VarianBody::class,
+            // E_VarianBody::class,
             F_Pengajuan::class,
             Transaksi::class,
             JJudulGambarSeeder::class,
