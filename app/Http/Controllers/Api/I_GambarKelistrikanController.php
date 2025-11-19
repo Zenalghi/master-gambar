@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\IGambarKelistrikan;
+use App\Models\CTypeChassis; // Import model Chassis untuk helper path
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -13,11 +14,10 @@ class I_GambarKelistrikanController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,deskripsi,created_at,updated_at',
+            'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -27,96 +27,90 @@ class I_GambarKelistrikanController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama: JOIN ke Type Chassis dan induk-induknya
-        $query = \App\Models\IGambarKelistrikan::query()
+        $query = IGambarKelistrikan::query()
+            ->join('a_type_engines', 'i_gambar_kelistrikan.a_type_engine_id', '=', 'a_type_engines.id')
+            ->join('b_merks', 'i_gambar_kelistrikan.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'i_gambar_kelistrikan.c_type_chassis_id', '=', 'c_type_chassis.id')
-            ->join('b_merks', 'c_type_chassis.b_merk_id', '=', 'b_merks.id') // Asumsi relasi baru
-            ->join('a_type_engines', 'b_merks.a_type_engine_id', '=', 'a_type_engines.id') // Asumsi relasi baru
             ->select('i_gambar_kelistrikan.*');
 
-        // 3. Eager load relasi (untuk struktur JSON)
-        $query->with('typeChassis.merk.typeEngine');
+        $query->with(['typeEngine', 'merk', 'typeChassis']);
 
-        // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
-                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
-                    ->orWhere('i_gambar_kelistrikan.created_at', 'like', "%{$search}%")
-                    ->orWhere('i_gambar_kelistrikan.updated_at', 'like', "%{$search}%");
+                    ->orWhere('b_merks.merk', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%");
             });
         }
 
-        // 5. Terapkan sorting
-        $sortColumn = match ($sortBy) {
-            'type_engine' => 'a_type_engines.type_engine',
-            'merk' => 'b_merks.merk',
-            'type_chassis' => 'c_type_chassis.type_chassis',
-            'deskripsi' => 'i_gambar_kelistrikan.deskripsi',
-            'created_at' => 'i_gambar_kelistrikan.created_at',
-            'updated_at' => 'i_gambar_kelistrikan.updated_at',
-            default => 'i_gambar_kelistrikan.updated_at',
-        };
+        // Logic sorting sederhana
+        $sortColumn = 'i_gambar_kelistrikan.updated_at'; // Default
+        if ($sortBy === 'type_engine') $sortColumn = 'a_type_engines.type_engine';
+        if ($sortBy === 'merk') $sortColumn = 'b_merks.merk';
+        if ($sortBy === 'type_chassis') $sortColumn = 'c_type_chassis.type_chassis';
+
         $query->orderBy($sortColumn, $sortDirection);
 
-        // 6. Lakukan paginasi
         return $query->paginate($perPage);
     }
 
     public function store(Request $request)
     {
-        // 1. Validasi (tambahkan 'unique' dengan 'whereNull')
+        // 1. Validasi 3 ID Induk
         $validated = $request->validate([
-            'c_type_chassis_id' => [
-                'required',
-                'integer',
-                'exists:c_type_chassis,id',
-                Rule::unique('i_gambar_kelistrikan')->whereNull('deleted_at'),
-            ],
+            'a_type_engine_id' => 'required|integer|exists:a_type_engines,id',
+            'b_merk_id' => 'required|integer|exists:b_merks,id',
+            'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id',
             'gambar_kelistrikan' => 'required|file|mimes:pdf',
             'deskripsi' => 'required|string|max:255',
         ]);
 
-        // 2. Ambil data Type Chassis (ini masih diperlukan untuk mengisi ID induk)
-        $typeChassis = \App\Models\CTypeChassis::with('merk.typeEngine')
-            ->find($validated['c_type_chassis_id']);
+        // 2. Cek Unik Manual (Kombinasi 3 ID)
+        $exists = IGambarKelistrikan::where('a_type_engine_id', $validated['a_type_engine_id'])
+            ->where('b_merk_id', $validated['b_merk_id'])
+            ->where('c_type_chassis_id', $validated['c_type_chassis_id'])
+            ->exists();
 
-        // --- PERUBAHAN PATH DI SINI ---
-        // Path baru: 'kelistrikan/{id_type_chassis}'
-        $basePath = 'kelistrikan/' . $validated['c_type_chassis_id'];
-        // Nama file baru: '{deskripsi_slug}.pdf'
+        if ($exists) {
+            return response()->json(['message' => 'Gambar Kelistrikan untuk kombinasi Engine, Merk, dan Chassis ini sudah ada.'], 422);
+        }
+
+        // 3. Bangun Path (Ambil nama untuk folder)
+        // Kita perlu query manual untuk mendapatkan nama folder karena request hanya kirim ID
+        $chassis = CTypeChassis::with('merk.typeEngine')->find($validated['c_type_chassis_id']);
+        // Note: Meskipun kita kirim ID engine/merk terpisah, kita pakai data dari relasi chassis
+        // untuk konsistensi penamaan folder.
+
+        $pathData = [
+            $chassis->merk->typeEngine->type_engine,
+            $chassis->merk->merk,
+            $chassis->type_chassis,
+            'kelistrikan'
+        ];
+
+        $basePath = implode('/', array_map(fn($part) => Str::slug($part), $pathData));
         $fileName = Str::slug($validated['deskripsi']) . '.pdf';
-        // ----------------------------
 
         $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
 
-        // 3. Buat entri baru (logika pengisian ID induk tetap sama)
-        $gambarKelistrikan = IGambarKelistrikan::create([
-            'a_type_engine_id' => $typeChassis->merk->typeEngine->id,
-            'b_merk_id' => $typeChassis->merk->id,
+        // 4. Simpan ke Database
+        $gambar = IGambarKelistrikan::create([
+            'a_type_engine_id' => $validated['a_type_engine_id'],
+            'b_merk_id' => $validated['b_merk_id'],
             'c_type_chassis_id' => $validated['c_type_chassis_id'],
             'path_gambar_kelistrikan' => $path,
             'deskripsi' => Str::upper($validated['deskripsi']),
         ]);
 
-        // Muat relasi untuk respons JSON
-        return response()->json($gambarKelistrikan->load('typeChassis.merk.typeEngine'), 201);
+        return response()->json($gambar, 201);
     }
 
     public function update(Request $request, IGambarKelistrikan $gambarKelistrikan)
     {
-        $validated = $request->validate([
-            // 'gambar_kelistrikan' => 'sometimes|file|mimes:pdf',
-            'deskripsi' => 'sometimes|string|max:255',
-        ]);
-        $gambarKelistrikan->update([
-            'deskripsi' => Str::upper($validated['deskripsi']),
-        ]);
-
-        $updatedGambarKelistrikan = IGambarKelistrikan::with('typeChassis.merk.typeEngine')->find($gambarKelistrikan->id);
-        return response()->json($updatedGambarKelistrikan, 200);
+        $validated = $request->validate(['deskripsi' => 'required|string|max:255']);
+        $gambarKelistrikan->update(['deskripsi' => Str::upper($validated['deskripsi'])]);
+        return response()->json($gambarKelistrikan->load('typeChassis.merk.typeEngine'));
     }
 
     public function destroy(IGambarKelistrikan $gambarKelistrikan)
@@ -128,25 +122,16 @@ class I_GambarKelistrikanController extends Controller
 
         // Hapus entri database
         $gambarKelistrikan->delete();
-
         return response()->noContent();
     }
 
     public function showPdf(IGambarKelistrikan $gambarKelistrikan)
     {
         $path = $gambarKelistrikan->path_gambar_kelistrikan;
-
-        // Check if the file exists in the specified disk
         if (!Storage::disk('master_gambar')->exists($path)) {
             return response()->json(['message' => 'File PDF tidak ditemukan.'], 404);
         }
-
-        // Get the full path to the file
         $filePath = Storage::disk('master_gambar')->path($path);
-
-        // Return the file as a downloadable response
-        return response()->file($filePath, [
-            'Content-Type' => 'application/pdf',
-        ]);
+        return response()->file($filePath, ['Content-Type' => 'application/pdf']);
     }
 }

@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('b_merks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('a_type_engine_id')->constrained('a_type_engines');
+            // $table->foreignId('a_type_engine_id')->constrained('a_type_engines');
             $table->string('merk');
             $table->timestamps();
             $table->softDeletes();
-            $table->unique(['a_type_engine_id', 'merk']);
+            // $table->unique(['a_type_engine_id', 'merk']);
         });
     }
 

@@ -37,7 +37,17 @@ class MasterDataController extends Controller
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-            ->select('master_data.*'); // <-- Penting!
+            ->leftJoin('i_gambar_kelistrikan', function ($join) {
+                $join->on('master_data.a_type_engine_id', '=', 'i_gambar_kelistrikan.a_type_engine_id')
+                    ->on('master_data.b_merk_id', '=', 'i_gambar_kelistrikan.b_merk_id')
+                    ->on('master_data.c_type_chassis_id', '=', 'i_gambar_kelistrikan.c_type_chassis_id');
+            })
+            ->select([
+                'master_data.*',
+                // Ambil ID kelistrikan jika ada (untuk status di frontend)
+                'i_gambar_kelistrikan.id as kelistrikan_id'
+            ])
+            ->groupBy('master_data.id');
 
         // 3. Eager load relasi (untuk struktur JSON)
         $query->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
