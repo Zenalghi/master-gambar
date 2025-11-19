@@ -13,11 +13,10 @@ return new class extends Migration
     {
         Schema::create('c_type_chassis', function (Blueprint $table) {
             $table->id();
-            // $table->foreignId('b_merk_id')->constrained('b_merks');
+            // HAPUS foreignId('b_merk_id')...
             $table->string('type_chassis');
             $table->timestamps();
             $table->softDeletes();
-            // $table->unique(['b_merk_id', 'type_chassis']);
         });
     }
 

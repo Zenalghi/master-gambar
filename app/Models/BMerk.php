@@ -13,8 +13,6 @@ class BMerk extends Model
     use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
 
     protected $table = 'b_merks';
-    public $incrementing = true; // <-- BERUBAH
-    protected $keyType = 'int'; // <-- BERUBAH
     protected $fillable = ['merk'];
 
     public function setMerkAttribute($value)
@@ -22,8 +20,8 @@ class BMerk extends Model
         $this->attributes['merk'] = Str::upper($value);
     }
 
-    public function typeEngine(): BelongsTo
-    {
-        return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id')->withTrashed();
-    }
+    // public function typeEngine(): BelongsTo
+    // {
+    //     return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id')->withTrashed();
+    // }
 }

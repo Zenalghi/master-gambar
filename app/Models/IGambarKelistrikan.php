@@ -10,9 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class IGambarKelistrikan extends Model
 {
     use HasFactory, SoftDeletes;
-
     protected $table = 'i_gambar_kelistrikan';
-
     protected $fillable = [
         'a_type_engine_id',
         'b_merk_id',
@@ -21,17 +19,15 @@ class IGambarKelistrikan extends Model
         'deskripsi',
     ];
 
-    public function typeEngine(): BelongsTo
+    public function typeEngine()
     {
         return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id')->withTrashed();
     }
-
-    public function merk(): BelongsTo
+    public function merk()
     {
         return $this->belongsTo(BMerk::class, 'b_merk_id')->withTrashed();
     }
-
-    public function typeChassis(): BelongsTo
+    public function typeChassis()
     {
         return $this->belongsTo(CTypeChassis::class, 'c_type_chassis_id')->withTrashed();
     }

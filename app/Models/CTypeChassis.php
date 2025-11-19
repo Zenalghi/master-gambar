@@ -14,8 +14,6 @@ class CTypeChassis extends Model
     use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
 
     protected $table = 'c_type_chassis';
-    public $incrementing = true; // <-- BERUBAH
-    protected $keyType = 'int'; // <-- BERUBAH
     protected $fillable = ['type_chassis'];
 
     /**
@@ -31,8 +29,8 @@ class CTypeChassis extends Model
     {
         return $this->hasOne(IGambarKelistrikan::class, 'c_type_chassis_id');
     }
-    public function merk(): BelongsTo
-    {
-        return $this->belongsTo(BMerk::class, 'b_merk_id')->withTrashed();
-    }
+    // public function merk(): BelongsTo
+    // {
+    //     return $this->belongsTo(BMerk::class, 'b_merk_id')->withTrashed();
+    // }
 }
