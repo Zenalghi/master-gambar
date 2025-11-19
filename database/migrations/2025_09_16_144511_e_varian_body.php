@@ -6,28 +6,30 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::create('e_varian_body', function (Blueprint $table) {
+        Schema::create('h_gambar_optional', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('master_data_id')->constrained('master_data')->onDelete('cascade');
-            $table->string('varian_body');
-            $table->timestamps();
-            $table->softDeletes();
 
-            // Mencegah nama varian body yang sama untuk master data yang sama
-            $table->unique(['master_data_id', 'varian_body']);
+            // Tipe gambar: Independen atau Paket (Dependen)
+            $table->enum('tipe', ['independen', 'paket'])->default('independen');
+
+            // Relasi utama: Ke Varian Body (Wajib ada untuk kedua tipe)
+            $table->foreignId('e_varian_body_id')->constrained('e_varian_body')->onDelete('cascade');
+
+            // Relasi tambahan: Ke Gambar Utama (Hanya jika tipe = paket)
+            $table->foreignId('g_gambar_utama_id')->nullable()->constrained('g_gambar_utama')->onDelete('cascade');
+
+            $table->string('path_gambar_optional');
+            $table->text('deskripsi')->nullable();
+
+            $table->timestamps();
+            $table->softDeletes(); // Tambahkan Soft Deletes
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::dropIfExists('e_varian_body');
+        Schema::dropIfExists('h_gambar_optional');
     }
 };
