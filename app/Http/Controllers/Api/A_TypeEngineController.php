@@ -4,39 +4,36 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ATypeEngine;
-use App\Models\BMerk;
+use App\Models\MasterData; // <-- Import MasterData untuk pengecekan
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class A_TypeEngineController extends Controller
 {
-    /**
-     * Menampilkan semua data, diurutkan berdasarkan type_engine A-Z.
-     */
     public function index()
     {
         return ATypeEngine::orderBy('type_engine')->get();
     }
 
-    /**
-     * Menyimpan data baru dengan ID otomatis.
-     */
+    // --- FITUR BARU: List data yang dihapus ---
+    public function trash()
+    {
+        return ATypeEngine::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'type_engine' => [ // <-- Ubah menjadi array
+            'type_engine' => [
                 'required',
                 'string',
                 'max:255',
-                // Cek unik hanya pada data yang tidak di-soft-delete
                 Rule::unique('a_type_engines')->whereNull('deleted_at'),
             ],
         ]);
 
-        // --- HAPUS SEMUA LOGIKA ID OTOMATIS ---
         $typeEngine = ATypeEngine::create($validated);
-
         return response()->json($typeEngine, 201);
     }
 
@@ -45,17 +42,13 @@ class A_TypeEngineController extends Controller
         return $typeEngine;
     }
 
-    /**
-     * Memperbarui data.
-     */
     public function update(Request $request, ATypeEngine $typeEngine)
     {
         $validated = $request->validate([
-            'type_engine' => [ // <-- Ubah menjadi array
+            'type_engine' => [
                 'required',
                 'string',
                 'max:255',
-                // Cek unik, abaikan ID saat ini dan yang sudah di-soft-delete
                 Rule::unique('a_type_engines')->whereNull('deleted_at')->ignore($typeEngine->id),
             ],
         ]);
@@ -65,18 +58,41 @@ class A_TypeEngineController extends Controller
     }
 
     /**
-     * Menghapus data (sekarang menggunakan SoftDeletes).
+     * Soft Delete (Hapus Sementara)
+     * Tidak perlu cek relasi Merk/MasterData di sini karena cuma soft delete.
      */
     public function destroy(ATypeEngine $typeEngine)
     {
-        // Cek relasi ke B_Merk (sekarang cek berdasarkan foreign key integer)
-        if (BMerk::where('a_type_engine_id', $typeEngine->id)->exists()) {
+        $typeEngine->delete();
+        return response()->json(null, 204);
+    }
+
+    /**
+     * Restore (Kembalikan Data)
+     */
+    public function restore($id)
+    {
+        $typeEngine = ATypeEngine::onlyTrashed()->findOrFail($id);
+        $typeEngine->restore();
+        return response()->json($typeEngine);
+    }
+
+    /**
+     * Force Delete (Hapus Permanen)
+     * DI SINI kita cek relasi ke Master Data.
+     */
+    public function forceDelete($id)
+    {
+        // Cek apakah data ini dipakai di Master Data
+        if (MasterData::where('a_type_engine_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Tipe Engine karena masih digunakan oleh data Merk.']
+                'general' => ['Data tidak bisa dihapus permanen karena masih digunakan di Master Data.']
             ]);
         }
 
-        $typeEngine->delete(); // Ini akan melakukan soft delete
+        $typeEngine = ATypeEngine::onlyTrashed()->findOrFail($id);
+        $typeEngine->forceDelete();
+
         return response()->json(null, 204);
     }
 }

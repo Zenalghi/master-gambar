@@ -56,6 +56,7 @@ Route::middleware('auth.api')->group(
         Route::get('/options/judul-gambar', [OptionController::class, 'getJudulGambar']);
 
         Route::apiResource('type-engines', TypeEngineController::class);
+
         Route::apiResource('merks', MerkController::class);
         Route::apiResource('type-chassis', TypeChassisController::class)
             ->parameters(['type-chassis' => 'typeChassis']);
@@ -104,6 +105,11 @@ Route::middleware('auth.api')->group(
             Route::apiResource('master-data', MasterDataController::class)->parameters([
                 'master-data' => 'masterDatum'
             ]);
+
+            Route::get('type-engines/trash', [TypeEngineController::class, 'trash']);
+            Route::post('type-engines/{id}/restore', [TypeEngineController::class, 'restore']);
+            Route::delete('type-engines/{id}/force-delete', [TypeEngineController::class, 'forceDelete']);
+            Route::apiResource('type-engines', TypeEngineController::class);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
