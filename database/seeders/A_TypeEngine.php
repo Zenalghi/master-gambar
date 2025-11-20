@@ -16,13 +16,13 @@ class A_TypeEngine extends Seeder
         DB::table('a_type_engines')->insert([
             [
                 'id' => '1',
-                'type_engine' => 'EURO 2',
+                'type_engine' => 'EURO 1',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
             [
                 'id' => '2',
-                'type_engine' => 'EURO 4',
+                'type_engine' => 'EURO 2',
                 'created_at' => now(),
                 'updated_at' => now()
             ],
