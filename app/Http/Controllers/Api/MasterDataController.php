@@ -95,22 +95,26 @@ class MasterDataController extends Controller
     /**
      * Memperbarui data master.
      */
-    public function update(UpdateMasterDataRequest $request, MasterData $masterData)
+    // Ganti $masterData menjadi $masterDatum agar Laravel bisa menyambungkannya (Binding)
+    public function update(UpdateMasterDataRequest $request, MasterData $masterDatum)
     {
-        $masterData->update($request->validated());
-        $masterData->fresh()->load(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
-        return response()->json($masterData);
+        $masterDatum->update($request->validated());
+
+        // Ambil data fresh dari DB beserta relasinya
+        $updatedData = $masterDatum->fresh()->load(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
+
+        return response()->json($updatedData);
     }
 
     // Ubah $masterData menjadi $masterDatum
     public function destroy(MasterData $masterDatum)
     {
         // 1. Cek Proteksi Relasi
-        if (\App\Models\EVarianBody::where('master_data_id', $masterDatum->id)->withTrashed()->exists()) {
-            throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Master Data ini karena masih digunakan oleh Varian Body.']
-            ]);
-        }
+        // if (\App\Models\EVarianBody::where('master_data_id', $masterDatum->id)->withTrashed()->exists()) {
+        //     throw ValidationException::withMessages([
+        //         'general' => ['Tidak dapat menghapus Master Data ini karena masih digunakan oleh Varian Body.']
+        //     ]);
+        // }
 
         // 2. Lakukan Soft Delete pada variabel yang benar
         $masterDatum->delete();

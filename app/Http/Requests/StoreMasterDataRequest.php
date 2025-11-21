@@ -4,6 +4,8 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use App\Models\MasterData;
 
 class StoreMasterDataRequest extends FormRequest
 {
@@ -18,16 +20,25 @@ class StoreMasterDataRequest extends FormRequest
             'b_merk_id' => 'required|integer|exists:b_merks,id',
             'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id',
             'd_jenis_kendaraan_id' => 'required|integer|exists:d_jenis_kendaraan,id',
-
-            // PERBAIKAN: Gunakan function($query) untuk kondisi where yang banyak
-            Rule::unique('master_data')
-                ->whereNull('deleted_at')
-                ->where(function ($query) {
-                    return $query->where('a_type_engine_id', $this->a_type_engine_id)
-                        ->where('b_merk_id', $this->b_merk_id)
-                        ->where('c_type_chassis_id', $this->c_type_chassis_id)
-                        ->where('d_jenis_kendaraan_id', $this->d_jenis_kendaraan_id);
-                }),
         ];
+    }
+
+    public function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            // Hanya cek ketika semua nilai tersedia
+            if ($this->filled('a_type_engine_id') && $this->filled('b_merk_id') && $this->filled('c_type_chassis_id') && $this->filled('d_jenis_kendaraan_id')) {
+                $exists = MasterData::whereNull('deleted_at')
+                    ->where('a_type_engine_id', $this->a_type_engine_id)
+                    ->where('b_merk_id', $this->b_merk_id)
+                    ->where('c_type_chassis_id', $this->c_type_chassis_id)
+                    ->where('d_jenis_kendaraan_id', $this->d_jenis_kendaraan_id)
+                    ->exists();
+
+                if ($exists) {
+                    $validator->errors()->add('general', 'Data sudah ada.');
+                }
+            }
+        });
     }
 }
