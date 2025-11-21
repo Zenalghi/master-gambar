@@ -100,18 +100,63 @@ class E_VarianBodyController extends Controller
 
     public function destroy(EVarianBody $varianBody)
     {
-        // Cek semua relasi anak
-        if (
-            // TransaksiVarian::where('e_varian_body_id', $varianBody->id)->exists() ||
-            GGambarUtama::where('e_varian_body_id', $varianBody->id)->exists() ||
-            HGambarOptional::where('e_varian_body_id', $varianBody->id)->exists()
-        ) {
+        // // Cek semua relasi anak
+        // if (
+        //     GGambarUtama::where('e_varian_body_id', $varianBody->id)->exists() ||
+        //     HGambarOptional::where('e_varian_body_id', $varianBody->id)->exists()
+        // ) {
+        //     throw ValidationException::withMessages([
+        //         'general' => ['Tidak dapat menghapus Varian Body karena sudah digunakan oleh Gambar Master.']
+        //     ]);
+        // }
+
+        $varianBody->delete();
+        return response()->json(null, 204);
+    }
+
+    // --- FITUR RECYCLE BIN ---
+    public function trash()
+    {
+        // Ambil data sampah beserta relasi untuk ditampilkan
+        return EVarianBody::onlyTrashed()
+            ->with('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan')
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restore($id)
+    {
+        $varianBody = EVarianBody::onlyTrashed()->findOrFail($id);
+        $varianBody->restore();
+        return response()->json($varianBody);
+    }
+
+    public function forceDelete($id)
+    {
+        // Proteksi Relasi Sebelum Hapus Permanen
+        if (TransaksiVarian::where('e_varian_body_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Varian Body karena sudah digunakan oleh Transaksi atau Gambar Master.']
+                'general' => ['Data tidak bisa dihapus permanen karena pernah digunakan dalam Transaksi.']
+            ]);
+        }
+        if (GGambarUtama::where('e_varian_body_id', $id)->exists()) {
+            throw ValidationException::withMessages([
+                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Utama.']
+            ]);
+        }
+        if (HGambarOptional::where('e_varian_body_id', $id)->exists()) {
+            throw ValidationException::withMessages([
+                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Optional.']
             ]);
         }
 
-        $varianBody->delete();
+        $varianBody = EVarianBody::onlyTrashed()->findOrFail($id);
+
+        // Hapus file fisik jika ada (Opsional, tergantung kebijakan)
+        // ... 
+
+        $varianBody->forceDelete();
+
         return response()->json(null, 204);
     }
 }

@@ -128,6 +128,11 @@ Route::middleware('auth.api')->group(
             Route::post('jenis-kendaraan/{id}/restore', [JenisKendaraanController::class, 'restore']);
             Route::delete('jenis-kendaraan/{id}/force-delete', [JenisKendaraanController::class, 'forceDelete']);
             Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
+
+            Route::get('varian-body/trash', [VarianBodyController::class, 'trash']);
+            Route::post('varian-body/{id}/restore', [VarianBodyController::class, 'restore']);
+            Route::delete('varian-body/{id}/force-delete', [VarianBodyController::class, 'forceDelete']);
+            Route::apiResource('varian-body', VarianBodyController::class);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
