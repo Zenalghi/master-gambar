@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMerkRequest;
 use App\Http\Requests\UpdateMerkRequest;
 use App\Models\BMerk;
-use App\Models\CTypeChassis;
+use App\Models\MasterData; // <-- Import MasterData untuk validasi hapus
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
 
 class B_MerkController extends Controller
 {
@@ -33,8 +32,7 @@ class B_MerkController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'asc'; // Default direction
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama (HANYA ke tabel b_merks)
-        $query = \App\Models\BMerk::query();
+        $query = BMerk::query();
 
         // 3. Terapkan filter pencarian
         if (!empty($search)) {
@@ -53,41 +51,60 @@ class B_MerkController extends Controller
         return $query->paginate($perPage);
     }
 
-    /**
-     * Menyimpan data baru dengan ID komposit otomatis.
-     */
+    // --- FITUR BARU: List data sampah ---
+    public function trash()
+    {
+        return BMerk::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+    }
+
     public function store(StoreMerkRequest $request)
     {
         $validated = $request->validated();
-
-        // --- HAPUS SEMUA LOGIKA ID OTOMATIS (4 DIGIT) ---
-
+        // Hapus logika ID manual, biarkan auto-increment
         $merk = BMerk::create($validated);
-
-        return response()->json($merk->load('typeEngine'), 201);
+        return response()->json($merk, 201);
     }
 
     public function show(BMerk $merk)
     {
-        return $merk->load('typeEngine');
+        return $merk;
     }
 
     public function update(UpdateMerkRequest $request, BMerk $merk)
     {
         $merk->update($request->validated());
-        return response()->json($merk->fresh()->load('typeEngine'));
+        return response()->json($merk); // Tidak perlu load relasi
     }
 
     public function destroy(BMerk $merk)
     {
-        // Cek relasi ke C_TypeChassis (sekarang cek berdasarkan foreign key integer)
-        if (CTypeChassis::where('b_merk_id', $merk->id)->exists()) {
+        // Soft Delete tidak perlu cek relasi yang ketat
+        $merk->delete();
+        return response()->json(null, 204);
+    }
+
+    // --- FITUR RESTORE ---
+    public function restore($id)
+    {
+        $merk = BMerk::onlyTrashed()->findOrFail($id);
+        $merk->restore();
+        return response()->json($merk);
+    }
+
+    // --- FITUR FORCE DELETE ---
+    public function forceDelete($id)
+    {
+        // Cek apakah data ini dipakai di Master Data (Tabel kombinasi utama)
+        // Jika masih dipakai, tolak penghapusan permanen.
+        if (MasterData::where('b_merk_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Merk karena masih memiliki data Tipe Chassis.']
+                'general' => ['Data tidak bisa dihapus permanen karena masih digunakan di Master Data (Kombinasi).']
             ]);
         }
 
-        $merk->delete(); // Ini akan melakukan soft delete
+        $merk = BMerk::onlyTrashed()->findOrFail($id);
+        $merk->forceDelete();
+
         return response()->json(null, 204);
     }
 }

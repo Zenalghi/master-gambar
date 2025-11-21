@@ -110,6 +110,11 @@ Route::middleware('auth.api')->group(
             Route::post('type-engines/{id}/restore', [TypeEngineController::class, 'restore']);
             Route::delete('type-engines/{id}/force-delete', [TypeEngineController::class, 'forceDelete']);
             Route::apiResource('type-engines', TypeEngineController::class);
+
+            Route::get('merks/trash', [MerkController::class, 'trash']);
+            Route::post('merks/{id}/restore', [MerkController::class, 'restore']);
+            Route::delete('merks/{id}/force-delete', [MerkController::class, 'forceDelete']);
+            Route::apiResource('merks', MerkController::class);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

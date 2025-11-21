@@ -13,8 +13,7 @@ return new class extends Migration
     {
         Schema::create('b_merks', function (Blueprint $table) {
             $table->id();
-            // HAPUS foreignId('a_type_engine_id')...
-            $table->string('merk'); // Biarkan string biasa, validasi unik di level request
+            $table->string('merk');
             $table->timestamps();
             $table->softDeletes();
         });
