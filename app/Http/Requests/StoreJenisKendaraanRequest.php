@@ -15,11 +15,11 @@ class StoreJenisKendaraanRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // 'type_chassis_id' => 'required|integer|exists:c_type_chassis,id', // <-- Ubah ke integer
-            'jenis_kendaraan' => [ // <-- Ubah menjadi array
+            'jenis_kendaraan' => [
                 'required',
                 'string',
                 'max:255',
+                // Unique check ignoring soft-deleted records
                 Rule::unique('d_jenis_kendaraan')->whereNull('deleted_at'),
             ],
         ];

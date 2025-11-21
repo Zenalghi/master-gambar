@@ -17,10 +17,11 @@ class UpdateJenisKendaraanRequest extends FormRequest
         $jenisKendaraanId = $this->route('jenis_kendaraan')->id;
 
         return [
-            'jenis_kendaraan' => [ // <-- Ubah menjadi array
+            'jenis_kendaraan' => [
                 'required',
                 'string',
                 'max:255',
+                // Unique check ignoring soft-deleted records and the current record
                 Rule::unique('d_jenis_kendaraan')->whereNull('deleted_at')->ignore($jenisKendaraanId),
             ],
         ];

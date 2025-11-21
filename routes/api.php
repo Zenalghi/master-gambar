@@ -120,6 +120,12 @@ Route::middleware('auth.api')->group(
             Route::post('type-chassis/{id}/restore', [TypeChassisController::class, 'restore']);
             Route::delete('type-chassis/{id}/force-delete', [TypeChassisController::class, 'forceDelete']);
             Route::apiResource('type-chassis', TypeChassisController::class)->parameters(['type-chassis' => 'typeChassis']);
+
+            // Route Recycle Bin Jenis Kendaraan
+            Route::get('jenis-kendaraan/trash', [JenisKendaraanController::class, 'trash']);
+            Route::post('jenis-kendaraan/{id}/restore', [JenisKendaraanController::class, 'restore']);
+            Route::delete('jenis-kendaraan/{id}/force-delete', [JenisKendaraanController::class, 'forceDelete']);
+            Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

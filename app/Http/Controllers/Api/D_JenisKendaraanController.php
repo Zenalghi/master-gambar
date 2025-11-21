@@ -6,10 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreJenisKendaraanRequest;
 use App\Http\Requests\UpdateJenisKendaraanRequest;
 use App\Models\DJenisKendaraan;
-use Illuminate\Validation\ValidationException;
+use App\Models\MasterData; // Import MasterData for dependency check
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\EVarianBody;
+use Illuminate\Validation\ValidationException;
 
 class D_JenisKendaraanController extends Controller
 {
@@ -31,9 +30,8 @@ class D_JenisKendaraanController extends Controller
         $sortBy = $validated['sortBy'] ?? 'id'; // Default sort
         $sortDirection = $validated['sortDirection'] ?? 'asc'; // Default direction
         $search = $validated['search'] ?? '';
-
         // 2. Query utama (HANYA ke tabel d_jenis_kendaraan)
-        $query = \App\Models\DJenisKendaraan::query();
+        $query = DJenisKendaraan::query();
 
         // 3. Terapkan filter pencarian
         if (!empty($search)) {
@@ -52,37 +50,61 @@ class D_JenisKendaraanController extends Controller
         return $query->paginate($perPage);
     }
 
+    // --- NEW FEATURE: Trash List ---
+    public function trash()
+    {
+        return DJenisKendaraan::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+    }
     /**
      * Menyimpan data baru dengan ID komposit otomatis.
      */
     public function store(StoreJenisKendaraanRequest $request)
     {
         $validated = $request->validated();
+        // Create directly, no custom ID logic needed
         $jenisKendaraan = DJenisKendaraan::create($validated);
         return response()->json($jenisKendaraan, 201);
     }
 
     public function show(DJenisKendaraan $jenisKendaraan)
     {
-        return response()->json($jenisKendaraan->load('typeChassis.merk.typeEngine'));
+        return $jenisKendaraan;
     }
 
     public function update(UpdateJenisKendaraanRequest $request, DJenisKendaraan $jenisKendaraan)
     {
         $jenisKendaraan->update($request->validated());
-        return response()->json($jenisKendaraan->fresh()->load('typeChassis.merk.typeEngine'));
+        return response()->json($jenisKendaraan);
     }
 
     public function destroy(DJenisKendaraan $jenisKendaraan)
     {
-        // Cek relasi ke E_VarianBody (sekarang cek berdasarkan foreign key integer)
-        if (EVarianBody::where('d_jenis_kendaraan_id', $jenisKendaraan->id)->exists()) {
+        // Soft delete doesn't require strict dependency check
+        $jenisKendaraan->delete();
+        return response()->json(null, 204);
+    }
+
+    // --- NEW FEATURE: Restore ---
+    public function restore($id)
+    {
+        $jenisKendaraan = DJenisKendaraan::onlyTrashed()->findOrFail($id);
+        $jenisKendaraan->restore();
+        return response()->json($jenisKendaraan);
+    }
+
+    // --- NEW FEATURE: Force Delete ---
+    public function forceDelete($id)
+    {
+        // Check if used in MasterData (since it's part of the independent master structure)
+        if (MasterData::where('d_jenis_kendaraan_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Jenis Kendaraan karena masih memiliki data Varian Body.']
+                'general' => ['Data tidak bisa dihapus permanen karena masih digunakan di Master Data (Kombinasi).']
             ]);
         }
 
-        $jenisKendaraan->delete(); // Soft delete
+        $jenisKendaraan = DJenisKendaraan::onlyTrashed()->findOrFail($id);
+        $jenisKendaraan->forceDelete();
+
         return response()->json(null, 204);
     }
 }

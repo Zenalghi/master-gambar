@@ -4,30 +4,24 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes; // <-- Tambah
-use Illuminate\Support\Str; // <-- Tambahkan import
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class DJenisKendaraan extends Model
 {
-    use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
+    use HasFactory, SoftDeletes;
 
     protected $table = 'd_jenis_kendaraan';
-    // public $incrementing = true; // <-- BERUBAH
-    // protected $keyType = 'int'; // <-- BERUBAH
+
+    // ID is now auto-increment integer (default behavior), so we remove $incrementing=false and $keyType='string'
+
     protected $fillable = ['jenis_kendaraan'];
 
     /**
-     * Secara otomatis mengubah nilai 'jenis_kendaraan' menjadi huruf kapital.
+     * Automatically convert 'jenis_kendaraan' to uppercase.
      */
     public function setJenisKendaraanAttribute($value)
     {
         $this->attributes['jenis_kendaraan'] = Str::upper($value);
     }
-
-    // public function varianBody(): HasMany
-    // {
-    //     return $this->hasMany(EVarianBody::class, 'jenis_kendaraan_id');
-    // }
 }
