@@ -15,11 +15,12 @@ class StoreTypeChassisRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'merk_id' => 'required|integer|exists:b_merks,id', // <-- Ubah ke integer
-            'type_chassis' => [ // <-- Ubah menjadi array
+            // HAPUS 'merk_id', tidak lagi dibutuhkan
+            'type_chassis' => [
                 'required',
                 'string',
                 'max:255',
+                // Cek unik hanya pada data yang tidak di-soft-delete
                 Rule::unique('c_type_chassis')->whereNull('deleted_at'),
             ],
         ];

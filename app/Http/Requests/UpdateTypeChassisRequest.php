@@ -14,13 +14,14 @@ class UpdateTypeChassisRequest extends FormRequest
 
     public function rules(): array
     {
-        $chassisId = $this->route('typeChassis')->id; // Sesuai 'parameters' di api.php
+        $chassisId = $this->route('typeChassis')->id;
 
         return [
-            'type_chassis' => [ // <-- Ubah menjadi array
+            'type_chassis' => [
                 'required',
                 'string',
                 'max:255',
+                // Cek unik, abaikan ID saat ini dan yang sudah di-soft-delete
                 Rule::unique('c_type_chassis')->whereNull('deleted_at')->ignore($chassisId),
             ],
         ];

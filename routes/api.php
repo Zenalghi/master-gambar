@@ -115,6 +115,11 @@ Route::middleware('auth.api')->group(
             Route::post('merks/{id}/restore', [MerkController::class, 'restore']);
             Route::delete('merks/{id}/force-delete', [MerkController::class, 'forceDelete']);
             Route::apiResource('merks', MerkController::class);
+
+            Route::get('type-chassis/trash', [TypeChassisController::class, 'trash']);
+            Route::post('type-chassis/{id}/restore', [TypeChassisController::class, 'restore']);
+            Route::delete('type-chassis/{id}/force-delete', [TypeChassisController::class, 'forceDelete']);
+            Route::apiResource('type-chassis', TypeChassisController::class)->parameters(['type-chassis' => 'typeChassis']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

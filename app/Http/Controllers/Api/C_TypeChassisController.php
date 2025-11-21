@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTypeChassisRequest;
 use App\Http\Requests\UpdateTypeChassisRequest;
 use App\Models\CTypeChassis;
-use Illuminate\Validation\ValidationException;
+use App\Models\IGambarKelistrikan;
+use App\Models\MasterData;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use App\Models\DJenisKendaraan;
+use Illuminate\Validation\ValidationException;
 
 class C_TypeChassisController extends Controller
 {
@@ -33,10 +33,8 @@ class C_TypeChassisController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc'; // Default direction
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama (HANYA ke tabel c_type_chassis)
-        $query = \App\Models\CTypeChassis::query();
+        $query = CTypeChassis::query();
 
-        // 3. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
@@ -53,40 +51,68 @@ class C_TypeChassisController extends Controller
         return $query->paginate($perPage);
     }
 
+    // --- FITUR BARU: List data sampah ---
+    public function trash()
+    {
+        return CTypeChassis::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+    }
     /**
      * Menyimpan data baru dengan ID komposit otomatis.
      */
     public function store(StoreTypeChassisRequest $request)
     {
         $validated = $request->validated();
-
-        // --- HAPUS SEMUA LOGIKA ID OTOMATIS (7 DIGIT) ---
-
+        // Hapus logika ID manual dan merk_id
         $typeChassis = CTypeChassis::create($validated);
-
-        return response()->json($typeChassis->load('merk.typeEngine'), 201);
+        return response()->json($typeChassis, 201);
     }
 
     public function show(CTypeChassis $typeChassis)
     {
-        return response()->json($typeChassis->load('merk.typeEngine'));
+        return $typeChassis;
     }
 
     public function update(UpdateTypeChassisRequest $request, CTypeChassis $typeChassis)
     {
         $typeChassis->update($request->validated());
-        return response()->json($typeChassis->fresh()->load('merk.typeEngine'));
+        return response()->json($typeChassis);
     }
 
     public function destroy(CTypeChassis $typeChassis)
     {
-        // Cek relasi ke D_JenisKendaraan (sekarang cek berdasarkan foreign key integer)
-        if (DJenisKendaraan::where('c_type_chassis_id', $typeChassis->id)->exists()) {
+        // Soft Delete tidak perlu cek relasi yang ketat
+        $typeChassis->delete();
+        return response()->json(null, 204);
+    }
+
+    // --- FITUR RESTORE ---
+    public function restore($id)
+    {
+        $typeChassis = CTypeChassis::onlyTrashed()->findOrFail($id);
+        $typeChassis->restore();
+        return response()->json($typeChassis);
+    }
+
+    // --- FITUR FORCE DELETE ---
+    public function forceDelete($id)
+    {
+        // Cek apakah data ini dipakai di Master Data
+        if (MasterData::where('c_type_chassis_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Tidak dapat menghapus Tipe Chassis karena masih memiliki data Jenis Kendaraan.']
+                'general' => ['Data tidak bisa dihapus permanen karena masih digunakan di Master Data (Kombinasi).']
             ]);
         }
-        $typeChassis->delete(); // Soft delete
+
+        // Cek juga apakah dipakai di Gambar Kelistrikan (karena relasi langsung)
+        if (IGambarKelistrikan::where('c_type_chassis_id', $id)->exists()) {
+            throw ValidationException::withMessages([
+                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Kelistrikan.']
+            ]);
+        }
+
+        $typeChassis = CTypeChassis::onlyTrashed()->findOrFail($id);
+        $typeChassis->forceDelete();
+
         return response()->json(null, 204);
     }
 }

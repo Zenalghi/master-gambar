@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('c_type_chassis', function (Blueprint $table) {
             $table->id();
-            // HAPUS foreignId('b_merk_id')...
             $table->string('type_chassis');
             $table->timestamps();
             $table->softDeletes();
