@@ -22,7 +22,7 @@ class EVarianBody extends Model
     }
     // ------------------------------------
 
-    public function masterData(): BelongsTo
+    public function masterData()
     {
         return $this->belongsTo(MasterData::class, 'master_data_id')->withTrashed();
     }
