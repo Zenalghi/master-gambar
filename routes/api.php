@@ -102,9 +102,11 @@ Route::middleware('auth.api')->group(
             Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
             Route::get('/master-gambar/view', [GambarMasterController::class, 'viewPdf']);
             Route::get('/options/check-paket-optional/{varianBodyId}', [OptionController::class, 'checkPaketOptionalExists']);
-            Route::apiResource('master-data', MasterDataController::class)->parameters([
-                'master-data' => 'masterDatum'
-            ]);
+
+            Route::get('master-data/trash', [MasterDataController::class, 'trash']);
+            Route::post('master-data/{id}/restore', [MasterDataController::class, 'restore']);
+            Route::delete('master-data/{id}/force-delete', [MasterDataController::class, 'forceDelete']);
+            Route::apiResource('master-data', MasterDataController::class)->parameters(['master-data' => 'masterDatum']);
 
             Route::get('type-engines/trash', [TypeEngineController::class, 'trash']);
             Route::post('type-engines/{id}/restore', [TypeEngineController::class, 'restore']);

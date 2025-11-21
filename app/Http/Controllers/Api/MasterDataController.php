@@ -102,19 +102,52 @@ class MasterDataController extends Controller
         return response()->json($masterData);
     }
 
-    /**
-     * Menghapus (Soft Delete) data master.
-     */
-    public function destroy(MasterData $masterData)
+    // Ubah $masterData menjadi $masterDatum
+    public function destroy(MasterData $masterDatum)
     {
-        // Proteksi: Cek apakah data master ini masih dipakai oleh Varian Body
-        if (EVarianBody::where('master_data_id', $masterData->id)->exists()) {
+        // 1. Cek Proteksi Relasi
+        if (\App\Models\EVarianBody::where('master_data_id', $masterDatum->id)->withTrashed()->exists()) {
             throw ValidationException::withMessages([
                 'general' => ['Tidak dapat menghapus Master Data ini karena masih digunakan oleh Varian Body.']
             ]);
         }
 
-        $masterData->delete(); // Soft delete
+        // 2. Lakukan Soft Delete pada variabel yang benar
+        $masterDatum->delete();
+
         return response()->noContent();
+    }
+
+    // --- FITUR RECYCLE BIN ---
+    public function trash()
+    {
+        // Ambil data yang dihapus beserta relasinya untuk ditampilkan
+        return MasterData::onlyTrashed()
+            ->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan'])
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    public function restore($id)
+    {
+        $masterData = MasterData::onlyTrashed()->findOrFail($id);
+        $masterData->restore();
+        return response()->json($masterData);
+    }
+
+    public function forceDelete($id)
+    {
+        // Cek apakah Master Data ini dipakai di Varian Body (walaupun sudah di soft delete)
+        // Kita gunakan query raw atau withTrashed untuk memastikannya
+        if (EVarianBody::where('master_data_id', $id)->withTrashed()->exists()) {
+            throw ValidationException::withMessages([
+                'general' => ['Data tidak bisa dihapus permanen karena masih digunakan oleh Varian Body (aktif/sampah).']
+            ]);
+        }
+
+        $masterData = MasterData::onlyTrashed()->findOrFail($id);
+        $masterData->forceDelete();
+
+        return response()->json(null, 204);
     }
 }

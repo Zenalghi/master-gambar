@@ -11,7 +11,6 @@ class StoreMasterDataRequest extends FormRequest
     {
         return true; // Asumsikan dihandle oleh middleware
     }
-
     public function rules(): array
     {
         return [
@@ -20,13 +19,15 @@ class StoreMasterDataRequest extends FormRequest
             'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id',
             'd_jenis_kendaraan_id' => 'required|integer|exists:d_jenis_kendaraan,id',
 
-            // Cek kombinasi unik yang belum di-soft-delete
-            Rule::unique('master_data')->whereNull('deleted_at')->where([
-                'a_type_engine_id' => $this->a_type_engine_id,
-                'b_merk_id' => $this->b_merk_id,
-                'c_type_chassis_id' => $this->c_type_chassis_id,
-                'd_jenis_kendaraan_id' => $this->d_jenis_kendaraan_id,
-            ]),
+            // PERBAIKAN: Gunakan function($query) untuk kondisi where yang banyak
+            Rule::unique('master_data')
+                ->whereNull('deleted_at')
+                ->where(function ($query) {
+                    return $query->where('a_type_engine_id', $this->a_type_engine_id)
+                        ->where('b_merk_id', $this->b_merk_id)
+                        ->where('c_type_chassis_id', $this->c_type_chassis_id)
+                        ->where('d_jenis_kendaraan_id', $this->d_jenis_kendaraan_id);
+                }),
         ];
     }
 }
