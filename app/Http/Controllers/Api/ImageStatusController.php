@@ -37,7 +37,7 @@ class ImageStatusController extends Controller
         $search = $validated['search'] ?? '';
 
         // 2. Query utama (Tidak Berubah)
-        $query = \App\Models\EVarianBody::query()
+        $query = EVarianBody::query()
             ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
