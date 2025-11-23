@@ -18,11 +18,11 @@ class J_JenisVarianController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'nama_judul' => [ // <-- Ubah menjadi array
+            'nama_judul' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('j_judul_gambars')->whereNull('deleted_at'),
+                Rule::unique('j_judul_gambars'),
             ],
         ]);
         // Tambahkan mutator di sini karena modelnya sederhana
@@ -40,11 +40,10 @@ class J_JenisVarianController extends Controller
     public function update(Request $request, JJudulGambar $jJudulGambar)
     {
         $validated = $request->validate([
-            'nama_judul' => [ // <-- Ubah menjadi array
-                'required',
+            'nama_judul' => [
                 'string',
                 'max:255',
-                Rule::unique('j_judul_gambars')->whereNull('deleted_at')->ignore($jJudulGambar->id),
+                Rule::unique('j_judul_gambars')->ignore($jJudulGambar->id),
             ],
         ]);
 
@@ -55,10 +54,6 @@ class J_JenisVarianController extends Controller
 
     public function destroy(JJudulGambar $jJudulGambar)
     {
-        // Di masa depan, Anda bisa menambahkan proteksi di sini untuk mengecek
-        // apakah Jenis Varian ini sedang digunakan di tabel z_transaksi_varians.
-        // if ($jJudulGambar->transaksiVarians()->exists()) { ... }
-
         $jJudulGambar->delete();
         return response()->noContent();
     }
