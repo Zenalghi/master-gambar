@@ -82,7 +82,6 @@ class E_VarianBodyController extends Controller
     public function store(StoreVarianBodyRequest $request)
     {
         $varianBody = EVarianBody::create($request->validated());
-        // Load Master Data agar respons lengkap
         return response()->json($varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'), 201);
     }
 
@@ -95,7 +94,10 @@ class E_VarianBodyController extends Controller
     {
         $varianBody->update($request->validated());
 
-        $varianBody->fresh()->load([
+        // --- PERBAIKAN BUG EDIT ---
+        // Kita harus me-assign hasil load kembali ke variabel $varianBody
+        // Jika tidak, JSON response akan berisi objek lama yang belum di-load relasinya
+        $varianBody = $varianBody->fresh()->load([
             'masterData.typeEngine',
             'masterData.merk',
             'masterData.typeChassis',
@@ -107,16 +109,8 @@ class E_VarianBodyController extends Controller
 
     public function destroy(EVarianBody $varianBody)
     {
-        // if (
-        //     TransaksiVarian::where('e_varian_body_id', $varianBody->id)->exists() ||
-        //     GGambarUtama::where('e_varian_body_id', $varianBody->id)->exists() ||
-        //     HGambarOptional::where('e_varian_body_id', $varianBody->id)->exists()
-        // ) {
-        //     throw ValidationException::withMessages([
-        //         'general' => ['Tidak dapat menghapus Varian Body karena sudah digunakan oleh Transaksi atau Gambar.']
-        //     ]);
-        // }
-
+        // Untuk Soft Delete, kita tidak perlu terlalu ketat.
+        // Cukup hapus. Proteksi ketat ada di Force Delete.
         $varianBody->delete();
         return response()->json(null, 204);
     }
@@ -124,7 +118,6 @@ class E_VarianBodyController extends Controller
     // --- FITUR RECYCLE BIN ---
     public function trash()
     {
-        // Ambil data sampah beserta relasi untuk ditampilkan
         return EVarianBody::onlyTrashed()
             ->with('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan')
             ->orderBy('deleted_at', 'desc')
@@ -140,28 +133,26 @@ class E_VarianBodyController extends Controller
 
     public function forceDelete($id)
     {
-        // Proteksi Relasi Sebelum Hapus Permanen
+        // Proteksi: Jangan hapus jika masih ada data terkait, meskipun di tabel sampah
         if (TransaksiVarian::where('e_varian_body_id', $id)->exists()) {
             throw ValidationException::withMessages([
                 'general' => ['Data tidak bisa dihapus permanen karena pernah digunakan dalam Transaksi.']
             ]);
         }
+        // Cek Gambar Utama
         if (GGambarUtama::where('e_varian_body_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Utama.']
+                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Utama. Hapus Gambar Utama terlebih dahulu.']
             ]);
         }
+        // Cek Gambar Optional
         if (HGambarOptional::where('e_varian_body_id', $id)->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Optional.']
+                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Optional. Hapus Gambar Optional terlebih dahulu.']
             ]);
         }
 
         $varianBody = EVarianBody::onlyTrashed()->findOrFail($id);
-
-        // Hapus file fisik jika ada (Opsional, tergantung kebijakan)
-        // ... 
-
         $varianBody->forceDelete();
 
         return response()->json(null, 204);

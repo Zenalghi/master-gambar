@@ -14,16 +14,18 @@ class UpdateVarianBodyRequest extends FormRequest
 
     public function rules(): array
     {
-        $varianBodyId = $this->route('varian_body')->id;
+        // Ambil parameter route dengan aman (bisa berupa object atau ID)
+        $routeParam = $this->route('varian_body');
+        $varianBodyId = $routeParam instanceof \App\Models\EVarianBody ? $routeParam->id : $routeParam;
 
         return [
-            'master_data_id' => 'required|integer|exists:master_data,id', // <-- BERUBAH
+            'master_data_id' => 'required|integer|exists:master_data,id',
             'varian_body' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('e_varian_body')
-                    ->where('master_data_id', $this->master_data_id) // <-- BERUBAH
+                \Illuminate\Validation\Rule::unique('e_varian_body')
+                    ->where('master_data_id', $this->master_data_id)
                     ->whereNull('deleted_at')
                     ->ignore($varianBodyId),
             ],

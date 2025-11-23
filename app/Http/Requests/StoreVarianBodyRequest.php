@@ -15,13 +15,13 @@ class StoreVarianBodyRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'master_data_id' => 'required|integer|exists:master_data,id', // <-- BERUBAH
+            'master_data_id' => 'required|integer|exists:master_data,id',
             'varian_body' => [
                 'required',
                 'string',
                 'max:255',
                 Rule::unique('e_varian_body')
-                    ->where('master_data_id', $this->master_data_id) // <-- BERUBAH
+                    ->where('master_data_id', $this->master_data_id) 
                     ->whereNull('deleted_at'),
             ],
         ];
