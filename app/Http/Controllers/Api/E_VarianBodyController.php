@@ -8,7 +8,6 @@ use App\Http\Requests\UpdateVarianBodyRequest;
 use App\Models\EVarianBody;
 use App\Models\GGambarUtama;
 use App\Models\HGambarOptional;
-use App\Models\TransaksiVarian;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -133,12 +132,6 @@ class E_VarianBodyController extends Controller
 
     public function forceDelete($id)
     {
-        // Proteksi: Jangan hapus jika masih ada data terkait, meskipun di tabel sampah
-        if (TransaksiVarian::where('e_varian_body_id', $id)->exists()) {
-            throw ValidationException::withMessages([
-                'general' => ['Data tidak bisa dihapus permanen karena pernah digunakan dalam Transaksi.']
-            ]);
-        }
         // Cek Gambar Utama
         if (GGambarUtama::where('e_varian_body_id', $id)->exists()) {
             throw ValidationException::withMessages([
