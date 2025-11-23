@@ -13,41 +13,46 @@ class ImageStatusController extends Controller
      * Menampilkan laporan status gambar dengan paginasi, filter, dan sort
      * yang sesuai dengan arsitektur MasterData.
      */
+    // app/Http/Controllers/Api/ImageStatusController.php
+
     public function index(Request $request)
     {
-        // 1. Validasi parameter
+        // 1. Validasi: Tambahkan 'id' ke dalam daftar yang diizinkan
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,varian_body,updated_at,deskripsi_optional',
+            // Tambahkan 'id' di sini
+            'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,varian_body,updated_at,deskripsi_optional',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
         $perPage = $validated['perPage'] ?? 25;
-        $sortBy = $validated['sortBy'] ?? 'updated_at'; // Default sort
+
+        //Default Sort menjadi ID ---
+        $sortBy = $validated['sortBy'] ?? 'id';
+        // Default direction tetap desc (Terbaru)
         $sortDirection = $validated['sortDirection'] ?? 'desc';
+
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama berpusat pada EVarianBody
-        $query = EVarianBody::query()
-            // JOIN ke master_data dan semua induknya
+        // 2. Query utama (Tidak Berubah)
+        $query = \App\Models\EVarianBody::query()
             ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
 
-            // LEFT JOIN untuk data gambar (agar Varian Body tanpa gambar tetap muncul)
             ->leftJoin('g_gambar_utama', 'e_varian_body.id', '=', 'g_gambar_utama.e_varian_body_id')
             ->leftJoin('h_gambar_optional', function ($join) {
                 $join->on('g_gambar_utama.id', '=', 'h_gambar_optional.g_gambar_utama_id')
                     ->where('h_gambar_optional.tipe', '=', 'paket');
             });
 
-        // 3. Pilih kolom secara eksplisit dan buat alias
+        // 3. Select Kolom (Tidak Berubah)
         $query->select([
-            'e_varian_body.*', // Ambil semua dari Varian Body
+            'e_varian_body.*',
             'a_type_engines.type_engine',
             'b_merks.merk',
             'c_type_chassis.type_chassis',
@@ -56,19 +61,20 @@ class ImageStatusController extends Controller
             'h_gambar_optional.deskripsi as deskripsi_optional',
         ]);
 
-        // 4. Eager load relasi (PENTING untuk struktur JSON di Flutter)
+        // 4. Eager load (Tidak Berubah)
         $query->with([
             'masterData.typeEngine',
             'masterData.merk',
             'masterData.typeChassis',
             'masterData.jenisKendaraan',
-            'gambarUtama.gambarOptionals' // 'gambarOptionals' adalah relasi di model GGambarUtama
+            'gambarUtama.gambarOptionals'
         ]);
 
-        // 5. Terapkan filter pencarian (search)
+        // 5. Filter Search (Tidak Berubah)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('e_varian_body.varian_body', 'like', "%{$search}%")
+                $q->where('e_varian_body.id', 'like', "%{$search}%") // Pastikan ID bisa disearch
+                    ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
@@ -78,19 +84,20 @@ class ImageStatusController extends Controller
             });
         }
 
-        // 6. Terapkan sorting
+        // 6. Sorting (Disini penyesuaian utamanya)
         $sortColumn = match ($sortBy) {
+            'id' => 'e_varian_body.id',
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
             'deskripsi_optional' => 'deskripsi_optional',
-            'updated_at' => 'gambar_utama_updated_at', // Alias dari kolom updated_at g_gambar_utama
-            default => 'gambar_utama_updated_at',
+            'updated_at' => 'gambar_utama_updated_at',
+            default => 'e_varian_body.id', // Default fallback ke ID juga
         };
 
-        // Cek jika kolom sort adalah null (dari LEFT JOIN), urutkan yang null di akhir
+        // Logika khusus untuk kolom yang bisa null (tetap sama)
         if (in_array($sortBy, ['updated_at', 'deskripsi_optional'])) {
             $query->orderByRaw(DB::raw("$sortColumn IS NULL $sortDirection, $sortColumn $sortDirection"));
         } else {
