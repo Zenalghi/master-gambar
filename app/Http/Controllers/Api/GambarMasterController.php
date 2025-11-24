@@ -102,11 +102,28 @@ class GambarMasterController extends Controller
 
     public function showPaths(GGambarUtama $gambarUtama)
     {
-        return response()->json([
+        // 1. Load relasi gambarOptionals untuk efisiensi
+        $gambarUtama->load('gambarOptionals');
+
+        // 2. Masukkan 3 path wajib
+        $paths = [
             'utama' => $gambarUtama->path_gambar_utama,
             'terurai' => $gambarUtama->path_gambar_terurai,
             'kontruksi' => $gambarUtama->path_gambar_kontruksi,
-        ]);
+        ];
+
+        // 3. Cari apakah ada Gambar Optional dengan tipe 'paket'
+        //    menggunakan collection filtering (tanpa query ulang ke DB)
+        $paketOptional = $gambarUtama->gambarOptionals
+            ->where('tipe', 'paket')
+            ->first();
+
+        // 4. Jika ketemu, tambahkan ke array response
+        if ($paketOptional) {
+            $paths['paket'] = $paketOptional->path_gambar_optional;
+        }
+
+        return response()->json($paths);
     }
 
     /**
