@@ -147,4 +147,38 @@ class GambarMasterController extends Controller
         $filePath = Storage::disk('master_gambar')->path($path);
         return response()->file($filePath, ['Content-Type' => 'application/pdf']);
     }
+
+    /**
+     * Menghapus data Gambar Utama beserta file fisiknya.
+     * Dan juga menghapus Gambar Optional (tipe paket) yang terkait.
+     */
+    public function destroy($id)
+    {
+        $gambarUtama = GGambarUtama::findOrFail($id);
+
+        // 1. Hapus 3 File Utama dari Storage
+        $filesToDelete = [
+            $gambarUtama->path_gambar_utama,
+            $gambarUtama->path_gambar_terurai,
+            $gambarUtama->path_gambar_kontruksi,
+        ];
+        Storage::disk('master_gambar')->delete($filesToDelete);
+
+        // 2. Cek & Hapus Gambar Optional Paket yang menempel (Jika ada)
+        $paketOptionals = \App\Models\HGambarOptional::where('g_gambar_utama_id', $id)
+            ->where('tipe', 'paket')
+            ->get();
+
+        foreach ($paketOptionals as $opt) {
+            // Hapus file fisik optional
+            Storage::disk('master_gambar')->delete($opt->path_gambar_optional);
+            // Hapus record db optional
+            $opt->forceDelete(); // Gunakan forceDelete agar bersih total
+        }
+
+        // 3. Hapus Record Gambar Utama
+        $gambarUtama->delete(); // Atau forceDelete() jika tidak pakai SoftDeletes di model GGambarUtama
+
+        return response()->noContent();
+    }
 }

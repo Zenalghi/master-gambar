@@ -96,7 +96,8 @@ Route::middleware('auth.api')->group(
             Route::apiResource('gambar-optional', H_GambarOptionalController::class);
             Route::apiResource('gambar-kelistrikan', I_GambarKelistrikanController::class);
             Route::get('/image-status', [ImageStatusController::class, 'index']);
-
+            Route::delete('/gambar-master/utama/{id}', [GambarMasterController::class, 'destroy']);
+            
             Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
             Route::get('/gambar-optional/{gambarOptional}/pdf', [H_GambarOptionalController::class, 'showPdf']);
             Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
