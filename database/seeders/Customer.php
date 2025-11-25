@@ -38,8 +38,66 @@ class Customer extends Seeder
                 'created_at' => now(),
                 'updated_at' => now()
             ],
-
-            // ... tambahkan data lain dari Excel Anda
+            [
+                'nama_pt' => 'CV AUDI ERSA UTAMA',
+                'pj' => 'SITI YUNIA',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BAGUS JAYA',
+                'pj' => 'OKY',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BERDIKARI JAYA',
+                'pj' => 'EFRANDY RACHMAN',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BERKAH RAMA',
+                'pj' => 'H.MOCH.SUHENDI',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BINA TEHNIK',
+                'pj' => 'HARRY SANTO',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BINTANG PRIMA PERKASA',
+                'pj' => 'AGUS SETIAWAN HIDAYAT, SE',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BINTANG SELATAN MOTOR',
+                'pj' => 'SOFIAN KOLLENG',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV BUARAN MOTOR',
+                'pj' => 'TAN WIJAYA',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV CENTRAL LABA-LABA MOTOR',
+                'pj' => 'ZIKRI NUR ACHMAD',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'nama_pt' => 'CV CENTRAL NUSANTARA PERSADA',
+                'pj' => 'CHANDRA M. SEPTIAN',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
         ]);
     }
 }

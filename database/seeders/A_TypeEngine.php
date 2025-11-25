@@ -26,6 +26,24 @@ class A_TypeEngine extends Seeder
                 'created_at' => now(),
                 'updated_at' => now()
             ],
+            [
+                'id' => '3',
+                'type_engine' => 'EURO 3',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '4',
+                'type_engine' => 'EURO 4',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
+            [
+                'id' => '5',
+                'type_engine' => 'EURO 5',
+                'created_at' => now(),
+                'updated_at' => now()
+            ],
 
         ]);
     }
