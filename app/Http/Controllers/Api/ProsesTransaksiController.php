@@ -166,7 +166,7 @@ class ProsesTransaksiController extends Controller
 
             // --- LOGIKA PEMBUATAN NAMA FILE ZIP (DIPERBARUI) ---
             $zipFileName = sprintf(
-                '%s-(%s)-%s_%s_%s-(%s).zip',
+                '%s (%s) %s_%s %s (%s).zip',
                 $transaksi->user->username,
                 $transaksi->fPengajuan->jenis_pengajuan,
                 $transaksi->customer->nama_pt,

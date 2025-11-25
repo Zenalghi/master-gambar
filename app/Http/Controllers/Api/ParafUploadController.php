@@ -24,8 +24,8 @@ class ParafUploadController extends Controller
             Storage::disk('user_paraf')->delete($user->signature);
         }
 
-        $folderPath = $user->id . '-' . Str::slug($user->username);
-        $fileName = Str::slug($user->name) . '.png';
+        $folderPath = $user->id;
+        $fileName = $user->id . '.png';
 
         $path = $request->file('paraf')->storeAs($folderPath, $fileName, 'user_paraf');
 
@@ -49,8 +49,8 @@ class ParafUploadController extends Controller
             Storage::disk('customer_paraf')->delete($customer->signature_pj);
         }
 
-        $folderPath = $customer->id . '-' . Str::slug($customer->nama_pt);
-        $fileName = Str::slug($customer->pj) . '.png';
+        $folderPath = $customer->id;
+        $fileName = $customer->id . '.png';
 
         $path = $request->file('paraf_pj')->storeAs($folderPath, $fileName, 'customer_paraf');
 
