@@ -22,10 +22,8 @@ class UpdateTransaksiRequest extends FormRequest
     {
         return [
             'customer_id' => 'required|integer|exists:customers,id',
-            'a_type_engine_id' => 'required|integer|exists:a_type_engines,id', // <-- Ubah ke integer
-            'b_merk_id' => 'required|integer|exists:b_merks,id', // <-- Ubah ke integer
-            'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id', // <-- Ubah ke integer
-            'd_jenis_kendaraan_id' => 'required|integer|exists:d_jenis_kendaraan,id', // <-- Ubah ke integer
+            // Ganti 4 field terpisah dengan 1 field master_data_id
+            'master_data_id' => 'required|integer|exists:master_data,id',
             'f_pengajuan_id' => 'required|integer|exists:f_pengajuan,id',
         ];
     }

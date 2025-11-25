@@ -125,26 +125,15 @@ class TransaksiController extends Controller
     {
         $validated = $request->validated();
 
-        // 1. Temukan (atau buat baru) MasterData berdasarkan 4 ID
-        $masterData = MasterData::firstOrCreate(
-            [
-                'a_type_engine_id' => $validated['a_type_engine_id'],
-                'b_merk_id' => $validated['b_merk_id'],
-                'c_type_chassis_id' => $validated['c_type_chassis_id'],
-                'd_jenis_kendaraan_id' => $validated['d_jenis_kendaraan_id'],
-            ]
-        );
-
-        // 2. Buat Transaksi baru
+        // Langsung simpan menggunakan master_data_id yang dikirim
         $transaksi = Transaksi::create([
-            'master_data_id' => $masterData->id,
+            'master_data_id' => $validated['master_data_id'],
             'customer_id' => $validated['customer_id'],
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
             'user_id' => Auth::id(),
         ]);
-        // ID (mmyy-xxxx) akan dibuat secara otomatis oleh Model Transaksi
+        // ID otomatis (mmyy-xxxx) dibuat oleh Model
 
-        // 3. Muat relasi baru untuk respons
         $transaksi->load([
             'user',
             'customer',
