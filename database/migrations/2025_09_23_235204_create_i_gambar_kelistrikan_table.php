@@ -19,7 +19,6 @@ return new class extends Migration
             $table->string('path_gambar_kelistrikan')->nullable();
             $table->text('deskripsi')->nullable();
             $table->timestamps();
-            $table->softDeletes();
 
             // Mencegah duplikasi: 1 Sasis (dengan merk/engine tertentu) hanya boleh punya 1 gambar kelistrikan
             $table->unique(['a_type_engine_id', 'b_merk_id', 'c_type_chassis_id'], 'unique_kelistrikan_combo');

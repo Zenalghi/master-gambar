@@ -24,7 +24,6 @@ return new class extends Migration
             $table->text('deskripsi')->nullable();
 
             $table->timestamps();
-            $table->softDeletes(); // Tambahkan Soft Deletes
         });
     }
 

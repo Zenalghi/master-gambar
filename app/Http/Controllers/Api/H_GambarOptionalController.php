@@ -3,12 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\EVarianBody; // <-- Pastikan EVarianBody di-import
+use App\Models\EVarianBody;
 use App\Models\HGambarOptional;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class H_GambarOptionalController extends Controller
 {
@@ -22,7 +23,7 @@ class H_GambarOptionalController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:type_engine,merk,type_chassis,jenis_kendaraan,tipe,varian_body,deskripsi,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,tipe,varian_body,deskripsi,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -32,7 +33,7 @@ class H_GambarOptionalController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama (berpusat pada h_gambar_optional)
+        // 2. Query utama
         $query = HGambarOptional::query()
             ->join('e_varian_body', 'h_gambar_optional.e_varian_body_id', '=', 'e_varian_body.id')
             ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
@@ -40,16 +41,17 @@ class H_GambarOptionalController extends Controller
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-            ->select('h_gambar_optional.*'); // <-- Selalu select tabel utama
+            ->select('h_gambar_optional.*');
 
-        // 3. Eager load relasi (untuk struktur JSON)
-        // Kita load relasi VarianBody, yang di dalamnya sudah me-load MasterData
+        // 3. Eager load
         $query->with('varianBody.masterData.typeEngine', 'varianBody.masterData.merk', 'varianBody.masterData.typeChassis', 'varianBody.masterData.jenisKendaraan');
 
         // 4. Terapkan filter pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('h_gambar_optional.deskripsi', 'like', "%{$search}%")
+                    // TAMBAHKAN PENCARIAN ID DI SINI
+                    ->orWhere('h_gambar_optional.id', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.tipe', 'like', "%{$search}%")
                     ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
@@ -63,6 +65,8 @@ class H_GambarOptionalController extends Controller
 
         // 5. Terapkan sorting
         $sortColumn = match ($sortBy) {
+            // TAMBAHKAN MAPPING ID DI SINI
+            'id' => 'h_gambar_optional.id',
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
@@ -81,7 +85,6 @@ class H_GambarOptionalController extends Controller
     }
     public function store(Request $request)
     {
-        // 1. VALIDASI: HAPUS Rule::unique
         $validated = $request->validate([
             'tipe' => 'required|in:independen,paket',
             'deskripsi' => 'required|string|max:255',
@@ -92,66 +95,85 @@ class H_GambarOptionalController extends Controller
 
         $tipe = $validated['tipe'];
 
-        // Variabel untuk menyimpan path dan data parent
-        $varianBody = null;
-        $basePath = '';
+        // Gunakan Transaction agar aman (jika upload gagal, data tidak tersimpan)
+        return DB::transaction(function () use ($request, $validated, $tipe) {
 
-        // Tentukan Parent & Path Folder
-        if ($tipe === 'independen') {
-            $varianBody = \App\Models\EVarianBody::with('masterData')->find($validated['e_varian_body_id']);
-            $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/independen';
-        } else {
-            // tipe === 'paket'
-            $gambarUtama = \App\Models\GGambarUtama::with('varianBody.masterData')->find($validated['g_gambar_utama_id']);
-            $varianBody = $gambarUtama->varianBody;
-            $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/paket';
-        }
+            // --- 1. TENTUKAN BASE PATH & DATA PARENT ---
+            $varianBody = null;
+            $basePath = '';
 
-        // 2. Simpan File Fisik Baru
-        $fileName = Str::slug($validated['deskripsi']) . '.pdf';
-        $newPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
-
-        // 3. LOGIKA UPSERT (Update or Create) KHUSUS TIPE PAKET
-        if ($tipe === 'paket') {
-            // Cari apakah sudah ada gambar paket untuk ID Utama ini
-            $existingOptional = HGambarOptional::where('g_gambar_utama_id', $validated['g_gambar_utama_id'])
-                ->where('tipe', 'paket')
-                ->first();
-
-            if ($existingOptional) {
-                // Hapus file lama jika path-nya berbeda (opsional, untuk kebersihan)
-                if ($existingOptional->path_gambar_optional !== $newPath) {
-                    Storage::disk('master_gambar')->delete($existingOptional->path_gambar_optional);
-                }
-
-                // Update Record Lama
-                $existingOptional->update([
-                    'deskripsi' => Str::upper($validated['deskripsi']),
-                    'path_gambar_optional' => $newPath,
-                ]);
-
-                // Load relasi untuk response
-                return response()->json($existingOptional->load('varianBody.masterData'), 200);
+            if ($tipe === 'independen') {
+                $varianBody = EVarianBody::with('masterData')->find($validated['e_varian_body_id']);
+                $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/independen';
+            } else {
+                // tipe === 'paket'
+                $gambarUtama = \App\Models\GGambarUtama::with('varianBody.masterData')->find($validated['g_gambar_utama_id']);
+                $varianBody = $gambarUtama->varianBody;
+                $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/paket';
             }
-        }
 
-        // 4. CREATE BARU (Untuk Independen ATAU jika Paket belum ada)
-        $createData = [
-            'tipe' => $tipe,
-            'deskripsi' => Str::upper($validated['deskripsi']),
-            'path_gambar_optional' => $newPath,
-        ];
+            // --- 2. LOGIKA KHUSUS TIPE 'PAKET' (UPSERT / Update jika ada) ---
+            if ($tipe === 'paket') {
+                $existingOptional = HGambarOptional::where('g_gambar_utama_id', $validated['g_gambar_utama_id'])
+                    ->where('tipe', 'paket')
+                    ->first();
 
-        if ($tipe === 'independen') {
-            $createData['e_varian_body_id'] = $validated['e_varian_body_id'];
-        } else {
-            $createData['g_gambar_utama_id'] = $validated['g_gambar_utama_id'];
-            $createData['e_varian_body_id'] = $varianBody->id; // Tetap simpan link ke varian body
-        }
+                if ($existingOptional) {
+                    // Gunakan ID yang SUDAH ADA sebagai nama file
+                    $fileName = $existingOptional->id . '.pdf';
 
-        $gambarOptional = HGambarOptional::create($createData);
+                    // Upload File Baru (akan menimpa file lama jika namanya sama)
+                    $newPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
 
-        return response()->json($gambarOptional->load('varianBody.masterData'), 201);
+                    // Hapus file lama jika ternyata path/namanya beda (misal dulu pakai slug)
+                    if ($existingOptional->path_gambar_optional !== $newPath) {
+                        if (Storage::disk('master_gambar')->exists($existingOptional->path_gambar_optional)) {
+                            Storage::disk('master_gambar')->delete($existingOptional->path_gambar_optional);
+                        }
+                    }
+
+                    // Update Data
+                    $existingOptional->update([
+                        'deskripsi' => Str::upper($validated['deskripsi']),
+                        'path_gambar_optional' => $newPath,
+                    ]);
+
+                    return response()->json($existingOptional->load('varianBody.masterData'), 200);
+                }
+            }
+
+            // --- 3. LOGIKA CREATE BARU (Independen ATAU Paket baru) ---
+
+            // A. Siapkan data create (Path dikosongkan dulu atau kasih string sementara)
+            $createData = [
+                'tipe' => $tipe,
+                'deskripsi' => Str::upper($validated['deskripsi']),
+                'path_gambar_optional' => 'TEMP_PATH', // Placeholder
+            ];
+
+            if ($tipe === 'independen') {
+                $createData['e_varian_body_id'] = $validated['e_varian_body_id'];
+            } else {
+                $createData['g_gambar_utama_id'] = $validated['g_gambar_utama_id'];
+                $createData['e_varian_body_id'] = $varianBody->id;
+            }
+
+            // B. Simpan ke DB untuk dapat ID
+            $gambarOptional = HGambarOptional::create($createData);
+
+            // C. Sekarang ID sudah ada ($gambarOptional->id)
+            $fileName = $gambarOptional->id . '.pdf';
+
+            // D. Upload File Fisik
+            $finalPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
+
+            // E. Update record DB dengan path yang valid
+            $gambarOptional->update([
+                'path_gambar_optional' => $finalPath
+            ]);
+
+            return response()->json($gambarOptional->load('varianBody.masterData'), 201);
+        });
     }
 
     /**
