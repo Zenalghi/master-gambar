@@ -4,23 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // <-- Import
-use Illuminate\Database\Eloquent\SoftDeletes; // <-- Import
-use Illuminate\Support\Str; // <-- Import
 
 class Transaksi extends Model
 {
-    use HasFactory, SoftDeletes; // <-- Tambahkan SoftDeletes
+    use HasFactory;
+    // use SoftDeletes; // Uncomment jika tabel z_transaksi punya kolom deleted_at
 
     protected $table = 'z_transaksi';
     public $incrementing = false;
     protected $keyType = 'string';
 
-    // Sesuaikan $fillable dengan migrasi baru
     protected $fillable = [
         'id',
-        'master_data_id', // <-- BERUBAH
+        'master_data_id', // <-- KOLOM BARU YANG PENTING
         'f_pengajuan_id',
         'customer_id',
         'user_id',
@@ -34,40 +32,39 @@ class Transaksi extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            // 1. Dapatkan format mmyy (misal: 1125)
-            $prefix = date('my');
+            $prefix = date('my'); // Format MMYY
 
-            // 2. Cari ID terakhir di bulan & tahun ini
+            // Cari ID terakhir dengan prefix yang sama
             $lastTransaksi = static::where('id', 'like', $prefix . '-%')
                 ->orderBy('id', 'desc')
                 ->first();
 
             $counter = 1;
             if ($lastTransaksi) {
-                // 3. Ambil counter (xxxx) dari ID terakhir dan tambahkan 1
                 $counter = (int)substr($lastTransaksi->id, -4) + 1;
             }
 
-            // 4. Buat ID baru
             $model->id = $prefix . '-' . str_pad($counter, 4, '0', STR_PAD_LEFT);
         });
     }
 
+    // Relasi ke MasterData (PENTING untuk Controller)
     public function masterData(): BelongsTo
     {
         return $this->belongsTo(MasterData::class, 'master_data_id')->withTrashed();
     }
 
-    // Relasi yang sudah ada
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
-    public function customer()
+
+    public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
     }
-    public function fPengajuan()
+
+    public function fPengajuan(): BelongsTo
     {
         return $this->belongsTo(FPengajuan::class, 'f_pengajuan_id');
     }

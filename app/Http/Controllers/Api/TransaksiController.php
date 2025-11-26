@@ -16,19 +16,17 @@ class TransaksiController extends Controller
     use AuthorizesRequests;
 
     /**
-     * Menampilkan data transaksi dengan paginasi, filter, dan sort
-     * yang sesuai dengan arsitektur MasterData.
+     * Menampilkan data transaksi dengan paginasi, filter, dan sort.
      */
     public function index(Request $request)
     {
-        // 1. Validasi parameter
+        // 1. Validasi parameter (Sama seperti sebelumnya)
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,customer,type_engine,merk,type_chassis,jenis_kendaraan,jenis_pengajuan,user,created_at,updated_at',
+            'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
-            // Filter lanjutan (berbasis teks)
             'customer' => 'nullable|string',
             'type_engine' => 'nullable|string',
             'merk' => 'nullable|string',
@@ -43,31 +41,32 @@ class TransaksiController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama
+        // 2. Query utama (z_transaksi)
         $query = Transaksi::query()
-            // JOIN ke tabel relasi untuk sorting dan advanced filter
-            ->join('customers', 'transaksis.customer_id', '=', 'customers.id')
-            ->join('f_pengajuan', 'transaksis.f_pengajuan_id', '=', 'f_pengajuan.id')
-            ->join('users', 'transaksis.user_id', '=', 'users.id')
-            ->join('master_data', 'transaksis.master_data_id', '=', 'master_data.id')
+            ->join('customers', 'z_transaksi.customer_id', '=', 'customers.id')
+            ->join('f_pengajuan', 'z_transaksi.f_pengajuan_id', '=', 'f_pengajuan.id')
+            ->join('users', 'z_transaksi.user_id', '=', 'users.id')
+            ->join('master_data', 'z_transaksi.master_data_id', '=', 'master_data.id')
+            // Join komponen Master Data untuk filter/search
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-            ->select('transaksis.*'); // <-- Penting!
+            ->select('z_transaksi.*');
 
-        // 3. Eager load relasi (untuk struktur JSON)
+        // 3. Eager load relasi
         $query->with([
             'user:id,name',
             'customer:id,nama_pt',
             'fPengajuan',
+            // Kita tetap load masterData untuk diambil isinya
             'masterData.typeEngine',
             'masterData.merk',
             'masterData.typeChassis',
             'masterData.jenisKendaraan'
         ]);
 
-        // 4. Terapkan Advanced Filter (berbasis teks)
+        // 4. Filter Map (Logic sama seperti sebelumnya)
         $filterMap = [
             'customer' => 'customers.nama_pt',
             'type_engine' => 'a_type_engines.type_engine',
@@ -84,10 +83,10 @@ class TransaksiController extends Controller
             }
         }
 
-        // 5. Terapkan Global Search
+        // 5. Global Search (Logic sama seperti sebelumnya)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('transaksis.id', 'like', "%{$search}%")
+                $q->where('z_transaksi.id', 'like', "%{$search}%")
                     ->orWhere('customers.nama_pt', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
@@ -98,9 +97,9 @@ class TransaksiController extends Controller
             });
         }
 
-        // 6. Terapkan Sorting
+        // 6. Sorting
         $sortColumn = match ($sortBy) {
-            'id' => 'transaksis.id',
+            'id' => 'z_transaksi.id',
             'customer' => 'customers.nama_pt',
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
@@ -108,16 +107,32 @@ class TransaksiController extends Controller
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'jenis_pengajuan' => 'f_pengajuan.jenis_pengajuan',
             'user' => 'users.name',
-            'created_at' => 'transaksis.created_at',
-            'updated_at' => 'transaksis.updated_at',
-            default => 'transaksis.updated_at',
+            'created_at' => 'z_transaksi.created_at',
+            'updated_at' => 'z_transaksi.updated_at',
+            default => 'z_transaksi.updated_at',
         };
         $query->orderBy($sortColumn, $sortDirection);
 
-        // 7. Lakukan paginasi
-        return $query->paginate($perPage);
-    }
+        // 7. Pagination & Transformasi Data (SOLUSI ERROR NULL)
+        $paginator = $query->paginate($perPage);
 
+        // Kita manipulasi struktur JSON agar sesuai harapan Frontend lama
+        $paginator->getCollection()->transform(function ($item) {
+            // Kita pindahkan isi masterData ke level root object
+            // Pastikan nama key sesuai dengan yang diminta Model Flutter (snake_case)
+            $item->a_type_engine = $item->masterData->typeEngine ?? null;
+            $item->b_merk = $item->masterData->merk ?? null;
+            $item->c_type_chassis = $item->masterData->typeChassis ?? null;
+            $item->d_jenis_kendaraan = $item->masterData->jenisKendaraan ?? null;
+
+            // Opsional: Sembunyikan objek masterData agar response lebih bersih
+            // unset($item->masterData); 
+
+            return $item;
+        });
+
+        return $paginator;
+    }
     /**
      * Menyimpan transaksi baru.
      */
@@ -125,15 +140,14 @@ class TransaksiController extends Controller
     {
         $validated = $request->validated();
 
-        // Langsung simpan menggunakan master_data_id yang dikirim
         $transaksi = Transaksi::create([
             'master_data_id' => $validated['master_data_id'],
-            'customer_id' => $validated['customer_id'],
+            'customer_id'    => $validated['customer_id'],
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
-            'user_id' => Auth::id(),
+            'user_id'        => Auth::id(),
         ]);
-        // ID otomatis (mmyy-xxxx) dibuat oleh Model
 
+        // Load relasi untuk respon JSON
         $transaksi->load([
             'user',
             'customer',
@@ -147,9 +161,6 @@ class TransaksiController extends Controller
         return response()->json($transaksi, 201);
     }
 
-    /**
-     * Menampilkan satu data transaksi spesifik.
-     */
     public function show(Transaksi $transaksi)
     {
         $transaksi->load([
@@ -164,25 +175,15 @@ class TransaksiController extends Controller
         return response()->json($transaksi);
     }
 
-    /**
-     * Memperbarui data transaksi.
-     */
     public function update(UpdateTransaksiRequest $request, Transaksi $transaksi)
     {
         $this->authorize('update', $transaksi);
         $validated = $request->validated();
 
-        // Temukan (atau buat) MasterData baru jika ada perubahan
-        $masterData = MasterData::firstOrCreate([
-            'a_type_engine_id' => $validated['a_type_engine_id'],
-            'b_merk_id' => $validated['b_merk_id'],
-            'c_type_chassis_id' => $validated['c_type_chassis_id'],
-            'd_jenis_kendaraan_id' => $validated['d_jenis_kendaraan_id'],
-        ]);
-
+        // FIX: Update langsung menggunakan ID yang dikirim
         $transaksi->update([
-            'master_data_id' => $masterData->id,
-            'customer_id' => $validated['customer_id'],
+            'master_data_id' => $validated['master_data_id'],
+            'customer_id'    => $validated['customer_id'],
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
         ]);
 
@@ -199,13 +200,10 @@ class TransaksiController extends Controller
         return response()->json($transaksi);
     }
 
-    /**
-     * Menghapus (Soft Delete) data transaksi.
-     */
     public function destroy(Transaksi $transaksi)
     {
         $this->authorize('delete', $transaksi);
-        $transaksi->delete(); // Asumsi Transaksi juga pakai SoftDeletes
+        $transaksi->delete();
         return response()->noContent();
     }
 }
