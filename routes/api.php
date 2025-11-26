@@ -69,6 +69,7 @@ Route::middleware('auth.api')->group(
         Route::post('/options/gambar-optional-by-varian', [OptionController::class, 'getGambarOptionalByVarian']);
         Route::post('/options/dependent-optionals', [OptionController::class, 'getDependentOptionals']);
         Route::get('/options/varian-body/{master_data_id}', [OptionController::class, 'getVarianBody']);
+        Route::get('/options/varian-body-status', [OptionController::class, 'getVarianBodyForDropdown']);
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // Rute CRUD untuk mengelola User

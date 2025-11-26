@@ -242,4 +242,31 @@ class _OptionController extends Controller
 
         return response()->json(['exists' => $exists]);
     }
+    public function getVarianBodyForDropdown(Request $request)
+    {
+        $search = $request->input('search', '');
+
+        // Query dasar ke EVarianBody
+        $query = \App\Models\EVarianBody::query()
+            ->select('id', 'varian_body')
+            // Cek keberadaan gambar utama (mengembalikan boolean 1/0 di kolom has_gambar)
+            ->withExists('gambarUtama as has_gambar')
+            ->where('varian_body', 'like', "%{$search}%")
+            ->limit(30); // Batasi hasil agar ringan
+
+        // Jika ada filter berdasarkan master_data_id (opsional)
+        if ($request->has('master_data_id') && !empty($request->master_data_id)) {
+            $query->where('master_data_id', $request->master_data_id);
+        }
+
+        $results = $query->get()->map(function ($item) {
+            return [
+                'id' => $item->id,
+                'name' => $item->varian_body,
+                'has_gambar' => $item->has_gambar, // Kirim status ini ke frontend
+            ];
+        });
+
+        return response()->json($results);
+    }
 }
