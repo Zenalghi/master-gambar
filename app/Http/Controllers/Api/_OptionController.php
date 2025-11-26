@@ -122,9 +122,18 @@ class _OptionController extends Controller
         return response()->json(User::where('role', 'drafter')->select('id', 'name', 'signature')->get());
     }
 
-    public function getCustomers()
+    public function getCustomers(Request $request)
     {
-        return response()->json(Customer::select('id', 'nama_pt', 'pj', 'signature_pj')->get());
+        $search = $request->input('search', '');
+
+        return response()->json(
+            Customer::query()
+                ->where('nama_pt', 'like', "%{$search}%") // Filter berdasarkan nama
+                ->orderBy('nama_pt', 'asc')
+                ->limit(20)
+                ->select('id', 'nama_pt', 'pj', 'signature_pj')
+                ->get()
+        );
     }
     public function getPengajuan()
     {
