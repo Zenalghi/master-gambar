@@ -13,8 +13,6 @@ class ImageStatusController extends Controller
      * Menampilkan laporan status gambar dengan paginasi, filter, dan sort
      * yang sesuai dengan arsitektur MasterData.
      */
-    // app/Http/Controllers/Api/ImageStatusController.php
-
     public function index(Request $request)
     {
         // 1. Validasi
@@ -38,6 +36,7 @@ class ImageStatusController extends Controller
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            // Gunakan leftJoin agar data master tetap tampil meski belum ada gambar
             ->leftJoin('g_gambar_utama', 'e_varian_body.id', '=', 'g_gambar_utama.e_varian_body_id')
             ->leftJoin('h_gambar_optional', function ($join) {
                 $join->on('g_gambar_utama.id', '=', 'h_gambar_optional.g_gambar_utama_id')
@@ -45,6 +44,7 @@ class ImageStatusController extends Controller
             });
 
         // 3. Select
+        // Menggunakan alias agar mudah dibaca di frontend
         $query->select([
             'e_varian_body.*',
             'a_type_engines.type_engine',
@@ -55,7 +55,7 @@ class ImageStatusController extends Controller
             'h_gambar_optional.deskripsi as deskripsi_optional',
         ]);
 
-        // 4. Eager load
+        // 4. Eager load (untuk meminimalisir N+1 query pada data nested jika ada)
         $query->with([
             'masterData.typeEngine',
             'masterData.merk',
@@ -78,7 +78,8 @@ class ImageStatusController extends Controller
             });
         }
 
-        // 6. Sorting
+        // 6. Sorting Mapping
+        // Gunakan nama kolom asli tabel untuk sorting agar lebih aman di SQL
         $sortColumn = match ($sortBy) {
             'id' => 'e_varian_body.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -86,19 +87,30 @@ class ImageStatusController extends Controller
             'type_chassis' => 'c_type_chassis.type_chassis',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
-            'deskripsi_optional' => 'deskripsi_optional',
-            'updated_at' => 'gambar_utama_updated_at',
+            'deskripsi_optional' => 'h_gambar_optional.deskripsi', // Pakai kolom asli tabel
+            'updated_at' => 'g_gambar_utama.updated_at',           // Pakai kolom asli tabel
             default => 'e_varian_body.id',
         };
 
-        // Null-safe sorting
+        // 7. Penerapan Sorting (FIXED)
         if (in_array($sortBy, ['updated_at', 'deskripsi_optional'])) {
-            $query->orderByRaw(DB::raw("$sortColumn IS NULL $sortDirection, $sortColumn $sortDirection"));
+            if ($sortDirection === 'desc') {
+                // LOGIC DESC (Terbaru/Ada Isinya):
+                // Prioritaskan yang TIDAK NULL (IS NULL ASC = 0 dulu baru 1),
+                // kemudian urutkan nilainya secara DESC.
+                $query->orderByRaw("$sortColumn IS NULL ASC, $sortColumn DESC");
+            } else {
+                // LOGIC ASC (Belum Upload/Kosong):
+                // Prioritaskan yang NULL (IS NULL DESC = 1 dulu baru 0),
+                // kemudian urutkan nilainya secara ASC (opsional).
+                $query->orderByRaw("$sortColumn IS NULL DESC, $sortColumn ASC");
+            }
         } else {
+            // Sorting standar untuk kolom non-nullable
             $query->orderBy($sortColumn, $sortDirection);
         }
 
-        // 7. Pagination + FIX search/sort ter-reset
+        // 8. Pagination
         return $query
             ->paginate($perPage)
             ->appends([
