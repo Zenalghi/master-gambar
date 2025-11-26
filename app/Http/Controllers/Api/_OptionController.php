@@ -13,6 +13,7 @@ use App\Models\FPengajuan;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Models\Role;
+use App\Models\GGambarUtama;
 use App\Models\HGambarOptional;
 use App\Models\IGambarKelistrikan;
 use App\Models\JJudulGambar;
@@ -113,7 +114,16 @@ class _OptionController extends Controller
 
         return response()->json($results);
     }
-
+    // Ganti parameternya menjadi $master_data_id
+    public function getVarianBody($master_data_id)
+    {
+        // Cari berdasarkan master_data_id
+        return response()->json(
+            EVarianBody::where('master_data_id', $master_data_id)
+                ->select('id', 'varian_body')
+                ->get()
+        );
+    }
     // === DATA DROPDOWN FORM UTAMA ===
 
     public function getUsers()
@@ -198,7 +208,7 @@ class _OptionController extends Controller
         ]);
 
         // Cari ID Gambar Utama yang terkait dengan Varian Body yang dipilih
-        $gambarUtamaIds = \App\Models\GGambarUtama::whereIn('e_varian_body_id', $validated['varian_ids'])
+        $gambarUtamaIds = GGambarUtama::whereIn('e_varian_body_id', $validated['varian_ids'])
             ->pluck('id');
 
         // Jika tidak ada, kembalikan array kosong
@@ -207,7 +217,7 @@ class _OptionController extends Controller
         }
 
         // Ambil semua Gambar Optional paket yang terkait dengan Gambar Utama tersebut
-        $dependentOptionals = \App\Models\HGambarOptional::whereIn('g_gambar_utama_id', $gambarUtamaIds)
+        $dependentOptionals = HGambarOptional::whereIn('g_gambar_utama_id', $gambarUtamaIds)
             ->where('tipe', 'paket')
             ->select('id', 'deskripsi')
             ->get();

@@ -68,12 +68,12 @@ Route::middleware('auth.api')->group(
         Route::post('/transaksi/{transaksi}/proses', [ProsesTransaksiController::class, 'proses']);
         Route::post('/options/gambar-optional-by-varian', [OptionController::class, 'getGambarOptionalByVarian']);
         Route::post('/options/dependent-optionals', [OptionController::class, 'getDependentOptionals']);
+        Route::get('/options/varian-body/{master_data_id}', [OptionController::class, 'getVarianBody']);
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // Rute CRUD untuk mengelola User
             Route::apiResource('users', UserController::class);
             Route::get('/options/roles', [OptionController::class, 'getRoles']);
-
             // Rute CRUD untuk mengelola Customer
             Route::apiResource('customers', CustomerController::class);
             Route::post('/gambar-master/utama', [GambarMasterController::class, 'uploadGambarUtama']);
@@ -97,7 +97,7 @@ Route::middleware('auth.api')->group(
             Route::apiResource('gambar-kelistrikan', I_GambarKelistrikanController::class);
             Route::get('/image-status', [ImageStatusController::class, 'index']);
             Route::delete('/gambar-master/utama/{id}', [GambarMasterController::class, 'destroy']);
-            
+
             Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
             Route::get('/gambar-optional/{gambarOptional}/pdf', [H_GambarOptionalController::class, 'showPdf']);
             Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
