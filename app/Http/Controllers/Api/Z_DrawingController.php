@@ -37,7 +37,7 @@ class Z_DrawingController extends Controller
         $pdf->SetAutoPageBreak(false, 0);
 
         // 2. Impor halaman dari template
-        $templatePath = 'D:/_Master/pdf_kosong UTAMA.pdf';
+        $templatePath = 'D:\\_Master\\A-MASTER DWG\\pdf kosong.pdf';
         $pdf->setSourceFile($templatePath);
         $templateId = $pdf->importPage(1);
 

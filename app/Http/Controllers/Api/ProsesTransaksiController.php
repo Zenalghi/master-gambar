@@ -17,31 +17,28 @@ use Illuminate\Support\Str;
 
 class ProsesTransaksiController extends Controller
 {
-    /**
-     * Method utama untuk memproses transaksi.
-     */
     public function proses(Request $request, Transaksi $transaksi)
     {
-        // 1. Validasi
         $varianCount = count($request->input('varian_body_ids', []));
+
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
             'varian_body_ids' => 'required|array|min:1|max:20',
             'varian_body_ids.*' => 'required|integer|exists:e_varian_body,id',
             'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
             'judul_gambar_ids.*' => 'required|integer|exists:j_judul_gambars,id',
-            'h_gambar_optional_ids' => 'nullable|array|min:1|max:20',
-            'h_gambar_optional_ids.*' => 'required|integer|exists:h_gambar_optional,id',
+            'h_gambar_optional_ids' => 'nullable|array',
+            'h_gambar_optional_ids.*' => 'integer|exists:h_gambar_optional,id',
             'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
             'deskripsi_optional' => 'nullable|string|max:255',
         ]);
 
-        // 2. Muat relasi data
+        // Muat data relasi
         $transaksi->load([
-            'user:id,name,username,signature',
-            'customer:id,nama_pt,pj,signature_pj',
+            'user',
+            'customer',
             'fPengajuan',
             'masterData.typeEngine',
             'masterData.merk',
@@ -52,29 +49,31 @@ class ProsesTransaksiController extends Controller
         $pemeriksa = User::find($validated['pemeriksa_id']);
         $masterData = $transaksi->masterData;
 
-        // 3. Bangun "Daftar Pekerjaan Gambar" (Drawing Jobs)
         $drawingJobs = [];
         $pageCounter = 1;
 
         // --- TAHAP 1 & 2: Gambar Utama & Paket ---
         foreach ($validated['varian_body_ids'] as $index => $varian_id) {
             $varianBody = EVarianBody::find($varian_id);
+
+            // Ambil Gambar Utama
             $gambarUtamaData = GGambarUtama::with('gambarOptionals')
                 ->where('e_varian_body_id', $varian_id)
                 ->first();
+
             $jenisJudul = JJudulGambar::find($validated['judul_gambar_ids'][$index]);
 
             if ($gambarUtamaData && $jenisJudul) {
-                // Gambar Tampak Utama
+                // 1. Utama
                 $drawingJobs[] = [
-                    'type' => 'standard', // Penanda tipe halaman
+                    'type' => 'standard',
                     'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                     'varian' => $varianBody->varian_body,
                     'page' => $pageCounter++,
                     'source_pdf' => $gambarUtamaData->path_gambar_utama,
                     'deskripsi_optional' => $validated['deskripsi_optional'] ?? null
                 ];
-                // Gambar Terurai
+                // 2. Terurai
                 $drawingJobs[] = [
                     'type' => 'standard',
                     'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
@@ -83,7 +82,7 @@ class ProsesTransaksiController extends Controller
                     'source_pdf' => $gambarUtamaData->path_gambar_terurai,
                     'deskripsi_optional' => null
                 ];
-                // Gambar Kontruksi
+                // 3. Kontruksi
                 $drawingJobs[] = [
                     'type' => 'standard',
                     'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
@@ -93,9 +92,10 @@ class ProsesTransaksiController extends Controller
                     'deskripsi_optional' => null
                 ];
 
-                // Gambar Paket (Attached to Utama)
+                // 4. Gambar Paket (Looping yang terhubung ke Gambar Utama ini)
                 foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
-                    if (in_array($gambarPaket->id, $validated['h_gambar_optional_ids'] ?? [])) {
+                    // Hanya masukkan jika tipenya paket DAN ID-nya dikirim oleh frontend
+                    if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $validated['h_gambar_optional_ids'] ?? [])) {
                         $drawingJobs[] = [
                             'type' => 'standard',
                             'title' => $gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET',
@@ -127,14 +127,14 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        // --- TAHAP 4: Gambar Kelistrikan (KHUSUS) ---
+        // --- TAHAP 4: Gambar Kelistrikan ---
         if (isset($validated['i_gambar_kelistrikan_id'])) {
             $gambarKelistrikan = IGambarKelistrikan::find($validated['i_gambar_kelistrikan_id']);
             if ($gambarKelistrikan) {
                 $drawingJobs[] = [
-                    'type' => 'kelistrikan', // <--- Penanda khusus untuk logika custom
-                    'title' => $gambarKelistrikan->deskripsi ?: '', // Deskripsi asli
-                    'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '', // Untuk format nama
+                    'type' => 'kelistrikan',
+                    'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
+                    'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
                     'varian' => '',
                     'page' => $pageCounter++,
                     'source_pdf' => $gambarKelistrikan->path_gambar_kelistrikan,
@@ -145,29 +145,45 @@ class ProsesTransaksiController extends Controller
 
         $totalHalaman = count($drawingJobs);
 
-        // 5. Eksekusi Preview atau Proses Download
+        // 5. Eksekusi
         if ($validated['aksi'] === 'preview') {
             $previewPage = $validated['preview_page'] ?? 1;
             $previewIndex = $previewPage - 1;
 
             if (isset($drawingJobs[$previewIndex])) {
                 $job = $drawingJobs[$previewIndex];
+
+                // Validasi file fisik
+                if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) {
+                    return response()->json(['message' => 'File PDF sumber tidak ditemukan: ' . $job['source_pdf']], 404);
+                }
+
                 $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                 $pdfContent = $this->generateSinglePdfPage($pdfData);
+
+                // --- FIX PENTING: Bersihkan buffer output sebelum kirim PDF ---
+                if (ob_get_length()) ob_clean();
+                // -------------------------------------------------------------
+
                 return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
             } else {
                 return response()->json(['message' => 'Halaman preview tidak ditemukan.'], 404);
             }
         } else {
-            // Proses Generate ZIP
+            // Proses Download ZIP
             $generatedPdfs = [];
             foreach ($drawingJobs as $job) {
+                if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue; // Skip jika file hilang
+
                 $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                 $pdfContent = $this->generateSinglePdfPage($pdfData);
                 $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
             }
 
-            // Nama File ZIP
+            if (empty($generatedPdfs)) {
+                return response()->json(['message' => 'Tidak ada gambar yang berhasil diproses.'], 404);
+            }
+
             $zipFileName = sprintf(
                 '%s (%s) %s_%s %s (%s).zip',
                 $transaksi->user->username,
@@ -186,24 +202,26 @@ class ProsesTransaksiController extends Controller
                 $zip->addFromString($pdfFile['name'], $pdfFile['content']);
             }
             $zip->close();
+
+            // --- FIX PENTING: Bersihkan buffer di sini juga ---
+            if (ob_get_length()) ob_clean();
+            // -------------------------------------------------
+
             return response()->download($tempZipPath, $cleanZipFileName)->deleteFileAfterSend(true);
         }
     }
 
-    /**
-     * Mempersiapkan data untuk dikirim ke generator PDF
-     */
     private function buildPdfData(array $job, Transaksi $transaksi, User $pemeriksa, int $totalHalaman): array
     {
         return [
-            'type' => $job['type'] ?? 'standard', // Tipe halaman (standard / kelistrikan)
+            'type' => $job['type'],
             'digambar' => $transaksi->user->name,
             'diperiksa' => $pemeriksa->name,
             'disetujui' => $transaksi->customer->pj,
             'tanggal' => now()->format('d.m.y'),
-            'catatan' => $job['varian'],
             'judul_gambar' => $job['title'],
-            'jenis_kendaraan' => $job['jenis_kendaraan'] ?? '', // Khusus kelistrikan
+            'catatan' => $job['varian'],
+            'jenis_kendaraan' => $job['jenis_kendaraan'] ?? '',
             'karoseri' => $transaksi->customer->nama_pt,
             'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
             'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
@@ -211,13 +229,10 @@ class ProsesTransaksiController extends Controller
             'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
             'signature_path_2' => $pemeriksa->signature ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null,
             'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
-            'deskripsi_optional' => $job['deskripsi_optional'] ?? null,
+            'deskripsi_optional' => $job['deskripsi_optional'],
         ];
     }
 
-    /**
-     * Generate satu halaman PDF berdasarkan data
-     */
     private function generateSinglePdfPage(array $data): string
     {
         $pdf = new Fpdi('L', 'mm', 'A4');
@@ -225,26 +240,25 @@ class ProsesTransaksiController extends Controller
         $pdf->setPrintFooter(false);
         $pdf->SetAutoPageBreak(false, 0);
 
-        // Cek file template
         $templatePath = Storage::disk('master_gambar')->path($data['source_pdf_path']);
+
         if (!file_exists($templatePath)) {
+            // Return minimal error PDF if physical file is missing
             $pdf->AddPage();
-            $pdf->SetFont('arial', 'B', 12);
-            $pdf->Text(10, 10, 'Error: Template PDF not found at ' . $data['source_pdf_path']);
-            return $pdf->Output('error.pdf', 'S');
+            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->Text(10, 10, 'File not found on server');
+            return $pdf->Output('err.pdf', 'S');
         }
 
-        // Import halaman
         $pdf->setSourceFile($templatePath);
-        $templateId = $pdf->importPage(1);
+        $tplId = $pdf->importPage(1);
         $pdf->AddPage();
-        $pdf->useTemplate($templateId, ['adjustPageSize' => true]);
+        $pdf->useTemplate($tplId, ['adjustPageSize' => true]);
 
-        // === LOGIKA TANDA TANGAN & TANGGAL (Berlaku untuk SEMUA) ===
-        // Kolom Digambar/Diperiksa/Disetujui
+        // Set Font
         $pdf->SetFont('arial', '', 4.3);
-        $pdf->setFontSpacing(0);
 
+        // Tanda Tangan Teks
         $pdf->SetXY(225.862, 175.205);
         $pdf->Write(0, $data['digambar']);
         $pdf->SetXY(225.862, 177.768);
@@ -260,7 +274,7 @@ class ProsesTransaksiController extends Controller
         $pdf->SetXY(243.53, 180.331);
         $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
 
-        // Tanda Tangan (Gambar)
+        // Gambar Tanda Tangan
         $boxX = 238.59;
         $boxWidth = 4.529;
         $boxHeight = 2.074;
@@ -268,9 +282,8 @@ class ProsesTransaksiController extends Controller
         $this->placeSignature($pdf, $data['signature_path_2'], $boxX, 177.625, $boxWidth, $boxHeight);
         $this->placeSignature($pdf, $data['signature_path_3'], $boxX, 180.188, $boxWidth, $boxHeight);
 
-        // Karoseri Name
+        // Karoseri
         $pdf->SetFont('arial', '', 8);
-        $pdf->setFontSpacing(0);
         $pdf->SetXY(217.004, 194.679);
         $pdf->Cell(44.149, 0, $data['karoseri'], 0, 0, 'C');
 
@@ -282,36 +295,17 @@ class ProsesTransaksiController extends Controller
         $pdf->SetXY(275.342, 198.311);
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
 
-
-        // === PEMISAHAN LOGIKA BERDASARKAN TIPE HALAMAN ===
-
-        if ($data['type'] === 'kelistrikan') {  
-            // --- LOGIKA KHUSUS KELISTRIKAN ---
-
-            // 1. Format String: "Deskripsi (Jenis Kendaraan)"
+        // Logika Khusus
+        if ($data['type'] === 'kelistrikan') {
             $finalText = sprintf('%s (%s)', $data['judul_gambar'], $data['jenis_kendaraan']);
-
-            // 2. Custom Posisi (X, Y) - Silakan ubah angka ini
-            $customX = 50;  // <-- GANTI X DISINI
-            $customY = 250; // <-- GANTI Y DISINI
-
-            // 3. Tulis Teks
-            $pdf->SetFont('arial', '', 11); // Bisa sesuaikan font
-            $pdf->SetXY($customX, $customY);
+            $pdf->SetFont('arial', '', 11);
+            $pdf->SetXY(50, 250);
             $pdf->Cell(0, 0, $finalText, 0, 0, 'L');
-
-            // Note: Judul standar di kanan bawah TIDAK dicetak untuk kelistrikan
-
         } else {
-            // --- LOGIKA STANDARD (Gambar Utama, Optional, dll) ---
-
-            // Judul Gambar di Kanan Bawah
             $pdf->SetFont('arial', '', 6);
-            $pdf->setFontSpacing(-0.09);
             $pdf->SetXY(215.686, 183.252);
             $pdf->Cell(68.654, 0, $data['judul_gambar'], 0, 0, 'C');
 
-            // Deskripsi Optional (jika ada)
             if (!empty($data['deskripsi_optional'])) {
                 $pdf->SetFont('arial', '', 6);
                 $pdf->SetXY(208.573, 163.897);
@@ -324,14 +318,12 @@ class ProsesTransaksiController extends Controller
 
     private function placeSignature(Fpdi &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
     {
-        if (!$imagePath || !file_exists($imagePath)) {
-            return;
-        }
-        list($originalWidth, $originalHeight) = getimagesize($imagePath);
-        if ($originalHeight == 0) return;
-        $newWidth = ($originalWidth / $originalHeight) * $boxHeight;
-        $newHeight = $boxHeight;
-        $calculatedX = $boxX + (($boxWidth - $newWidth) / 2);
-        $pdf->Image($imagePath, $calculatedX, $boxY, $newWidth, $newHeight, 'PNG');
+        if (!$imagePath || !file_exists($imagePath)) return;
+        list($w, $h) = getimagesize($imagePath);
+        if ($h == 0) return;
+        $newW = ($w / $h) * $boxHeight;
+        $newH = $boxHeight;
+        $posX = $boxX + (($boxWidth - $newW) / 2);
+        $pdf->Image($imagePath, $posX, $boxY, $newW, $newH, 'PNG');
     }
 }
