@@ -307,7 +307,7 @@ class ProsesTransaksiController extends Controller
 
             // TODO: Sesuaikan Y di sini nanti
             $customX = 215.686; // Sama dengan X judul gambar standar
-            $customY = 188.586; // <-- GANTI INI NANTI dengan posisi Y yang Anda mau
+            $customY = 188.632; // <-- GANTI INI NANTI dengan posisi Y yang Anda mau
 
             $pdf->SetXY($customX, $customY);
             $pdf->Cell(68.654, 0, $finalText, 0, 0, 'C'); // Align Center agar rapi di kolom
