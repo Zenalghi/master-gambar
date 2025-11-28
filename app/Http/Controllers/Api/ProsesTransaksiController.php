@@ -295,17 +295,35 @@ class ProsesTransaksiController extends Controller
         $pdf->SetXY(275.342, 198.311);
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
 
-        // Logika Khusus
+        // Logika Khusus kelistrikan
         if ($data['type'] === 'kelistrikan') {
+            // --- KHUSUS KELISTRIKAN ---
+
+            // 1. Format String: "Deskripsi (Jenis Kendaraan)"
             $finalText = sprintf('%s (%s)', $data['judul_gambar'], $data['jenis_kendaraan']);
-            $pdf->SetFont('arial', '', 11);
-            $pdf->SetXY(50, 250);
-            $pdf->Cell(0, 0, $finalText, 0, 0, 'L');
-        } else {
+
+            // 2. Atur Font & Posisi
             $pdf->SetFont('arial', '', 6);
+
+            // TODO: Sesuaikan Y di sini nanti
+            $customX = 215.686; // Sama dengan X judul gambar standar
+            $customY = 188.586; // <-- GANTI INI NANTI dengan posisi Y yang Anda mau
+
+            $pdf->SetXY($customX, $customY);
+            $pdf->Cell(68.654, 0, $finalText, 0, 0, 'C'); // Align Center agar rapi di kolom
+
+            // PENTING: Tidak mencetak 'judul_gambar' standar di sini, sudah diganti dengan $finalText di atas.
+
+        } else {
+            // --- STANDARD (Utama, Terurai, Kontruksi, Optional) ---
+
+            // 1. Cetak Judul Gambar Standar di Kanan Bawah
+            $pdf->SetFont('arial', '', 6);
+            $pdf->setFontSpacing(-0.09); // Rapatkan sedikit jika panjang
             $pdf->SetXY(215.686, 183.252);
             $pdf->Cell(68.654, 0, $data['judul_gambar'], 0, 0, 'C');
 
+            // 2. Cetak Deskripsi Optional (hanya ada di standard)
             if (!empty($data['deskripsi_optional'])) {
                 $pdf->SetFont('arial', '', 6);
                 $pdf->SetXY(208.573, 163.897);
