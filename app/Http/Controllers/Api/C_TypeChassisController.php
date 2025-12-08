@@ -102,11 +102,10 @@ class C_TypeChassisController extends Controller
                 'general' => ['Data tidak bisa dihapus permanen karena masih digunakan di Master Data (Kombinasi).']
             ]);
         }
-
-        // Cek juga apakah dipakai di Gambar Kelistrikan (karena relasi langsung)
-        if (IGambarKelistrikan::where('c_type_chassis_id', $id)->exists()) {
+        $chassis = CTypeChassis::onlyTrashed()->find($id);
+        if ($chassis->fileKelistrikan()->exists()) {
             throw ValidationException::withMessages([
-                'general' => ['Data tidak bisa dihapus permanen karena memiliki Gambar Kelistrikan.']
+                'general' => ['Data tidak bisa dihapus permanen karena masih memiliki file kelistrikan terkait.']
             ]);
         }
 

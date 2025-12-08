@@ -4,30 +4,35 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class IGambarKelistrikan extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
     protected $table = 'i_gambar_kelistrikan';
+
     protected $fillable = [
-        'a_type_engine_id',
-        'b_merk_id',
-        'c_type_chassis_id',
-        'path_gambar_kelistrikan',
+        'master_data_id',
+        'master_kelistrikan_file_id',
         'deskripsi',
     ];
 
-    public function typeEngine()
+    // Relasi ke Master Data (untuk tahu ini milik varian apa)
+    public function masterData()
     {
-        return $this->belongsTo(ATypeEngine::class, 'a_type_engine_id')->withTrashed();
+        return $this->belongsTo(MasterData::class, 'master_data_id');
     }
-    public function merk()
+
+    // Relasi ke File Fisik (untuk ambil PDF)
+    public function fileKelistrikan()
     {
-        return $this->belongsTo(BMerk::class, 'b_merk_id')->withTrashed();
+        return $this->belongsTo(MasterKelistrikanFile::class, 'master_kelistrikan_file_id');
     }
-    public function typeChassis()
+
+    // Helper untuk mendapatkan path dengan mudah
+    public function getPathGambarKelistrikanAttribute()
     {
-        return $this->belongsTo(CTypeChassis::class, 'c_type_chassis_id')->withTrashed();
+        return $this->fileKelistrikan->path_file ?? null;
     }
 }

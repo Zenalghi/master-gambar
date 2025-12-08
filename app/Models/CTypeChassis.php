@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class CTypeChassis extends Model
@@ -25,5 +25,10 @@ class CTypeChassis extends Model
     public function gambarKelistrikan(): HasOne
     {
         return $this->hasOne(IGambarKelistrikan::class, 'c_type_chassis_id');
+    }
+    // Relasi ke File Fisik Kelistrikan
+    public function fileKelistrikan()
+    {
+        return $this->hasOne(MasterKelistrikanFile::class, 'c_type_chassis_id');
     }
 }

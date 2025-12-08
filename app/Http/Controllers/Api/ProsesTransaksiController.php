@@ -129,7 +129,9 @@ class ProsesTransaksiController extends Controller
 
         // --- TAHAP 4: Gambar Kelistrikan ---
         if (isset($validated['i_gambar_kelistrikan_id'])) {
-            $gambarKelistrikan = IGambarKelistrikan::find($validated['i_gambar_kelistrikan_id']);
+            // Tambahkan with('fileKelistrikan')
+            $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
+                ->find($validated['i_gambar_kelistrikan_id']);
             if ($gambarKelistrikan) {
                 $drawingJobs[] = [
                     'type' => 'kelistrikan',
@@ -300,7 +302,7 @@ class ProsesTransaksiController extends Controller
             // --- KHUSUS KELISTRIKAN ---
 
             // 1. Format String: "Deskripsi (Jenis Kendaraan)"
-            $finalText = sprintf('%s (%s)', $data['judul_gambar'], $data['jenis_kendaraan']);
+            $finalText = sprintf('%s', $data['judul_gambar']);
 
             // 2. Atur Font & Posisi
             $pdf->SetFont('arial', '', 6);
