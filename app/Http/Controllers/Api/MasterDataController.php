@@ -37,11 +37,14 @@ class MasterDataController extends Controller
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->leftJoin('master_kelistrikan_files', 'master_data.c_type_chassis_id', '=', 'master_kelistrikan_files.c_type_chassis_id')
+            ->leftJoin('master_kelistrikan_files', 'master_data.c_type_chassis_id', '=', 'master_kelistrikan_files.c_type_chassis_id')
             ->leftJoin('i_gambar_kelistrikan', 'master_data.id', '=', 'i_gambar_kelistrikan.master_data_id')
             ->select([
                 'master_data.*',
-                // Ambil ID kelistrikan jika ada (untuk status di frontend)
-                'i_gambar_kelistrikan.id as kelistrikan_id'
+                'i_gambar_kelistrikan.id as kelistrikan_id', // ID Deskripsi (Hijau jika ada)
+                'i_gambar_kelistrikan.deskripsi as kelistrikan_deskripsi',
+                'master_kelistrikan_files.id as file_kelistrikan_id', // ID File Fisik (Kuning jika ada, Merah jika null)
             ])
             ->groupBy('master_data.id');
 
@@ -57,7 +60,8 @@ class MasterDataController extends Controller
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('master_data.created_at', 'like', "%{$search}%")
-                    ->orWhere('master_data.updated_at', 'like', "%{$search}%");
+                    ->orWhere('master_data.updated_at', 'like', "%{$search}%")
+                    ->orWhere('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%");
             });
         }
 
@@ -70,6 +74,7 @@ class MasterDataController extends Controller
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'master_data.created_at',
             'updated_at' => 'master_data.updated_at',
+            'kelistrikan_deskripsi' => 'i_gambar_kelistrikan.deskripsi',
             default => 'master_data.updated_at',
         };
         $query->orderBy($sortColumn, $sortDirection);

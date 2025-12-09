@@ -138,6 +138,13 @@ Route::middleware('auth.api')->group(
 
             // Cek apakah file fisik sudah ada untuk chassis tertentu
             Route::get('/gambar-kelistrikan/check-file/{chassisId}', [I_GambarKelistrikanController::class, 'checkFileStatus']);
+            // 1. Gudang File (MasterGambarKelistrikanScreen)
+            Route::get('/gambar-kelistrikan/files', [I_GambarKelistrikanController::class, 'indexFiles']); // List File
+            Route::post('/gambar-kelistrikan/files', [I_GambarKelistrikanController::class, 'storeFile']); // Upload File Baru
+            Route::delete('/gambar-kelistrikan/files/{id}', [I_GambarKelistrikanController::class, 'destroyFile']); // Hapus File
+
+            // 2. Deskripsi (MasterDataScreen)
+            Route::post('/gambar-kelistrikan/deskripsi', [I_GambarKelistrikanController::class, 'storeDeskripsi']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 
