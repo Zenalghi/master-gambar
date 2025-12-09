@@ -3,19 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\CTypeChassis;
-use App\Models\IGambarKelistrikan;
-use App\Models\MasterKelistrikanFile;
-use App\Models\MasterData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB; // Penting untuk Transaction
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
+use App\Models\MasterKelistrikanFile;
+use App\Models\MasterData;
+use App\Models\IGambarKelistrikan;
 
 class I_GambarKelistrikanController extends Controller
 {
-    // === BAGIAN 1: GUDANG FILE (MasterKelistrikanFile) ===
-
+    // === 1. LIST FILE (GUDANG FILE) ===
     public function indexFiles(Request $request)
     {
         $validated = $request->validate([
@@ -31,33 +29,36 @@ class I_GambarKelistrikanController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // Query simpel langsung ke 3 tabel induk
-        $query = \App\Models\MasterKelistrikanFile::query()
+        // QUERY FIX: Gunakan leftJoin ke Master Data untuk ambil nama Engine & Merk
+        // karena tabel file fisik sudah independen (hanya punya 3 ID)
+        $query = MasterKelistrikanFile::query()
+            ->join('c_type_chassis', 'master_kelistrikan_files.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('a_type_engines', 'master_kelistrikan_files.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_kelistrikan_files.b_merk_id', '=', 'b_merks.id')
-            ->join('c_type_chassis', 'master_kelistrikan_files.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->select([
                 'master_kelistrikan_files.*',
-                'a_type_engines.type_engine as engine_name',
-                'b_merks.merk as merk_name',
                 'c_type_chassis.type_chassis as chassis_name',
+                'b_merks.merk as merk_name',
+                'a_type_engines.type_engine as engine_name',
             ]);
 
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
-                $q->where('a_type_engines.type_engine', 'like', "%{$search}%")
+                $q->where('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
-                    ->orWhere('master_kelistrikan_files.id', 'like', "%{$search}%");
+                    ->orWhere('master_kelistrikan_files.id', 'like', "%{$search}%")
+                    ->orWhere('master_kelistrikan_files.created_at', 'like', "%{$search}%")
+                    ->orWhere('master_kelistrikan_files.updated_at', 'like', "%{$search}%");
             });
         }
 
-        // Sorting
+        // Sorting dengan Alias
         $sortColumn = match ($sortBy) {
             'id' => 'master_kelistrikan_files.id',
-            'type_engine' => 'a_type_engines.type_engine',
-            'merk' => 'b_merks.merk',
-            'type_chassis' => 'c_type_chassis.type_chassis',
+            'type_engine' => 'engine_name',
+            'merk' => 'merk_name',
+            'type_chassis' => 'chassis_name',
             'created_at' => 'master_kelistrikan_files.created_at',
             'updated_at' => 'master_kelistrikan_files.updated_at',
             default => 'master_kelistrikan_files.updated_at',
@@ -67,6 +68,7 @@ class I_GambarKelistrikanController extends Controller
         return $query->paginate($perPage);
     }
 
+    // === 2. UPLOAD FILE (TRANSACTION LOGIC) ===
     public function storeFile(Request $request)
     {
         $validated = $request->validate([
@@ -76,42 +78,51 @@ class I_GambarKelistrikanController extends Controller
             'gambar_kelistrikan' => 'required|file|mimes:pdf',
         ]);
 
-        // Cek duplikasi kombinasi
-        $exists = \App\Models\MasterKelistrikanFile::where('a_type_engine_id', $validated['a_type_engine_id'])
-            ->where('b_merk_id', $validated['b_merk_id'])
-            ->where('c_type_chassis_id', $validated['c_type_chassis_id'])
-            ->first();
+        return DB::transaction(function () use ($validated, $request) {
+            // 1. Cek Data Lama
+            $fileRecord = MasterKelistrikanFile::where('a_type_engine_id', $validated['a_type_engine_id'])
+                ->where('b_merk_id', $validated['b_merk_id'])
+                ->where('c_type_chassis_id', $validated['c_type_chassis_id'])
+                ->first();
 
-        if ($exists) {
-            // Hapus file lama jika ada (Replace)
-            if (Storage::disk('master_gambar')->exists($exists->path_file)) {
-                Storage::disk('master_gambar')->delete($exists->path_file);
+            if (!$fileRecord) {
+                // Buat record baru sementara (tanpa path dulu) untuk dapat ID
+                $fileRecord = new MasterKelistrikanFile();
+                $fileRecord->a_type_engine_id = $validated['a_type_engine_id'];
+                $fileRecord->b_merk_id = $validated['b_merk_id'];
+                $fileRecord->c_type_chassis_id = $validated['c_type_chassis_id'];
+                $fileRecord->path_file = 'temp'; // Placeholder
+                $fileRecord->save();
+            } else {
+                // Hapus file fisik lama jika ada
+                if (Storage::disk('master_gambar')->exists($fileRecord->path_file)) {
+                    Storage::disk('master_gambar')->delete($fileRecord->path_file);
+                }
             }
-            $fileRecord = $exists;
-        } else {
-            $fileRecord = new \App\Models\MasterKelistrikanFile();
-            $fileRecord->a_type_engine_id = $validated['a_type_engine_id'];
-            $fileRecord->b_merk_id = $validated['b_merk_id'];
-            $fileRecord->c_type_chassis_id = $validated['c_type_chassis_id'];
-        }
 
-        // Ambil nama untuk path (Manual lookup karena model belum tersimpan)
-        $engine = \App\Models\ATypeEngine::find($validated['a_type_engine_id'])->type_engine;
-        $merk = \App\Models\BMerk::find($validated['b_merk_id'])->merk;
-        $chassis = \App\Models\CTypeChassis::find($validated['c_type_chassis_id'])->type_chassis;
+            // 2. GENERATE PATH SESUAI REQUEST: kelistrikan/{chassis_id}/{file_id}.pdf
+            $chassisId = $validated['c_type_chassis_id'];
+            $fileId = $fileRecord->id; // ID sudah tersedia sekarang
 
-        $pathData = [$engine, $merk, $chassis, 'kelistrikan'];
-        $basePath = implode('/', array_map(fn($p) => Str::slug($p), $pathData));
-        $fileName = Str::slug($chassis) . '_base.pdf';
+            $fileName = $fileId . '.pdf';
+            $directory = 'kelistrikan/' . $chassisId;
 
-        $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
+            // Simpan Fisik
+            $path = $request->file('gambar_kelistrikan')->storeAs(
+                $directory,
+                $fileName,
+                'master_gambar'
+            );
 
-        $fileRecord->path_file = $path;
-        $fileRecord->save();
+            // 3. Update Path di Database
+            $fileRecord->path_file = $path;
+            $fileRecord->save();
 
-        return response()->json($fileRecord, 201);
+            return response()->json($fileRecord, 201);
+        });
     }
 
+    // === 3. DELETE FILE ===
     public function destroyFile($id)
     {
         $file = MasterKelistrikanFile::findOrFail($id);
