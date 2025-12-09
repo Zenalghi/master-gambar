@@ -135,6 +135,9 @@ Route::middleware('auth.api')->group(
             Route::post('varian-body/{id}/restore', [VarianBodyController::class, 'restore']);
             Route::delete('varian-body/{id}/force-delete', [VarianBodyController::class, 'forceDelete']);
             Route::apiResource('varian-body', VarianBodyController::class);
+
+            // Cek apakah file fisik sudah ada untuk chassis tertentu
+            Route::get('/gambar-kelistrikan/check-file/{chassisId}', [I_GambarKelistrikanController::class, 'checkFileStatus']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

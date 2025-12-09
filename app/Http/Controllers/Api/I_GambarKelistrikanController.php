@@ -44,48 +44,64 @@ class I_GambarKelistrikanController extends Controller
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%")
-                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
-                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%");
+                    ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('i_gambar_kelistrikan.created_at', 'like', "%{$search}%")
+                    ->orWhere('i_gambar_kelistrikan.updated_at', 'like', "%{$search}%");
             });
         }
 
         // Sorting
-        $query->orderBy('i_gambar_kelistrikan.updated_at', $sortDirection);
+        $sortColumn = match ($sortBy) {
+            'id' => 'i_gambar_kelistrikan.id',
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
+            'deskripsi' => 'i_gambar_kelistrikan.deskripsi',
+            'created_at' => 'i_gambar_kelistrikan.created_at',
+            'updated_at' => 'i_gambar_kelistrikan.updated_at',
+
+            default => 'i_gambar_kelistrikan.updated_at',
+        };
+
+        $query->orderBy($sortColumn, $sortDirection);
 
         return $query->paginate($perPage);
     }
 
     public function store(Request $request)
     {
+        // 1. Validasi Awal
         $validated = $request->validate([
             'master_data_id' => [
                 'required',
                 'integer',
                 'exists:master_data,id',
-                Rule::unique('i_gambar_kelistrikan')->whereNull('deleted_at')
+                \Illuminate\Validation\Rule::unique('i_gambar_kelistrikan')->whereNull('deleted_at')
             ],
             'deskripsi' => 'required|string|max:255',
             'gambar_kelistrikan' => 'nullable|file|mimes:pdf',
         ]);
 
-        $masterData = MasterData::findOrFail($validated['master_data_id']);
-        $chassisId = $masterData->c_type_chassis_id;
+        $masterData = \App\Models\MasterData::findOrFail($validated['master_data_id']);
+        $chassisId = $request->c_type_chassis_id;
 
-        // 1. Cek apakah chassis sudah punya file kelistrikan
-        $existingFile = MasterKelistrikanFile::where('c_type_chassis_id', $chassisId)->first();
+        // 2. Cek apakah File Fisik sudah ada untuk Chassis ini?
+        $existingFile = \App\Models\MasterKelistrikanFile::where('c_type_chassis_id', $chassisId)->first();
         $fileId = null;
 
         if ($existingFile) {
-            // A. Sudah punya file → gunakan file existing
+            // KASUS A: File sudah ada -> Pakai ID lama
             $fileId = $existingFile->id;
         } else {
-            // B. Belum punya file → wajib upload file PDF
+            // KASUS B: File belum ada -> Wajib Upload
             if (!$request->hasFile('gambar_kelistrikan')) {
-                return response()->json(['message' => 'File PDF wajib diupload untuk Chassis baru ini.'], 422);
+                return response()->json(['message' => 'File PDF wajib diupload karena belum ada file untuk Chassis ini.'], 422);
             }
 
-            // Path folder berdasarkan Master Data (terstruktur rapi)
             $chassis = $masterData->typeChassis;
             $pathData = [
                 $masterData->typeEngine->type_engine,
@@ -93,31 +109,24 @@ class I_GambarKelistrikanController extends Controller
                 $chassis->type_chassis,
                 'kelistrikan'
             ];
-
-            $basePath = implode('/', array_map(
-                fn($part) => Str::slug($part),
-                $pathData
-            ));
-
-            // Nama file generik
-            $fileName = Str::slug($chassis->type_chassis) . '_base.pdf';
+            $basePath = implode('/', array_map(fn($part) => \Illuminate\Support\Str::slug($part), $pathData));
+            $fileName = \Illuminate\Support\Str::slug($chassis->type_chassis) . '_base.pdf';
 
             $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
 
-            // Simpan file ke database
-            $newFile = MasterKelistrikanFile::create([
+            // Simpan ke tabel File Fisik
+            $newFile = \App\Models\MasterKelistrikanFile::create([
                 'c_type_chassis_id' => $chassisId,
                 'path_file' => $path
             ]);
-
             $fileId = $newFile->id;
         }
 
-        // 2. Simpan entri IGambarKelistrikan
+        // 3. Simpan Data Logis (Deskripsi)
         $gambar = IGambarKelistrikan::create([
             'master_data_id' => $validated['master_data_id'],
             'master_kelistrikan_file_id' => $fileId,
-            'deskripsi' => Str::upper($validated['deskripsi']),
+            'deskripsi' => \Illuminate\Support\Str::upper($validated['deskripsi']),
         ]);
 
         return response()->json($gambar, 201);
@@ -156,18 +165,13 @@ class I_GambarKelistrikanController extends Controller
     }
 
     // Helper untuk frontend
-    public function checkFileStatus($masterDataId)
+    public function checkFileStatus($chassisId)
     {
-        $masterData = MasterData::find($masterDataId);
-        if (!$masterData) {
-            return response()->json(['exists' => false]);
-        }
-
-        $file = MasterKelistrikanFile::where('c_type_chassis_id', $masterData->c_type_chassis_id)->first();
+        $existingFile = MasterKelistrikanFile::where('c_type_chassis_id', $chassisId)->first();
 
         return response()->json([
-            'exists' => $file !== null,
-            'filename' => $file ? basename($file->path_file) : null
+            'exists' => $existingFile !== null,
+            'filename' => $existingFile ? basename($existingFile->path_file) : null
         ]);
     }
 }
