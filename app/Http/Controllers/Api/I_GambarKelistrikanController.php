@@ -80,21 +80,30 @@ class I_GambarKelistrikanController extends Controller
                 'required',
                 'integer',
                 'exists:master_data,id',
-                \Illuminate\Validation\Rule::unique('i_gambar_kelistrikan')->whereNull('deleted_at')
+                \Illuminate\Validation\Rule::unique('i_gambar_kelistrikan')
             ],
             'deskripsi' => 'required|string|max:255',
             'gambar_kelistrikan' => 'nullable|file|mimes:pdf',
         ]);
 
-        $masterData = \App\Models\MasterData::findOrFail($validated['master_data_id']);
-        $chassisId = $request->c_type_chassis_id;
+        // 2. Ambil MasterData dan ID Chassis yang Valid
+        // Gunakan findOrFail agar langsung error 404 jika ID salah, mencegah null pointer
+        $masterData = \App\Models\MasterData::with('typeChassis')->findOrFail($validated['master_data_id']);
 
-        // 2. Cek apakah File Fisik sudah ada untuk Chassis ini?
+        // Ambil ID Chassis langsung dari kolom master_data
+        $chassisId = $masterData->c_type_chassis_id;
+
+        // Validasi ekstra: Pastikan Chassis ID benar-benar ada
+        if (!$chassisId) {
+            return response()->json(['message' => 'Data Master tidak memiliki Type Chassis yang valid.'], 422);
+        }
+
+        // 3. Cek File Fisik di Database
         $existingFile = \App\Models\MasterKelistrikanFile::where('c_type_chassis_id', $chassisId)->first();
         $fileId = null;
 
         if ($existingFile) {
-            // KASUS A: File sudah ada -> Pakai ID lama
+            // KASUS A: File fisik sudah ada -> Pakai ID lama
             $fileId = $existingFile->id;
         } else {
             // KASUS B: File belum ada -> Wajib Upload
@@ -102,27 +111,32 @@ class I_GambarKelistrikanController extends Controller
                 return response()->json(['message' => 'File PDF wajib diupload karena belum ada file untuk Chassis ini.'], 422);
             }
 
-            $chassis = $masterData->typeChassis;
+            // Upload Logic (Membangun Path)
+            // Pastikan relasi induk termuat untuk nama folder
+            $masterData->load(['typeEngine', 'merk']);
+
             $pathData = [
                 $masterData->typeEngine->type_engine,
                 $masterData->merk->merk,
-                $chassis->type_chassis,
+                $masterData->typeChassis->type_chassis, // Pastikan relasi typeChassis sudah di-load/ada
                 'kelistrikan'
             ];
+
+            // Bersihkan nama folder
             $basePath = implode('/', array_map(fn($part) => \Illuminate\Support\Str::slug($part), $pathData));
-            $fileName = \Illuminate\Support\Str::slug($chassis->type_chassis) . '_base.pdf';
+            $fileName = \Illuminate\Support\Str::slug($masterData->typeChassis->type_chassis) . '_base.pdf';
 
             $path = $request->file('gambar_kelistrikan')->storeAs($basePath, $fileName, 'master_gambar');
 
             // Simpan ke tabel File Fisik
             $newFile = \App\Models\MasterKelistrikanFile::create([
-                'c_type_chassis_id' => $chassisId,
+                'c_type_chassis_id' => $chassisId, // <-- Ini yang sebelumnya error NULL
                 'path_file' => $path
             ]);
             $fileId = $newFile->id;
         }
 
-        // 3. Simpan Data Logis (Deskripsi)
+        // 4. Simpan Data Logis (Deskripsi)
         $gambar = IGambarKelistrikan::create([
             'master_data_id' => $validated['master_data_id'],
             'master_kelistrikan_file_id' => $fileId,
