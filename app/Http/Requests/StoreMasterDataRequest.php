@@ -4,41 +4,52 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
-use App\Models\MasterData;
 
 class StoreMasterDataRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true; // Asumsikan dihandle oleh middleware
+        return true;
     }
+
     public function rules(): array
     {
         return [
-            'a_type_engine_id' => 'required|integer|exists:a_type_engines,id',
-            'b_merk_id' => 'required|integer|exists:b_merks,id',
-            'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id',
-            'd_jenis_kendaraan_id' => 'required|integer|exists:d_jenis_kendaraan,id',
+            // Validasi keberadaan ID di tabel induk
+            'a_type_engine_id' => 'required|exists:a_type_engines,id',
+            'b_merk_id' => 'required|exists:b_merks,id',
+            'c_type_chassis_id' => 'required|exists:c_type_chassis,id',
+
+            // Validasi Khusus untuk Kombinasi Unik
+            'd_jenis_kendaraan_id' => [
+                'required',
+                'exists:d_jenis_kendaraan,id',
+                // Cek apakah kombinasi 4 ID ini sudah ada di database?
+                Rule::unique('master_data')->where(function ($query) {
+                    return $query->where('a_type_engine_id', $this->a_type_engine_id)
+                        ->where('b_merk_id', $this->b_merk_id)
+                        ->where('c_type_chassis_id', $this->c_type_chassis_id);
+                }),
+            ],
         ];
     }
 
-    public function withValidator($validator)
+    public function messages(): array
     {
-        $validator->after(function ($validator) {
-            // Hanya cek ketika semua nilai tersedia
-            if ($this->filled('a_type_engine_id') && $this->filled('b_merk_id') && $this->filled('c_type_chassis_id') && $this->filled('d_jenis_kendaraan_id')) {
-                $exists = MasterData::whereNull('deleted_at')
-                    ->where('a_type_engine_id', $this->a_type_engine_id)
-                    ->where('b_merk_id', $this->b_merk_id)
-                    ->where('c_type_chassis_id', $this->c_type_chassis_id)
-                    ->where('d_jenis_kendaraan_id', $this->d_jenis_kendaraan_id)
-                    ->exists();
+        return [
+            // Pesan error khusus yang akan muncul di Snackbar Flutter
+            'd_jenis_kendaraan_id.unique' => 'Kombinasi Master Data ini (Engine, Merk, Chassis, Jenis) sudah ada di database.',
+        ];
+    }
 
-                if ($exists) {
-                    $validator->errors()->add('general', 'Data sudah ada.');
-                }
-            }
-        });
+    // Opsional: Rename atribut agar pesan default lebih enak dibaca
+    public function attributes()
+    {
+        return [
+            'a_type_engine_id' => 'Type Engine',
+            'b_merk_id' => 'Merk',
+            'c_type_chassis_id' => 'Type Chassis',
+            'd_jenis_kendaraan_id' => 'Jenis Kendaraan',
+        ];
     }
 }
