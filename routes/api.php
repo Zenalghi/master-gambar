@@ -72,79 +72,99 @@ Route::middleware('auth.api')->group(
         Route::get('/options/varian-body-status', [OptionController::class, 'getVarianBodyForDropdown']);
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
-            // Rute CRUD untuk mengelola User
+            // --- MANAJEMEN USER & ROLE ---
             Route::apiResource('users', UserController::class);
             Route::get('/options/roles', [OptionController::class, 'getRoles']);
-            // Rute CRUD untuk mengelola Customer
+
+            // --- MANAJEMEN CUSTOMER ---
             Route::apiResource('customers', CustomerController::class);
+
+            // --- MANAJEMEN GAMBAR MASTER (Utama & Optional) ---
             Route::post('/gambar-master/utama', [GambarMasterController::class, 'uploadGambarUtama']);
             Route::post('/gambar-master/optional', [GambarMasterController::class, 'uploadGambarOptional']);
-
             Route::delete('/gambar-master/utama/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarUtama']);
             Route::delete('/gambar-master/optional/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarOptional']);
+            // Route hapus spesifik (jika diperlukan)
+            Route::delete('/gambar-master/utama/{id}', [GambarMasterController::class, 'destroy']);
 
-            Route::post('/gambar-master/kelistrikan', [GambarMasterController::class, 'uploadGambarKelistrikan']);
-            Route::delete('/gambar-master/kelistrikan/{c_type_chassis_id}', [GambarMasterController::class, 'destroyGambarKelistrikan']);
+            // --- MANAJEMEN GAMBAR KELISTRIKAN (PERBAIKAN URUTAN) ---
+            // PENTING: Route custom ini WAJIB di atas apiResource agar tidak dianggap sebagai ID
 
-            // --- RUTE BARU UNTUK UPLOAD & DELETE PARAF ---
+            // 1. Cek File (Specific)
+            Route::get('/gambar-kelistrikan/check-file/{chassisId}', [I_GambarKelistrikanController::class, 'checkFileStatus']);
+
+            // 2. Gudang File (Specific "files")
+            Route::get('/gambar-kelistrikan/files', [I_GambarKelistrikanController::class, 'indexFiles']);
+            Route::post('/gambar-kelistrikan/files', [I_GambarKelistrikanController::class, 'storeFile']);
+            Route::delete('/gambar-kelistrikan/files/{id}', [I_GambarKelistrikanController::class, 'destroyFile']);
+
+            // 3. Deskripsi (Specific "deskripsi")
+            Route::post('/gambar-kelistrikan/deskripsi', [I_GambarKelistrikanController::class, 'storeDeskripsi']);
+
+            // 4. Helper View PDF
+            Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
+
+            // 5. Resource Umum (Menangkap sisa request standard CRUD {id})
+            Route::apiResource('gambar-kelistrikan', I_GambarKelistrikanController::class);
+            // -----------------------------------------------------------
+
+            // --- MANAJEMEN PARAF ---
             Route::post('/users/{user}/paraf', [ParafUploadController::class, 'uploadUserParaf']);
             Route::delete('/users/{user}/paraf', [ParafUploadController::class, 'destroyUserParaf']);
-
             Route::post('/customers/{customer}/paraf', [ParafUploadController::class, 'uploadCustomerParaf']);
             Route::get('/customers/{customer}/paraf', [ParafViewController::class, 'showCustomerParaf']);
             Route::get('/users/{user}/paraf', [ParafViewController::class, 'showUserParaf']);
+
+            // --- RESOURCE LAINNYA ---
             Route::apiResource('jenis-varian', J_JenisVarianController::class)->parameters(['jenis-varian' => 'jJudulGambar']);
             Route::apiResource('gambar-optional', H_GambarOptionalController::class);
-            Route::apiResource('gambar-kelistrikan', I_GambarKelistrikanController::class);
-            Route::get('/image-status', [ImageStatusController::class, 'index']);
-            Route::delete('/gambar-master/utama/{id}', [GambarMasterController::class, 'destroy']);
 
-            Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
+            // --- MONITORING STATUS GAMBAR ---
+            Route::get('/image-status', [ImageStatusController::class, 'index']);
+
+            // --- PDF VIEWERS ---
             Route::get('/gambar-optional/{gambarOptional}/pdf', [H_GambarOptionalController::class, 'showPdf']);
             Route::get('/gambar-utama/{gambarUtama}/paths', [GambarMasterController::class, 'showPaths']);
             Route::get('/master-gambar/view', [GambarMasterController::class, 'viewPdf']);
+
+            // --- HELPER OPTIONS ---
             Route::get('/options/check-paket-optional/{varianBodyId}', [OptionController::class, 'checkPaketOptionalExists']);
 
+            // --- MASTER DATA (RECYCLE BIN & CRUD) ---
             Route::get('master-data/trash', [MasterDataController::class, 'trash']);
             Route::post('master-data/{id}/restore', [MasterDataController::class, 'restore']);
             Route::delete('master-data/{id}/force-delete', [MasterDataController::class, 'forceDelete']);
             Route::apiResource('master-data', MasterDataController::class)->parameters(['master-data' => 'masterDatum']);
 
+            // --- TYPE ENGINE ---
             Route::get('type-engines/trash', [TypeEngineController::class, 'trash']);
             Route::post('type-engines/{id}/restore', [TypeEngineController::class, 'restore']);
             Route::delete('type-engines/{id}/force-delete', [TypeEngineController::class, 'forceDelete']);
             Route::apiResource('type-engines', TypeEngineController::class);
 
+            // --- MERK ---
             Route::get('merks/trash', [MerkController::class, 'trash']);
             Route::post('merks/{id}/restore', [MerkController::class, 'restore']);
             Route::delete('merks/{id}/force-delete', [MerkController::class, 'forceDelete']);
             Route::apiResource('merks', MerkController::class);
 
+            // --- TYPE CHASSIS ---
             Route::get('type-chassis/trash', [TypeChassisController::class, 'trash']);
             Route::post('type-chassis/{id}/restore', [TypeChassisController::class, 'restore']);
             Route::delete('type-chassis/{id}/force-delete', [TypeChassisController::class, 'forceDelete']);
             Route::apiResource('type-chassis', TypeChassisController::class)->parameters(['type-chassis' => 'typeChassis']);
 
-            // Route Recycle Bin Jenis Kendaraan
+            // --- JENIS KENDARAAN ---
             Route::get('jenis-kendaraan/trash', [JenisKendaraanController::class, 'trash']);
             Route::post('jenis-kendaraan/{id}/restore', [JenisKendaraanController::class, 'restore']);
             Route::delete('jenis-kendaraan/{id}/force-delete', [JenisKendaraanController::class, 'forceDelete']);
             Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
 
+            // --- VARIAN BODY ---
             Route::get('varian-body/trash', [VarianBodyController::class, 'trash']);
             Route::post('varian-body/{id}/restore', [VarianBodyController::class, 'restore']);
             Route::delete('varian-body/{id}/force-delete', [VarianBodyController::class, 'forceDelete']);
             Route::apiResource('varian-body', VarianBodyController::class);
-
-            // Cek apakah file fisik sudah ada untuk chassis tertentu
-            Route::get('/gambar-kelistrikan/check-file/{chassisId}', [I_GambarKelistrikanController::class, 'checkFileStatus']);
-            // 1. Gudang File (MasterGambarKelistrikanScreen)
-            Route::get('/gambar-kelistrikan/files', [I_GambarKelistrikanController::class, 'indexFiles']); // List File
-            Route::post('/gambar-kelistrikan/files', [I_GambarKelistrikanController::class, 'storeFile']); // Upload File Baru
-            Route::delete('/gambar-kelistrikan/files/{id}', [I_GambarKelistrikanController::class, 'destroyFile']); // Hapus File
-
-            // 2. Deskripsi (MasterDataScreen)
-            Route::post('/gambar-kelistrikan/deskripsi', [I_GambarKelistrikanController::class, 'storeDeskripsi']);
         });
         // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
 

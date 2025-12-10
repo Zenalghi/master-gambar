@@ -29,36 +29,36 @@ class I_GambarKelistrikanController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // QUERY FIX: Gunakan leftJoin ke Master Data untuk ambil nama Engine & Merk
-        // karena tabel file fisik sudah independen (hanya punya 3 ID)
-        $query = MasterKelistrikanFile::query()
-            ->join('c_type_chassis', 'master_kelistrikan_files.c_type_chassis_id', '=', 'c_type_chassis.id')
+        // Query Langsung ke 3 Tabel Induk (Karena ID sudah ada di tabel file)
+        $query = \App\Models\MasterKelistrikanFile::query()
             ->join('a_type_engines', 'master_kelistrikan_files.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_kelistrikan_files.b_merk_id', '=', 'b_merks.id')
+            ->join('c_type_chassis', 'master_kelistrikan_files.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->select([
                 'master_kelistrikan_files.*',
-                'c_type_chassis.type_chassis as chassis_name',
-                'b_merks.merk as merk_name',
-                'a_type_engines.type_engine as engine_name',
+                'a_type_engines.type_engine',
+                'b_merks.merk',
+                'c_type_chassis.type_chassis'
             ]);
 
+        // Search Logic
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('c_type_chassis.type_chassis', 'like', "%{$search}%")
-                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
+                    ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('master_kelistrikan_files.id', 'like', "%{$search}%")
                     ->orWhere('master_kelistrikan_files.created_at', 'like', "%{$search}%")
                     ->orWhere('master_kelistrikan_files.updated_at', 'like', "%{$search}%");
             });
         }
 
-        // Sorting dengan Alias
+        // Sorting Logic (Tanpa Alias, langsung nama tabel.kolom)
         $sortColumn = match ($sortBy) {
             'id' => 'master_kelistrikan_files.id',
-            'type_engine' => 'engine_name',
-            'merk' => 'merk_name',
-            'type_chassis' => 'chassis_name',
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
             'created_at' => 'master_kelistrikan_files.created_at',
             'updated_at' => 'master_kelistrikan_files.updated_at',
             default => 'master_kelistrikan_files.updated_at',
