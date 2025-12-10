@@ -18,7 +18,7 @@ class I_GambarKelistrikanController extends Controller
     {
         $validated = $request->validate([
             'page' => 'integer|min:1',
-            'perPage' => 'integer|in:50,100,200',
+            'perPage' => 'integer|in:50,100',
             'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
