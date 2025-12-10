@@ -17,7 +17,7 @@ class X_CustomerController extends Controller
     public function index(Request $request)
     {
         // 1. Tentukan parameter dari request
-        $perPage = $request->input('per_page', 25);
+        $perPage = $request->input('per_page', 50);
         $search = $request->input('search');
 
         $sortBy = $request->input('sort_by', 'updated_at');

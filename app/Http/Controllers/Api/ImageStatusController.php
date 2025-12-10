@@ -18,13 +18,13 @@ class ImageStatusController extends Controller
         // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
-            'perPage' => 'integer|in:25,50,100',
+            'perPage' => 'integer|in:50,100',
             'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,varian_body,updated_at,deskripsi_optional',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
-        $perPage = $validated['perPage'] ?? 25;
+        $perPage = $validated['perPage'] ?? 50;
         $sortBy = $validated['sortBy'] ?? 'id';
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';

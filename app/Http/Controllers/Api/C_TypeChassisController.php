@@ -22,13 +22,13 @@ class C_TypeChassisController extends Controller
         // 1. Validasi parameter
         $validated = $request->validate([
             'page' => 'integer|min:1',
-            'perPage' => 'integer|in:25,50,100',
+            'perPage' => 'integer|in:50,100',
             'sortBy' => 'nullable|string|in:id,type_chassis,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
 
-        $perPage = $validated['perPage'] ?? 25;
+        $perPage = $validated['perPage'] ?? 50;
         $sortBy = $validated['sortBy'] ?? 'updated_at'; // Default sort
         $sortDirection = $validated['sortDirection'] ?? 'desc'; // Default direction
         $search = $validated['search'] ?? '';
