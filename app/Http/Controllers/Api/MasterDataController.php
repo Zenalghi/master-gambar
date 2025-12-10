@@ -21,7 +21,8 @@ class MasterDataController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:25,50,100',
-            'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,created_at,updated_at,kelistrikan_deskripsi',
+            // Tambahkan kelistrikan_deskripsi ke sorting
+            'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -38,29 +39,31 @@ class MasterDataController extends Controller
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
 
-            // --- PERBAIKAN DI SINI: LEFT JOIN LENGKAP ---
+            // --- JOIN 1: FILE FISIK (Match 3 ID: Engine, Merk, Chassis) ---
+            // Gunakan Left Join agar Master Data tetap muncul meski file belum ada
+            ->leftJoin('master_kelistrikan_files', function ($join) {
+                $join->on('master_data.a_type_engine_id', '=', 'master_kelistrikan_files.a_type_engine_id')
+                    ->on('master_data.b_merk_id', '=', 'master_kelistrikan_files.b_merk_id')
+                    ->on('master_data.c_type_chassis_id', '=', 'master_kelistrikan_files.c_type_chassis_id');
+            })
 
-            // 1. Join ke File Fisik (berdasarkan Chassis)
-            ->leftJoin('master_kelistrikan_files', 'master_data.c_type_chassis_id', '=', 'master_kelistrikan_files.c_type_chassis_id')
-
-            // 2. Join ke Deskripsi Logis (berdasarkan Master Data ID)
-            // INI YANG SEBELUMNYA KURANG
+            // --- JOIN 2: DESKRIPSI (Match Master Data ID) ---
             ->leftJoin('i_gambar_kelistrikan', 'master_data.id', '=', 'i_gambar_kelistrikan.master_data_id')
 
-            // ---------------------------------------------
-
             ->select([
-                'master_data.*',
-                'i_gambar_kelistrikan.id as kelistrikan_id',           // ID Deskripsi (Hijau)
+                'master_data.*', // Ambil semua data master
+                // Status Deskripsi (Untuk Indikator Hijau)
+                'i_gambar_kelistrikan.id as kelistrikan_id',
                 'i_gambar_kelistrikan.deskripsi as kelistrikan_deskripsi',
-                'master_kelistrikan_files.id as file_kelistrikan_id',  // ID File (Kuning)
+                // Status File Fisik (Untuk Indikator Kuning/Merah)
+                'master_kelistrikan_files.id as file_kelistrikan_id',
             ])
             ->groupBy('master_data.id');
 
-        // 3. Eager load relasi
+        // 3. Eager load relasi (untuk JSON bersarang di Flutter)
         $query->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
 
-        // 4. Filter Search
+        // 4. Filter Search (Gunakan nama tabel eksplisit!)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('master_data.id', 'like', "%{$search}%")
@@ -72,7 +75,7 @@ class MasterDataController extends Controller
             });
         }
 
-        // 5. Sorting
+        // 5. Sorting (Mapping ke kolom tabel yang benar)
         $sortColumn = match ($sortBy) {
             'id' => 'master_data.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -81,16 +84,11 @@ class MasterDataController extends Controller
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'master_data.created_at',
             'updated_at' => 'master_data.updated_at',
-            'kelistrikan_deskripsi' => 'i_gambar_kelistrikan.deskripsi', // Sort by deskripsi
+            'kelistrikan_deskripsi' => 'i_gambar_kelistrikan.deskripsi',
             default => 'master_data.updated_at',
         };
 
-        // Handle sorting untuk kolom yang mungkin NULL (taruh NULL di bawah)
-        if ($sortBy === 'kelistrikan_deskripsi') {
-            $query->orderByRaw(\Illuminate\Support\Facades\DB::raw("$sortColumn IS NULL $sortDirection, $sortColumn $sortDirection"));
-        } else {
-            $query->orderBy($sortColumn, $sortDirection);
-        }
+        $query->orderBy($sortColumn, $sortDirection);
 
         return $query->paginate($perPage);
     }
