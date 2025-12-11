@@ -247,7 +247,7 @@ class ProsesTransaksiController extends Controller
         if (!file_exists($templatePath)) {
             // Return minimal error PDF if physical file is missing
             $pdf->AddPage();
-            $pdf->SetFont('helvetica', 'B', 12);
+            $pdf->SetFont('arial', 'B', 12);
             $pdf->Text(10, 10, 'File not found on server');
             return $pdf->Output('err.pdf', 'S');
         }
@@ -285,10 +285,26 @@ class ProsesTransaksiController extends Controller
         $this->placeSignature($pdf, $data['signature_path_3'], $boxX, 180.188, $boxWidth, $boxHeight);
 
         // Karoseri
-        $pdf->SetFont('arial', '', 8);
-        $pdf->SetXY(217.004, 194.679);
-        $pdf->Cell(44.149, 0, $data['karoseri'], 0, 0, 'C');
+        $text = $data['karoseri'];
+        $cellWidth = 44.149; // Lebar cell sesuai kode Anda
+        $fontSize = 8;       // Ukuran font awal
 
+        // Set font awal untuk pengukuran
+        $pdf->SetFont('arial', '', $fontSize);
+
+        // LOGIKA AUTO-SHRINK (Pengecilan Otomatis)
+        // Loop: Cek apakah lebar teks melebihi lebar cell (dikurangi padding 1mm agar aman)
+        while ($pdf->GetStringWidth($text) > ($cellWidth - 1)) {
+            $fontSize -= 0.1; // Kurangi ukuran font sebesar 0.1 poin
+            $pdf->SetFont('arial', '', $fontSize);
+
+            // Batas minimal font agar tetap terbaca (misal min 5 pt)
+            if ($fontSize < 5) break;
+        }
+
+        // Posisi dan Cetak
+        $pdf->SetXY(217.004, 194.679);
+        $pdf->Cell($cellWidth, 0, $text, 0, 0, 'C');
         // Nomor Halaman
         $pdf->SetFont('arial', '', 7);
         $pdf->SetXY(274.381, 194.118);
