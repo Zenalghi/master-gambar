@@ -207,22 +207,28 @@ class _OptionController extends Controller
             'varian_ids.*' => 'integer|exists:e_varian_body,id',
         ]);
 
-        // Cari ID Gambar Utama yang terkait dengan Varian Body yang dipilih
-        $gambarUtamaIds = GGambarUtama::whereIn('e_varian_body_id', $validated['varian_ids'])
-            ->pluck('id');
+        $orderedOptionals = collect();
 
-        // Jika tidak ada, kembalikan array kosong
-        if ($gambarUtamaIds->isEmpty()) {
-            return response()->json([]);
+        foreach ($validated['varian_ids'] as $varianId) {
+
+            // 1. Cari Gambar Utama untuk varian ini
+            $gambarUtama = GGambarUtama::where('e_varian_body_id', $varianId)->first();
+
+            if ($gambarUtama) {
+                // 2. Ambil Optional Paket milik Gambar Utama ini
+                $optionals = HGambarOptional::where('g_gambar_utama_id', $gambarUtama->id)
+                    ->where('tipe', 'paket')
+                    ->select('id', 'deskripsi')
+                    ->get();
+
+                // 3. Masukkan ke koleksi hasil
+                foreach ($optionals as $opt) {
+                    $orderedOptionals->push($opt);
+                }
+            }
         }
 
-        // Ambil semua Gambar Optional paket yang terkait dengan Gambar Utama tersebut
-        $dependentOptionals = HGambarOptional::whereIn('g_gambar_utama_id', $gambarUtamaIds)
-            ->where('tipe', 'paket')
-            ->select('id', 'deskripsi')
-            ->get();
-
-        return response()->json($dependentOptionals);
+        return response()->json($orderedOptionals);
     }
 
     public function checkPaketOptionalExists($varianBodyId)
