@@ -269,4 +269,56 @@ class _OptionController extends Controller
 
         return response()->json($results);
     }
+
+    /**
+     * Mengecek status kelistrikan berdasarkan Master Data ID.
+     * Mengembalikan status apakah File hilang, Deskripsi hilang, atau Lengkap.
+     */
+    public function getKelistrikanStatusByMasterData($masterDataId)
+    {
+        // 1. Ambil Master Data untuk mendapatkan ID Engine, Merk, Chassis
+        $masterData = \App\Models\MasterData::find($masterDataId);
+
+        if (!$masterData) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Master Data tidak ditemukan',
+                'display_text' => 'Error: Master Data Invalid'
+            ]);
+        }
+
+        // 2. Cek File Fisik (Menggunakan 3 ID: Engine, Merk, Chassis)
+        // Kita gunakan query manual karena relasi file di model MasterData mungkin leftJoin standar
+        $fileFisik = \App\Models\MasterKelistrikanFile::where('a_type_engine_id', $masterData->a_type_engine_id)
+            ->where('b_merk_id', $masterData->b_merk_id)
+            ->where('c_type_chassis_id', $masterData->c_type_chassis_id)
+            ->first();
+
+        // 3. Cek Deskripsi Logis (Berdasarkan Master Data ID)
+        $descLogis = \App\Models\IGambarKelistrikan::where('master_data_id', $masterDataId)->first();
+
+        // 4. Logika Penentuan Pesan untuk Frontend
+        $response = [
+            'file_id' => $fileFisik ? $fileFisik->id : null,
+            'desc_id' => $descLogis ? $descLogis->id : null,
+            'status_code' => 'ok', // default
+            'display_text' => '', // Ini yang akan ditampilkan langsung di Widget Flutter
+        ];
+
+        if (!$fileFisik) {
+            // Kasus A: File Fisik Belum Ada
+            $response['status_code'] = 'missing_file';
+            $response['display_text'] = 'File gambar kelistrikan belum ditambahkan';
+        } elseif (!$descLogis) {
+            // Kasus B: File Ada, tapi Deskripsi Belum Ada
+            $response['status_code'] = 'missing_desc';
+            $response['display_text'] = 'Deskripsi kelistrikan belum ditambahkan';
+        } else {
+            // Kasus C: Lengkap (File Ada + Deskripsi Ada)
+            $response['status_code'] = 'ready';
+            $response['display_text'] = $descLogis->deskripsi; // Tampilkan Deskripsinya
+        }
+
+        return response()->json($response);
+    }
 }

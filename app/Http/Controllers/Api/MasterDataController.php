@@ -51,12 +51,10 @@ class MasterDataController extends Controller
             ->leftJoin('i_gambar_kelistrikan', 'master_data.id', '=', 'i_gambar_kelistrikan.master_data_id')
 
             ->select([
-                'master_data.*', // Ambil semua data master
-                // Status Deskripsi (Untuk Indikator Hijau)
+                'master_data.*',
                 'i_gambar_kelistrikan.id as kelistrikan_id',
                 'i_gambar_kelistrikan.deskripsi as kelistrikan_deskripsi',
-                // Status File Fisik (Untuk Indikator Kuning/Merah)
-                'master_kelistrikan_files.id as file_kelistrikan_id',
+                \Illuminate\Support\Facades\DB::raw('COALESCE(i_gambar_kelistrikan.master_kelistrikan_file_id, master_kelistrikan_files.id) as file_kelistrikan_id'),
             ])
             ->groupBy('master_data.id');
 

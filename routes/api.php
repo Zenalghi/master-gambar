@@ -71,6 +71,8 @@ Route::middleware('auth.api')->group(
         Route::get('/options/varian-body/{master_data_id}', [OptionController::class, 'getVarianBody']);
         Route::get('/options/varian-body-status', [OptionController::class, 'getVarianBodyForDropdown']);
 
+        Route::get('/options/kelistrikan-status/{masterDataId}', [OptionController::class, 'getKelistrikanStatusByMasterData']);
+
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // --- MANAJEMEN USER & ROLE ---
             Route::apiResource('users', UserController::class);
