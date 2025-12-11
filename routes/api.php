@@ -72,6 +72,7 @@ Route::middleware('auth.api')->group(
         Route::get('/options/varian-body-status', [OptionController::class, 'getVarianBodyForDropdown']);
 
         Route::get('/options/kelistrikan-status/{masterDataId}', [OptionController::class, 'getKelistrikanStatusByMasterData']);
+        Route::post('/transaksi/{transaksi}/save', [ProsesTransaksiController::class, 'saveDraft']);
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // --- MANAJEMEN USER & ROLE ---

@@ -69,8 +69,31 @@ class Transaksi extends Model
         return $this->belongsTo(FPengajuan::class, 'f_pengajuan_id');
     }
 
-    public function detail(): HasOne
+    public function detail()
     {
-        return $this->hasOne(TransaksiDetail::class, 'z_transaksi_id');
+        return $this->hasOne(TransaksiDetail::class, 'transaksi_id', 'id');
+    }
+
+    // Atribut Virtual untuk Kolom Tabel (Mengambil Nama Judul dari JSON)
+    // Ini akan dipanggil sebagai 'judul_gambar_string' di JSON response
+    protected $appends = ['judul_gambar_string'];
+
+    public function getJudulGambarStringAttribute()
+    {
+        if (!$this->detail || empty($this->detail->data_gambar_utama)) {
+            return '-';
+        }
+
+        $names = [];
+        foreach ($this->detail->data_gambar_utama as $item) {
+            if (isset($item['judul_id'])) {
+                $judul = \App\Models\JJudulGambar::find($item['judul_id']);
+                if ($judul) {
+                    $names[] = $judul->nama_judul;
+                }
+            }
+        }
+
+        return empty($names) ? '-' : implode(', ', $names);
     }
 }

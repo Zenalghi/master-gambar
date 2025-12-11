@@ -9,14 +9,42 @@ use App\Models\HGambarOptional;
 use App\Models\IGambarKelistrikan;
 use App\Models\JJudulGambar;
 use App\Models\Transaksi;
+use App\Models\TransaksiDetail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
 
+
 class ProsesTransaksiController extends Controller
 {
+    public function saveDraft(Request $request, Transaksi $transaksi)
+    {
+        $validated = $request->validate([
+            'pemeriksa_id' => 'required|exists:users,id',
+            'jumlah_gambar' => 'required|integer|min:1|max:4',
+            'data_gambar_utama' => 'required|array',
+            'data_gambar_utama.*.judul_id' => 'nullable|integer',
+            'data_gambar_utama.*.varian_id' => 'nullable|integer',
+            'h_gambar_optional_ids' => 'nullable|array',
+            'deskripsi_optional' => 'nullable|string',
+        ]);
+
+        $detail = TransaksiDetail::updateOrCreate(
+            ['transaksi_id' => $transaksi->id],
+            [
+                'pemeriksa_id' => $validated['pemeriksa_id'],
+                'jumlah_gambar' => $validated['jumlah_gambar'],
+                'data_gambar_utama' => $validated['data_gambar_utama'],
+                'data_optional_independen' => $validated['h_gambar_optional_ids'],
+                'deskripsi_optional' => $validated['deskripsi_optional'],
+            ]
+        );
+
+        return response()->json(['message' => 'Draft berhasil disimpan', 'detail' => $detail]);
+    }
+
     public function proses(Request $request, Transaksi $transaksi)
     {
         $varianCount = count($request->input('varian_body_ids', []));
@@ -34,6 +62,31 @@ class ProsesTransaksiController extends Controller
             'preview_page' => 'nullable|integer|min:1',
             'deskripsi_optional' => 'nullable|string|max:255',
         ]);
+
+        // Kita susun ulang data_gambar_utama dari input terpisah (varian & judul)
+        // Agar formatnya sama dengan format Save Draft JSON
+        $dataGambarUtamaJSON = [];
+        $inputVarian = $request->input('varian_body_ids', []);
+        $inputJudul = $request->input('judul_gambar_ids', []);
+
+        foreach ($inputVarian as $index => $varianId) {
+            $dataGambarUtamaJSON[] = [
+                'varian_id' => $varianId,
+                'judul_id' => $inputJudul[$index] ?? null
+            ];
+        }
+
+        // Simpan ke DB
+        TransaksiDetail::updateOrCreate(
+            ['transaksi_id' => $transaksi->id],
+            [
+                'pemeriksa_id' => $request->pemeriksa_id,
+                'jumlah_gambar' => count($dataGambarUtamaJSON),
+                'data_gambar_utama' => $dataGambarUtamaJSON,
+                'data_optional_independen' => $request->h_gambar_optional_ids,
+                'deskripsi_optional' => $request->deskripsi_optional,
+            ]
+        );
 
         $transaksi->load([
             'user',
