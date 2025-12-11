@@ -76,17 +76,18 @@ class Transaksi extends Model
 
     // Atribut Virtual untuk Kolom Tabel (Mengambil Nama Judul dari JSON)
     // Ini akan dipanggil sebagai 'judul_gambar_string' di JSON response
-    protected $appends = ['judul_gambar_string'];
-
     public function getJudulGambarStringAttribute()
     {
+        // Cek apakah detail ada dan data_gambar_utama tidak kosong
         if (!$this->detail || empty($this->detail->data_gambar_utama)) {
             return '-';
         }
 
         $names = [];
+        // Loop data JSON
         foreach ($this->detail->data_gambar_utama as $item) {
             if (isset($item['judul_id'])) {
+                // Cari nama judul di tabel referensi
                 $judul = \App\Models\JJudulGambar::find($item['judul_id']);
                 if ($judul) {
                     $names[] = $judul->nama_judul;
@@ -94,6 +95,8 @@ class Transaksi extends Model
             }
         }
 
-        return empty($names) ? '-' : implode(', ', $names);
+        if (empty($names)) return '-';
+
+        return implode(', ', $names);
     }
 }

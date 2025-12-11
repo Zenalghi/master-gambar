@@ -47,7 +47,6 @@ class TransaksiController extends Controller
             ->join('f_pengajuan', 'z_transaksi.f_pengajuan_id', '=', 'f_pengajuan.id')
             ->join('users', 'z_transaksi.user_id', '=', 'users.id')
             ->join('master_data', 'z_transaksi.master_data_id', '=', 'master_data.id')
-            // Join komponen Master Data untuk filter/search
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
@@ -59,11 +58,11 @@ class TransaksiController extends Controller
             'user:id,name',
             'customer:id,nama_pt',
             'fPengajuan',
-            // Kita tetap load masterData untuk diambil isinya
             'masterData.typeEngine',
             'masterData.merk',
             'masterData.typeChassis',
-            'masterData.jenisKendaraan'
+            'masterData.jenisKendaraan',
+            'detail'
         ]);
 
         // 4. Filter Map (Logic sama seperti sebelumnya)
@@ -116,17 +115,12 @@ class TransaksiController extends Controller
         // 7. Pagination & Transformasi Data (SOLUSI ERROR NULL)
         $paginator = $query->paginate($perPage);
 
-        // Kita manipulasi struktur JSON agar sesuai harapan Frontend lama
         $paginator->getCollection()->transform(function ($item) {
-            // Kita pindahkan isi masterData ke level root object
-            // Pastikan nama key sesuai dengan yang diminta Model Flutter (snake_case)
             $item->a_type_engine = $item->masterData->typeEngine ?? null;
             $item->b_merk = $item->masterData->merk ?? null;
             $item->c_type_chassis = $item->masterData->typeChassis ?? null;
             $item->d_jenis_kendaraan = $item->masterData->jenisKendaraan ?? null;
-
-            // Opsional: Sembunyikan objek masterData agar response lebih bersih
-            // unset($item->masterData); 
+            $item->judul_gambar_string = $item->judul_gambar_string;
 
             return $item;
         });
