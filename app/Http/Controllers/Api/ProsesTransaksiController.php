@@ -30,14 +30,21 @@ class ProsesTransaksiController extends Controller
             'h_gambar_optional_ids' => 'nullable|array',
             'deskripsi_optional' => 'nullable|string',
         ]);
-
+        $filteredOptionalIds = [];
+        if (!empty($request->h_gambar_optional_ids)) {
+            // Hanya ambil ID yang tipe-nya 'independen' dari database
+            $filteredOptionalIds = HGambarOptional::whereIn('id', $request->h_gambar_optional_ids)
+                ->where('tipe', 'independen')
+                ->pluck('id')
+                ->toArray();
+        }
         $detail = TransaksiDetail::updateOrCreate(
             ['transaksi_id' => $transaksi->id],
             [
                 'pemeriksa_id' => $validated['pemeriksa_id'],
                 'jumlah_gambar' => $validated['jumlah_gambar'],
                 'data_gambar_utama' => $validated['data_gambar_utama'],
-                'data_optional_independen' => $validated['h_gambar_optional_ids'],
+                'data_optional_independen' => $filteredOptionalIds,
                 'deskripsi_optional' => $validated['deskripsi_optional'],
             ]
         );
@@ -75,7 +82,13 @@ class ProsesTransaksiController extends Controller
                 'judul_id' => $inputJudul[$index] ?? null
             ];
         }
-
+        $filteredOptionalIds = [];
+        if ($request->has('h_gambar_optional_ids') && !empty($request->h_gambar_optional_ids)) {
+            $filteredOptionalIds = HGambarOptional::whereIn('id', $request->h_gambar_optional_ids)
+                ->where('tipe', 'independen')
+                ->pluck('id')
+                ->toArray();
+        }
         // Simpan ke DB
         TransaksiDetail::updateOrCreate(
             ['transaksi_id' => $transaksi->id],
@@ -83,7 +96,7 @@ class ProsesTransaksiController extends Controller
                 'pemeriksa_id' => $request->pemeriksa_id,
                 'jumlah_gambar' => count($dataGambarUtamaJSON),
                 'data_gambar_utama' => $dataGambarUtamaJSON,
-                'data_optional_independen' => $request->h_gambar_optional_ids,
+                'data_optional_independen' => $filteredOptionalIds,
                 'deskripsi_optional' => $request->deskripsi_optional,
             ]
         );
