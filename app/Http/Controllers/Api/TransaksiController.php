@@ -20,7 +20,7 @@ class TransaksiController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi parameter (Sama seperti sebelumnya)
+        // 1. Validasi (Tetap Sama)
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
@@ -41,8 +41,8 @@ class TransaksiController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama (z_transaksi)
-        $query = Transaksi::query()
+        // 2. Query Utama (Tetap Sama)
+        $query = \App\Models\Transaksi::query()
             ->join('customers', 'z_transaksi.customer_id', '=', 'customers.id')
             ->join('f_pengajuan', 'z_transaksi.f_pengajuan_id', '=', 'f_pengajuan.id')
             ->join('users', 'z_transaksi.user_id', '=', 'users.id')
@@ -53,7 +53,7 @@ class TransaksiController extends Controller
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
             ->select('z_transaksi.*');
 
-        // 3. Eager load relasi
+        // 3. Eager Load (PERBAIKAN DI SINI)
         $query->with([
             'user:id,name',
             'customer:id,nama_pt',
@@ -62,10 +62,10 @@ class TransaksiController extends Controller
             'masterData.merk',
             'masterData.typeChassis',
             'masterData.jenisKendaraan',
-            'detail'
+            'detail' // <--- PENTING: Tambahkan ini agar data history ter-load
         ]);
 
-        // 4. Filter Map (Logic sama seperti sebelumnya)
+        // 4. Filter Map (Tetap Sama)
         $filterMap = [
             'customer' => 'customers.nama_pt',
             'type_engine' => 'a_type_engines.type_engine',
@@ -82,7 +82,7 @@ class TransaksiController extends Controller
             }
         }
 
-        // 5. Global Search (Logic sama seperti sebelumnya)
+        // 5. Global Search (Tetap Sama)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('z_transaksi.id', 'like', "%{$search}%")
@@ -96,7 +96,7 @@ class TransaksiController extends Controller
             });
         }
 
-        // 6. Sorting
+        // 6. Sorting (Tetap Sama)
         $sortColumn = match ($sortBy) {
             'id' => 'z_transaksi.id',
             'customer' => 'customers.nama_pt',
@@ -112,7 +112,7 @@ class TransaksiController extends Controller
         };
         $query->orderBy($sortColumn, $sortDirection);
 
-        // 7. Pagination & Transformasi Data (SOLUSI ERROR NULL)
+        // 7. Pagination & Transformasi (PERBAIKAN DI SINI)
         $paginator = $query->paginate($perPage);
 
         $paginator->getCollection()->transform(function ($item) {
@@ -120,6 +120,10 @@ class TransaksiController extends Controller
             $item->b_merk = $item->masterData->merk ?? null;
             $item->c_type_chassis = $item->masterData->typeChassis ?? null;
             $item->d_jenis_kendaraan = $item->masterData->jenisKendaraan ?? null;
+
+            // --- MATERIALISASI JUDUL ---
+            // Panggil accessor ini secara manual agar nilainya masuk ke JSON response
+            // (Terutama jika Anda lupa menambahkan $appends di Model)
             $item->judul_gambar_string = $item->judul_gambar_string;
 
             return $item;
