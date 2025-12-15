@@ -114,13 +114,15 @@ class ProsesTransaksiController extends Controller
         $pemeriksa = User::find($validated['pemeriksa_id']);
         $masterData = $transaksi->masterData;
 
-        // --- STRUKTUR JOB BARU (PISAH WADAH) ---
-        $standardJobs = []; // Untuk Utama, Terurai, Kontruksi
-        $paketJobs = [];    // Untuk Optional Paket (Dikumpulkan terpisah)
+        // --- SIAPKAN WADAH TERPISAH PER KATEGORI ---
+        $jobsUtama = [];
+        $jobsTerurai = [];
+        $jobsKontruksi = [];
+        $jobsPaket = [];
+        $jobsIndependen = [];
+        $jobsKelistrikan = [];
 
-        $pageCounter = 1;
-
-        // --- LOOPING VARIAN BODY ---
+        // --- TAHAP 1: LOOPING VARIAN BODY (ISI ARRAY TERPISAH) ---
         if (!empty($validated['varian_body_ids'])) {
             foreach ($validated['varian_body_ids'] as $index => $varian_id) {
                 $varianBody = EVarianBody::find($varian_id);
@@ -132,26 +134,27 @@ class ProsesTransaksiController extends Controller
                 $jenisJudul = JJudulGambar::find($validated['judul_gambar_ids'][$index]);
 
                 if ($gambarUtamaData && $jenisJudul) {
-                    // A. Masukkan ke STANDARD JOBS (Urut per varian)
-
-                    // 1. Utama
-                    $standardJobs[] = [
+                    // 1. Masukkan ke Array UTAMA
+                    $jobsUtama[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                         'varian' => $varianBody->varian_body,
                         'source_pdf' => $gambarUtamaData->path_gambar_utama,
+                        // Deskripsi optional biasanya nempel di gambar utama
                         'deskripsi_optional' => $validated['deskripsi_optional'] ?? null
                     ];
-                    // 2. Terurai
-                    $standardJobs[] = [
+
+                    // 2. Masukkan ke Array TERURAI
+                    $jobsTerurai[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
                         'varian' => $varianBody->varian_body,
                         'source_pdf' => $gambarUtamaData->path_gambar_terurai,
                         'deskripsi_optional' => null
                     ];
-                    // 3. Kontruksi
-                    $standardJobs[] = [
+
+                    // 3. Masukkan ke Array KONTRUKSI
+                    $jobsKontruksi[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
                         'varian' => $varianBody->varian_body,
@@ -159,10 +162,12 @@ class ProsesTransaksiController extends Controller
                         'deskripsi_optional' => null
                     ];
 
-                    // B. Masukkan ke PAKET JOBS (Dikumpulkan di wadah terpisah)
+                    // 4. Masukkan ke Array PAKET (Cek ID yang dikirim frontend)
+                    // Note: Sorting paket di frontend sudah dihandle _OptionController, 
+                    // di sini kita collect berdasarkan varian loop agar urut.
                     foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
                         if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $validated['h_gambar_optional_ids'] ?? [])) {
-                            $paketJobs[] = [
+                            $jobsPaket[] = [
                                 'type' => 'standard',
                                 'title' => $gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET',
                                 'varian' => '',
@@ -175,54 +180,66 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        // --- PENGGABUNGAN (URUTAN HALAMAN) ---
-        // Urutan: [Semua Utama/Terurai/Kontruksi] -> [Semua Paket] -> [Independen] -> [Kelistrikan]
-
-        $finalJobs = array_merge($standardJobs, $paketJobs); // Gabung Utama & Paket dulu
-
-        // Beri nomor halaman setelah digabung
-        foreach ($finalJobs as &$job) {
-            $job['page'] = $pageCounter++;
-        }
-        unset($job); // lepas referensi
-
-        // --- TAHAP 3: Optional Independen (Lanjut nomor halamannya) ---
+        // --- TAHAP 2: GAMBAR OPTIONAL INDEPENDEN ---
         if (!empty($validated['h_gambar_optional_ids'])) {
+            // Ambil hanya yang tipe independen, urutkan sesuai urutan ID di array request (agar sesuai UI)
+            // (Opsional: gunakan logic sort manual jika perlu persis seperti UI)
             $gambarIndependen = HGambarOptional::whereIn('id', $validated['h_gambar_optional_ids'])
                 ->where('tipe', 'independen')
                 ->get();
 
+            // Re-order sesuai input request agar urutan UI terjaga
+            $ids = array_flip($validated['h_gambar_optional_ids']);
+            $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($ids) {
+                return $ids[$model->id] ?? 0;
+            });
+
             foreach ($gambarIndependen as $gambarOptional) {
-                $finalJobs[] = [
+                $jobsIndependen[] = [
                     'type' => 'standard',
                     'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
                     'varian' => '',
-                    'page' => $pageCounter++, // Lanjut counter
                     'source_pdf' => $gambarOptional->path_gambar_optional,
                     'deskripsi_optional' => null
                 ];
             }
         }
 
-        // --- TAHAP 4: Kelistrikan ---
+        // --- TAHAP 3: KELISTRIKAN ---
         if (isset($validated['i_gambar_kelistrikan_id'])) {
             $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
                 ->find($validated['i_gambar_kelistrikan_id']);
 
             if ($gambarKelistrikan) {
-                $finalJobs[] = [
+                $jobsKelistrikan[] = [
                     'type' => 'kelistrikan',
                     'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
                     'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
                     'varian' => '',
-                    'page' => $pageCounter++, // Lanjut counter
                     'source_pdf' => $gambarKelistrikan->path_gambar_kelistrikan,
                     'deskripsi_optional' => null
                 ];
             }
         }
 
-        $drawingJobs = $finalJobs; // Assign ke variabel utama
+        // --- PENGGABUNGAN (MERGE) SESUAI URUTAN BARU ---
+        // Urutan: Utama -> Terurai -> Kontruksi -> Paket -> Independen -> Kelistrikan
+        $drawingJobs = array_merge(
+            $jobsUtama,
+            $jobsTerurai,
+            $jobsKontruksi,
+            $jobsPaket,
+            $jobsIndependen,
+            $jobsKelistrikan
+        );
+
+        // Beri Nomor Halaman Berurutan
+        $pageCounter = 1;
+        foreach ($drawingJobs as &$job) {
+            $job['page'] = $pageCounter++;
+        }
+        unset($job);
+
         $totalHalaman = count($drawingJobs);
 
         // 5. Eksekusi
