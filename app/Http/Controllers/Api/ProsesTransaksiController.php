@@ -25,26 +25,17 @@ class ProsesTransaksiController extends Controller
             'pemeriksa_id' => 'required|exists:users,id',
             'jumlah_gambar' => 'required|integer|min:1|max:4',
             'data_gambar_utama' => 'required|array',
-            'data_gambar_utama.*.judul_id' => 'nullable|integer',
-            'data_gambar_utama.*.varian_id' => 'nullable|integer',
-            'h_gambar_optional_ids' => 'nullable|array',
+            // 'h_gambar_optional_ids' => DIHAPUS
             'deskripsi_optional' => 'nullable|string',
         ]);
-        $filteredOptionalIds = [];
-        if (!empty($request->h_gambar_optional_ids)) {
-            // Hanya ambil ID yang tipe-nya 'independen' dari database
-            $filteredOptionalIds = HGambarOptional::whereIn('id', $request->h_gambar_optional_ids)
-                ->where('tipe', 'independen')
-                ->pluck('id')
-                ->toArray();
-        }
+
         $detail = TransaksiDetail::updateOrCreate(
             ['transaksi_id' => $transaksi->id],
             [
                 'pemeriksa_id' => $validated['pemeriksa_id'],
                 'jumlah_gambar' => $validated['jumlah_gambar'],
                 'data_gambar_utama' => $validated['data_gambar_utama'],
-                'data_optional_independen' => $filteredOptionalIds,
+                // 'data_optional_independen' => DIHAPUS
                 'deskripsi_optional' => $validated['deskripsi_optional'],
             ]
         );
@@ -82,13 +73,6 @@ class ProsesTransaksiController extends Controller
                 'judul_id' => $inputJudul[$index] ?? null
             ];
         }
-        $filteredOptionalIds = [];
-        if ($request->has('h_gambar_optional_ids') && !empty($request->h_gambar_optional_ids)) {
-            $filteredOptionalIds = HGambarOptional::whereIn('id', $request->h_gambar_optional_ids)
-                ->where('tipe', 'independen')
-                ->pluck('id')
-                ->toArray();
-        }
         // Simpan ke DB
         TransaksiDetail::updateOrCreate(
             ['transaksi_id' => $transaksi->id],
@@ -96,7 +80,7 @@ class ProsesTransaksiController extends Controller
                 'pemeriksa_id' => $request->pemeriksa_id,
                 'jumlah_gambar' => count($dataGambarUtamaJSON),
                 'data_gambar_utama' => $dataGambarUtamaJSON,
-                'data_optional_independen' => $filteredOptionalIds,
+                // 'data_optional_independen' => DIHAPUS
                 'deskripsi_optional' => $request->deskripsi_optional,
             ]
         );
@@ -181,24 +165,25 @@ class ProsesTransaksiController extends Controller
         }
 
         // --- TAHAP 2: GAMBAR OPTIONAL INDEPENDEN ---
-        if (!empty($validated['h_gambar_optional_ids'])) {
-            // Ambil hanya yang tipe independen, urutkan sesuai urutan ID di array request (agar sesuai UI)
-            // (Opsional: gunakan logic sort manual jika perlu persis seperti UI)
-            $gambarIndependen = HGambarOptional::whereIn('id', $validated['h_gambar_optional_ids'])
+        if (!empty($validated['varian_body_ids'])) {
+
+            // Cari Gambar Independen yang punya e_varian_body_id sesuai input
+            $gambarIndependen = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_body_ids'])
                 ->where('tipe', 'independen')
                 ->get();
 
-            // Re-order sesuai input request agar urutan UI terjaga
-            $ids = array_flip($validated['h_gambar_optional_ids']);
-            $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($ids) {
-                return $ids[$model->id] ?? 0;
+            // Opsional: Urutkan hasil agar sesuai urutan varian di input
+            // (Agar gambar independen varian 1 muncul sebelum varian 2)
+            $urutanVarian = array_flip($validated['varian_body_ids']);
+            $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($urutanVarian) {
+                return $urutanVarian[$model->e_varian_body_id] ?? 999;
             });
 
             foreach ($gambarIndependen as $gambarOptional) {
                 $jobsIndependen[] = [
                     'type' => 'standard',
                     'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
-                    'varian' => '',
+                    'varian' => '', // Atau isi dengan nama varian jika perlu
                     'source_pdf' => $gambarOptional->path_gambar_optional,
                     'deskripsi_optional' => null
                 ];
