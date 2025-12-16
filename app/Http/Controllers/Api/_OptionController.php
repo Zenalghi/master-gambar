@@ -179,8 +179,16 @@ class _OptionController extends Controller
     }
     public function getJudulGambar()
     {
-        return response()->json(JJudulGambar::select('id', 'nama_judul as name')->get());
-    }
+        // 1. Ambil semua data (select 'nama_judul as name' agar sesuai format Flutter)
+        $data = JJudulGambar::select('id', 'nama_judul as name')->get();
+
+        // 2. Lakukan Sorting Natural menggunakan Collection Laravel
+        // SORT_NATURAL akan menganggap angka dalam string sebagai angka, bukan teks.
+        // values() penting agar hasil JSON kembali menjadi array index [0,1,2..] (bukan object dengan key ID)
+        $sortedData = $data->sortBy('name', SORT_NATURAL)->values();
+
+        return response()->json($sortedData);
+    }   
 
     public function getGambarOptionalByVarian(Request $request)
     {
