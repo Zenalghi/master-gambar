@@ -395,29 +395,40 @@ class ProsesTransaksiController extends Controller
         if ($data['type'] === 'kelistrikan') {
             // --- KHUSUS KELISTRIKAN ---
 
-            // 1. Format String: "Deskripsi (Jenis Kendaraan)"
+            // 1. Format String
             $finalText = sprintf('%s', $data['judul_gambar']);
 
-            // 2. Atur Font & Posisi
-            $pdf->SetFont('arial', '', 6);
+            // 2. Definisi Batas
+            $maxWidth = 68.54; // Lebar cell maksimum
+            $fontSize = 6;      // Ukuran font awal
+            $minFontSize = 3;   // Batas ukuran font terkecil (agar tetap terbaca)
 
-            // TODO: Sesuaikan Y di sini nanti
-            $customX = 215.686; // Sama dengan X judul gambar standar
-            $customY = 188.632; // <-- GANTI INI NANTI dengan posisi Y yang Anda mau
+            // Set font awal
+            $pdf->SetFont('arial', '', $fontSize);
+
+            // 3. LOGIKA AUTO-SHRINK (Pengecilan Otomatis)
+            // Cek lebar teks. Kita kurangi maxWidth dengan 1mm sebagai padding aman.
+            while ($pdf->GetStringWidth($finalText) > ($maxWidth - 1) && $fontSize > $minFontSize) {
+                $fontSize -= 0.2; // Kurangi 0.2 poin setiap iterasi
+                $pdf->SetFont('arial', '', $fontSize);
+            }
+
+            // 4. Posisi Koordinat
+            $customX = 216.847;
+            $customY = 188.632;
 
             $pdf->SetXY($customX, $customY);
-            $pdf->Cell(68.654, 0, $finalText, 0, 0, 'C'); // Align Center agar rapi di kolom
 
-            // PENTING: Tidak mencetak 'judul_gambar' standar di sini, sudah diganti dengan $finalText di atas.
-
+            // 5. Cetak (Font size otomatis sudah terset di loop di atas)
+            $pdf->Cell($maxWidth, 0, $finalText, 0, 0, 'C');
         } else {
             // --- STANDARD (Utama, Terurai, Kontruksi, Optional) ---
 
             // 1. Cetak Judul Gambar Standar di Kanan Bawah
             $pdf->SetFont('arial', '', 6);
             $pdf->setFontSpacing(-0.09); // Rapatkan sedikit jika panjang
-            $pdf->SetXY(215.686, 183.252);
-            $pdf->Cell(68.654, 0, $data['judul_gambar'], 0, 0, 'C');
+            $pdf->SetXY(216.847, 183.252);
+            $pdf->Cell(68.54, 0, $data['judul_gambar'], 0, 0, 'C');
 
             // 2. Cetak Deskripsi Optional (hanya ada di standard)
             if (!empty($data['deskripsi_optional'])) {
