@@ -188,24 +188,37 @@ class _OptionController extends Controller
         $sortedData = $data->sortBy('name', SORT_NATURAL)->values();
 
         return response()->json($sortedData);
-    }   
+    }
 
     public function getGambarOptionalByVarian(Request $request)
     {
-        // 1. Validasi input untuk memastikan kita menerima array
+        // 1. Validasi input
         $validated = $request->validate([
             'varian_ids' => 'required|array',
             'varian_ids.*' => 'integer|exists:e_varian_body,id',
         ]);
 
-        // 2. Ambil data Gambar Optional di mana 'e_varian_body_id'
-        //    ada di dalam array 'varian_ids' yang dikirim dari Flutter.
+        // 2. Ambil data dari Database
+        // PENTING: Kita perlu select 'e_varian_body_id' untuk bahan sorting
         $gambarOptions = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_ids'])
-            ->select('id', 'deskripsi')
+            ->select('id', 'deskripsi', 'e_varian_body_id')
             ->where('tipe', 'independen')
             ->get();
 
-        return response()->json($gambarOptions);
+        // 3. Buat Peta Urutan berdasarkan input dari Frontend
+        // Contoh: [ID_D, ID_C, ID_A, ID_B] -> Menjadi [ID_D => 0, ID_C => 1, ID_A => 2, ID_B => 3]
+        $urutanVarian = array_flip($validated['varian_ids']);
+
+        // 4. Lakukan Sorting Koleksi
+        $sortedOptions = $gambarOptions->sortBy(function ($item) use ($urutanVarian) {
+            // Prioritas 1: Urutan Varian sesuai input user
+            $indexVarian = $urutanVarian[$item->e_varian_body_id] ?? 999;
+
+            // Prioritas 2: ID Gambar (agar jika 1 varian punya banyak gambar C1, C2, tetap urut)
+            return [$indexVarian, $item->id];
+        })->values(); // Reset index array agar jadi JSON array standar [0, 1, 2...]
+
+        return response()->json($sortedOptions);
     }
 
     public function getDependentOptionals(Request $request)
