@@ -200,30 +200,30 @@ class H_GambarOptionalController extends Controller
      */
     public function updateFile(Request $request, HGambarOptional $gambarOptional)
     {
+        // 1. Validasi: Semuanya 'nullable' agar bisa kirim salah satu saja
         $validated = $request->validate([
-            'deskripsi' => 'required|string|max:255',
-            'gambar_optional' => 'nullable|file|mimes:pdf', // File bersifat opsional saat edit
+            'deskripsi' => 'nullable|string|max:255',
+            'gambar_optional' => 'nullable|file|mimes:pdf',
         ]);
 
         return DB::transaction(function () use ($request, $validated, $gambarOptional) {
-            $updateData = [
-                'deskripsi' => Str::upper($validated['deskripsi']),
-            ];
+            $updateData = [];
 
-            // Jika ada file baru yang diupload
+            // A. Cek apakah ada perubahan Deskripsi
+            if ($request->filled('deskripsi')) {
+                $updateData['deskripsi'] = Str::upper($validated['deskripsi']);
+            }
+
+            // B. Cek apakah ada File Baru
             if ($request->hasFile('gambar_optional')) {
-                // Tentukan Path (gunakan path lama atau generate ulang jika perlu)
-                // Kita gunakan logika path yang sama dengan store: [master_id]/[varian_id]/[tipe]/[id].pdf
-
+                // Logic Path (Sama seperti sebelumnya)
                 $varianBody = $gambarOptional->varianBody;
                 $masterDataId = $varianBody->master_data_id;
                 $tipePath = ($gambarOptional->tipe === 'paket') ? 'paket' : 'independen';
-
                 $basePath = "{$masterDataId}/{$varianBody->id}/{$tipePath}";
-                $fileName = "{$gambarOptional->id}.pdf"; // Nama file tetap pakai ID
+                $fileName = "{$gambarOptional->id}.pdf";
 
-                // Hapus file lama jika ada (opsional, overwrite otomatis biasanya works)
-                // Tapi untuk memastikan cache clear atau jika path berubah, delete dulu lebih aman.
+                // Hapus file lama jika ada
                 if (Storage::disk('master_gambar')->exists($gambarOptional->path_gambar_optional)) {
                     Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
                 }
@@ -233,7 +233,10 @@ class H_GambarOptionalController extends Controller
                 $updateData['path_gambar_optional'] = $finalPath;
             }
 
-            $gambarOptional->update($updateData);
+            // C. Lakukan Update hanya jika ada data yang berubah
+            if (!empty($updateData)) {
+                $gambarOptional->update($updateData);
+            }
 
             return response()->json($gambarOptional->load('varianBody.masterData'));
         });

@@ -170,12 +170,7 @@ Route::middleware('auth.api')->group(
             Route::delete('varian-body/{id}/force-delete', [VarianBodyController::class, 'forceDelete']);
             Route::apiResource('varian-body', VarianBodyController::class);
         });
-        // Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
-
-        // Anda bisa tambahkan rute untuk PROSES UTAMA di sini
-        // Contoh:
-        // Route::post('/drawings/preview', [DrawingController::class, 'generatePreview']);
-        // Route::post('/drawings/store', [DrawingController::class, 'storeFinalDrawing']);
+        Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
     }
 
 );
