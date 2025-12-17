@@ -448,12 +448,27 @@ class ProsesTransaksiController extends Controller
             $pdf->Cell($maxWidth, 0, $finalText, 0, 0, 'C');
         } else {
             // --- STANDARD (Utama, Terurai, Kontruksi, Optional) ---
+            // 1. Definisi Variabel
+            $text = $data['judul_gambar'];
+            $maxWidth = 68.54; // Lebar cell yang tersedia
+            $fontSize = 6;     // Ukuran font awal
+            $minFontSize = 3;  // Batas font terkecil (agar tetap terbaca)
 
-            // 1. Cetak Judul Gambar Standar di Kanan Bawah
-            $pdf->SetFont('arial', '', 6);
-            $pdf->setFontSpacing(-0.09); // Rapatkan sedikit jika panjang
+            // Set settingan awal
+            $pdf->SetFont('arial', '', $fontSize);
+            $pdf->setFontSpacing(-0.09);
+
+            // 2. LOGIKA AUTO-SHRINK (Pengecilan Otomatis)
+            // Selama teks lebih lebar dari cell DAN font masih di atas batas minimum
+            while ($pdf->GetStringWidth($text) > $maxWidth && $fontSize > $minFontSize) {
+                $fontSize -= 0.2; // Kurangi 0.2 poin
+                $pdf->SetFont('arial', '', $fontSize);
+                $pdf->setFontSpacing(-0.09); // Set ulang spacing (jaga-jaga jika reset saat SetFont)
+            }
+
+            // 3. Cetak Judul Gambar di Kanan Bawah
             $pdf->SetXY(216.847, 183.252);
-            $pdf->Cell(68.54, 0, $data['judul_gambar'], 0, 0, 'C');
+            $pdf->Cell($maxWidth, 0, $text, 0, 0, 'C');
 
             // 2. Cetak Deskripsi Optional (hanya ada di standard)
             if (!empty($data['deskripsi_optional'])) {
