@@ -165,8 +165,33 @@ class ProsesTransaksiController extends Controller
         }
 
         // --- TAHAP 2: GAMBAR OPTIONAL INDEPENDEN ---
-        if (!empty($validated['varian_body_ids'])) {
+        if ($request->has('ordered_independent_ids') && !empty($request->ordered_independent_ids)) {
 
+            $orderedIds = $request->ordered_independent_ids;
+
+            // Ambil data gambar berdasarkan ID tersebut
+            $gambarIndependen = HGambarOptional::whereIn('id', $orderedIds)
+                ->where('tipe', 'independen')
+                ->get();
+
+            // PENTING: Sorting manual sesuai urutan ID dari Frontend (Drag & Drop)
+            $idMap = array_flip($orderedIds);
+            $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
+                return $idMap[$model->id] ?? 999;
+            });
+
+            foreach ($gambarIndependen as $gambarOptional) {
+                $jobsIndependen[] = [
+                    'type' => 'standard',
+                    'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
+                    'varian' => '',
+                    'source_pdf' => $gambarOptional->path_gambar_optional,
+                    'deskripsi_optional' => null
+                ];
+            }
+        }
+        // Fallback (Jaga-jaga jika request lama): Ambil by Varian Body (Logic lama Anda)
+        else if (!empty($validated['varian_body_ids'])) {
             // Cari Gambar Independen yang punya e_varian_body_id sesuai input
             $gambarIndependen = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_body_ids'])
                 ->where('tipe', 'independen')
