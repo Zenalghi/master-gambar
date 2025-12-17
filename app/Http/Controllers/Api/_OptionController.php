@@ -192,31 +192,44 @@ class _OptionController extends Controller
 
     public function getGambarOptionalByVarian(Request $request)
     {
-        // 1. Validasi input
         $validated = $request->validate([
             'varian_ids' => 'required|array',
             'varian_ids.*' => 'integer|exists:e_varian_body,id',
         ]);
 
-        // 2. Ambil data dari Database
-        // PENTING: Kita perlu select 'e_varian_body_id' untuk bahan sorting
-        $gambarOptions = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_ids'])
-            ->select('id', 'deskripsi', 'e_varian_body_id')
+        // 1. Ambil semua Master Data ID unik dari Varian Body yang dikirim
+        $varianBodies = EVarianBody::whereIn('id', $validated['varian_ids'])
+            ->select('id', 'master_data_id')
+            ->get();
+
+        $masterDataIds = $varianBodies->pluck('master_data_id')->unique();
+
+        // 2. Ambil Gambar Optional berdasarkan MASTER DATA ID
+        $gambarOptions = HGambarOptional::whereIn('master_data_id', $masterDataIds)
+            ->select('id', 'deskripsi', 'master_data_id') // Select master_data_id untuk sorting
             ->where('tipe', 'independen')
             ->get();
 
-        // 3. Buat Peta Urutan berdasarkan input dari Frontend
-        // Contoh: [ID_D, ID_C, ID_A, ID_B] -> Menjadi [ID_D => 0, ID_C => 1, ID_A => 2, ID_B => 3]
-        $urutanVarian = array_flip($validated['varian_ids']);
+        // 3. Logic Sorting (Sedikit lebih tricky karena mappingnya Varian -> Master -> Gambar)
+        // Kita ingin urutan output tetap sesuai urutan input varian_ids di frontend
 
-        // 4. Lakukan Sorting Koleksi
-        $sortedOptions = $gambarOptions->sortBy(function ($item) use ($urutanVarian) {
-            // Prioritas 1: Urutan Varian sesuai input user
-            $indexVarian = $urutanVarian[$item->e_varian_body_id] ?? 999;
+        $urutanVarianInput = array_flip($validated['varian_ids']); // [VarianA => 0, VarianB => 1]
 
-            // Prioritas 2: ID Gambar (agar jika 1 varian punya banyak gambar C1, C2, tetap urut)
-            return [$indexVarian, $item->id];
-        })->values(); // Reset index array agar jadi JSON array standar [0, 1, 2...]
+        // Buat map: MasterDataID => UrutanTerkechil (Prioritas)
+        $masterDataPriority = [];
+        foreach ($varianBodies as $vb) {
+            $urutan = $urutanVarianInput[$vb->id] ?? 999;
+            // Jika MasterData ini sudah punya urutan, ambil yang lebih kecil (muncul duluan)
+            if (!isset($masterDataPriority[$vb->master_data_id]) || $urutan < $masterDataPriority[$vb->master_data_id]) {
+                $masterDataPriority[$vb->master_data_id] = $urutan;
+            }
+        }
+
+        $sortedOptions = $gambarOptions->sortBy(function ($item) use ($masterDataPriority) {
+            // Sort berdasarkan kapan Master Data pemilik gambar ini muncul di list input user
+            $index = $masterDataPriority[$item->master_data_id] ?? 999;
+            return [$index, $item->id];
+        })->values();
 
         return response()->json($sortedOptions);
     }

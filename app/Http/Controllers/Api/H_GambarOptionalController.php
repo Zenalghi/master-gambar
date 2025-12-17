@@ -89,24 +89,22 @@ class H_GambarOptionalController extends Controller
             'tipe' => 'required|in:independen,paket',
             'deskripsi' => 'required|string|max:255',
             'gambar_optional' => 'required|file|mimes:pdf',
-            'e_varian_body_id' => 'required_if:tipe,independen|exists:e_varian_body,id',
+            'master_data_id' => 'required_if:tipe,independen|exists:master_data,id',
             'g_gambar_utama_id' => 'required_if:tipe,paket|exists:g_gambar_utama,id',
         ]);
 
         $tipe = $validated['tipe'];
 
-        // Gunakan Transaction agar aman (jika upload gagal, data tidak tersimpan)
         return DB::transaction(function () use ($request, $validated, $tipe) {
-
-            // --- 1. TENTUKAN BASE PATH & DATA PARENT ---
-            $varianBody = null;
             $basePath = '';
 
+            // --- PERUBAHAN LOGIKA PATH & ID ---
             if ($tipe === 'independen') {
-                $varianBody = EVarianBody::with('masterData')->find($validated['e_varian_body_id']);
-                $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/independen';
+                $masterDataId = $validated['master_data_id'];
+                // Path baru: master_data/{id}/independen
+                $basePath = $masterDataId . '/independen';
             } else {
-                // tipe === 'paket'
+                // Tipe Paket (Tetap sama)
                 $gambarUtama = \App\Models\GGambarUtama::with('varianBody.masterData')->find($validated['g_gambar_utama_id']);
                 $varianBody = $gambarUtama->varianBody;
                 $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/paket';
@@ -148,17 +146,17 @@ class H_GambarOptionalController extends Controller
             $createData = [
                 'tipe' => $tipe,
                 'deskripsi' => Str::upper($validated['deskripsi']),
-                'path_gambar_optional' => 'TEMP_PATH', // Placeholder
+                'path_gambar_optional' => 'TEMP_PATH',
             ];
 
             if ($tipe === 'independen') {
-                $createData['e_varian_body_id'] = $validated['e_varian_body_id'];
+                // SIMPAN KE MASTER DATA ID
+                $createData['master_data_id'] = $validated['master_data_id'];
             } else {
                 $createData['g_gambar_utama_id'] = $validated['g_gambar_utama_id'];
-                $createData['e_varian_body_id'] = $varianBody->id;
+                // Optional: e_varian_body_id bisa dihapus atau tetap diisi null
             }
 
-            // B. Simpan ke DB untuk dapat ID
             $gambarOptional = HGambarOptional::create($createData);
 
             // C. Sekarang ID sudah ada ($gambarOptional->id)
@@ -172,7 +170,7 @@ class H_GambarOptionalController extends Controller
                 'path_gambar_optional' => $finalPath
             ]);
 
-            return response()->json($gambarOptional->load('varianBody.masterData'), 201);
+            return response()->json($gambarOptional, 201);
         });
     }
 

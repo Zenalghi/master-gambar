@@ -192,8 +192,13 @@ class ProsesTransaksiController extends Controller
         }
         // Fallback (Jaga-jaga jika request lama): Ambil by Varian Body (Logic lama Anda)
         else if (!empty($validated['varian_body_ids'])) {
-            // Cari Gambar Independen yang punya e_varian_body_id sesuai input
-            $gambarIndependen = HGambarOptional::whereIn('e_varian_body_id', $validated['varian_body_ids'])
+            // 1. Cari Master Data ID dari varian yg dipilih
+            $masterDataIds = EVarianBody::whereIn('id', $validated['varian_body_ids'])
+                ->pluck('master_data_id')
+                ->unique();
+
+            // 2. Ambil Gambar Independen milik Master Data tsb
+            $gambarIndependen = HGambarOptional::whereIn('master_data_id', $masterDataIds)
                 ->where('tipe', 'independen')
                 ->get();
 
