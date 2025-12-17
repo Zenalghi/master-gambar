@@ -15,22 +15,24 @@ class HGambarOptional extends Model
     protected $fillable = [
         'tipe',
         'e_varian_body_id',
+        'master_data_id', // Pastikan ini ada
         'g_gambar_utama_id',
         'path_gambar_optional',
         'deskripsi',
     ];
 
-    /**
-     * Relasi ke Varian Body (Induk langsung).
-     */
     public function varianBody(): BelongsTo
     {
         return $this->belongsTo(EVarianBody::class, 'e_varian_body_id')->withTrashed();
     }
 
-    /**
-     * Relasi ke Gambar Utama (Jika tipe paket).
-     */
+    // --- TAMBAHKAN INI (WAJIB) ---
+    public function masterData(): BelongsTo
+    {
+        return $this->belongsTo(MasterData::class, 'master_data_id');
+    }
+    // -----------------------------
+
     public function gambarUtama(): BelongsTo
     {
         return $this->belongsTo(GGambarUtama::class, 'g_gambar_utama_id');

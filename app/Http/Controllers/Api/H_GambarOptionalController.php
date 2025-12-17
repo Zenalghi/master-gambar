@@ -19,11 +19,11 @@ class H_GambarOptionalController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi parameter
+        // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,tipe,varian_body,deskripsi,created_at,updated_at',
+            'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -33,27 +33,24 @@ class H_GambarOptionalController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama
+        // 2. Query Utama (KHUSUS INDEPENDEN)
         $query = HGambarOptional::query()
-            ->join('e_varian_body', 'h_gambar_optional.e_varian_body_id', '=', 'e_varian_body.id')
-            ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
+            ->where('h_gambar_optional.tipe', 'independen') // Filter Wajib
+            ->join('master_data', 'h_gambar_optional.master_data_id', '=', 'master_data.id')
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
             ->select('h_gambar_optional.*');
 
-        // 3. Eager load
-        $query->with('varianBody.masterData.typeEngine', 'varianBody.masterData.merk', 'varianBody.masterData.typeChassis', 'varianBody.masterData.jenisKendaraan');
+        // 3. Eager Load (Load relasi MasterData langsung)
+        $query->with(['masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan']);
 
-        // 4. Terapkan filter pencarian
+        // 4. Filter Pencarian
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('h_gambar_optional.deskripsi', 'like', "%{$search}%")
-                    // TAMBAHKAN PENCARIAN ID DI SINI
                     ->orWhere('h_gambar_optional.id', 'like', "%{$search}%")
-                    ->orWhere('h_gambar_optional.tipe', 'like', "%{$search}%")
-                    ->orWhere('e_varian_body.varian_body', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
@@ -63,16 +60,13 @@ class H_GambarOptionalController extends Controller
             });
         }
 
-        // 5. Terapkan sorting
+        // 5. Sorting
         $sortColumn = match ($sortBy) {
-            // TAMBAHKAN MAPPING ID DI SINI
             'id' => 'h_gambar_optional.id',
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
-            'varian_body' => 'e_varian_body.varian_body',
-            'tipe' => 'h_gambar_optional.tipe',
             'deskripsi' => 'h_gambar_optional.deskripsi',
             'created_at' => 'h_gambar_optional.created_at',
             'updated_at' => 'h_gambar_optional.updated_at',
@@ -80,9 +74,9 @@ class H_GambarOptionalController extends Controller
         };
         $query->orderBy($sortColumn, $sortDirection);
 
-        // 6. Lakukan paginasi
         return $query->paginate($perPage);
     }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
