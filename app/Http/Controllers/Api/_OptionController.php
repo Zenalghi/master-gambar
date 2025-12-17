@@ -361,4 +361,20 @@ class _OptionController extends Controller
 
         return response()->json($response);
     }
+    // Ambil Gambar Optional Independen by Master Data ID
+    public function getIndependentOptions($masterDataId)
+    {
+        $data = HGambarOptional::where('master_data_id', $masterDataId)
+            ->where('tipe', 'independen')
+            ->select('id', 'deskripsi')
+            ->orderBy('id', 'asc') // Urutan default (sebelum di-reorder user)
+            ->get();
+
+        // Format agar sesuai Dropdown/OptionItem Flutter
+        $formatted = $data->map(function ($item) {
+            return ['id' => $item->id, 'name' => $item->deskripsi];
+        });
+
+        return response()->json($formatted);
+    }
 }

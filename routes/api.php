@@ -74,6 +74,8 @@ Route::middleware('auth.api')->group(
         Route::get('/options/kelistrikan-status/{masterDataId}', [OptionController::class, 'getKelistrikanStatusByMasterData']);
         Route::post('/transaksi/{transaksi}/save', [ProsesTransaksiController::class, 'saveDraft']);
 
+        Route::get('/options/independent-images/{masterDataId}', [OptionController::class, 'getIndependentOptions']);
+
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // --- MANAJEMEN USER & ROLE ---
             Route::apiResource('users', UserController::class);

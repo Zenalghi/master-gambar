@@ -27,6 +27,8 @@ class ProsesTransaksiController extends Controller
             'data_gambar_utama' => 'required|array',
             // 'h_gambar_optional_ids' => DIHAPUS
             'deskripsi_optional' => 'nullable|string',
+            'ordered_independent_ids' => 'nullable|array', // Validasi Array
+            'ordered_independent_ids.*' => 'integer',
         ]);
 
         $detail = TransaksiDetail::updateOrCreate(
@@ -35,7 +37,7 @@ class ProsesTransaksiController extends Controller
                 'pemeriksa_id' => $validated['pemeriksa_id'],
                 'jumlah_gambar' => $validated['jumlah_gambar'],
                 'data_gambar_utama' => $validated['data_gambar_utama'],
-                // 'data_optional_independen' => DIHAPUS
+                'ordered_independent_ids' => $validated['ordered_independent_ids'] ?? [],
                 'deskripsi_optional' => $validated['deskripsi_optional'],
             ]
         );
@@ -58,6 +60,8 @@ class ProsesTransaksiController extends Controller
             'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
+            'ordered_independent_ids' => 'nullable|array',
+            'ordered_independent_ids.*' => 'integer',
             'deskripsi_optional' => 'nullable|string|max:255',
         ]);
 
@@ -80,7 +84,7 @@ class ProsesTransaksiController extends Controller
                 'pemeriksa_id' => $request->pemeriksa_id,
                 'jumlah_gambar' => count($dataGambarUtamaJSON),
                 'data_gambar_utama' => $dataGambarUtamaJSON,
-                // 'data_optional_independen' => DIHAPUS
+                'ordered_independent_ids' => $validated['ordered_independent_ids'] ?? [],
                 'deskripsi_optional' => $request->deskripsi_optional,
             ]
         );

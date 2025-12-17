@@ -17,10 +17,12 @@ class TransaksiDetail extends Model
         'jumlah_gambar',
         'data_gambar_utama',
         'deskripsi_optional',
+        'ordered_independent_ids'
     ];
 
     protected $casts = [
         'data_gambar_utama' => 'array',
+        'ordered_independent_ids' => 'array',
     ];
 
     public function transaksi()
