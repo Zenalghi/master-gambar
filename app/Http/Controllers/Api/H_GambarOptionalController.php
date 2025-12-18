@@ -192,7 +192,6 @@ class H_GambarOptionalController extends Controller
      */
     public function updateFile(Request $request, HGambarOptional $gambarOptional)
     {
-        // 1. Validasi: Semuanya 'nullable' agar bisa kirim salah satu saja
         $validated = $request->validate([
             'deskripsi' => 'nullable|string|max:255',
             'gambar_optional' => 'nullable|file|mimes:pdf',
@@ -201,19 +200,38 @@ class H_GambarOptionalController extends Controller
         return DB::transaction(function () use ($request, $validated, $gambarOptional) {
             $updateData = [];
 
-            // A. Cek apakah ada perubahan Deskripsi
+            // A. Cek Update Deskripsi
             if ($request->filled('deskripsi')) {
                 $updateData['deskripsi'] = Str::upper($validated['deskripsi']);
             }
 
-            // B. Cek apakah ada File Baru
+            // B. Cek Update File
             if ($request->hasFile('gambar_optional')) {
-                // Logic Path (Sama seperti sebelumnya)
-                $varianBody = $gambarOptional->varianBody;
-                $masterDataId = $varianBody->master_data_id;
-                $tipePath = ($gambarOptional->tipe === 'paket') ? 'paket' : 'independen';
-                $basePath = "{$masterDataId}/{$varianBody->id}/{$tipePath}";
+                $basePath = '';
                 $fileName = "{$gambarOptional->id}.pdf";
+
+                // --- PERBAIKAN LOGIKA PATH ---
+                if ($gambarOptional->tipe === 'independen') {
+                    // 1. Tipe Independen: Ambil langsung master_data_id
+                    // Path: {master_id}/independen/{id}.pdf
+                    $basePath = "{$gambarOptional->master_data_id}/independen";
+                } else {
+                    // 2. Tipe Paket: Ambil via Relasi Gambar Utama -> Varian Body
+                    // Path: {master_id}/{varian_id}/paket/{id}.pdf
+
+                    // Load relasi gambar utama -> varian body
+                    $gambarOptional->load('gambarUtama.varianBody');
+
+                    $gambarUtama = $gambarOptional->gambarUtama;
+                    // Safety check jika data corrupt
+                    if (!$gambarUtama || !$gambarUtama->varianBody) {
+                        throw new \Exception("Data Varian Body tidak ditemukan untuk gambar paket ini.");
+                    }
+
+                    $varianBody = $gambarUtama->varianBody;
+                    $basePath = "{$varianBody->master_data_id}/{$varianBody->id}/paket";
+                }
+                // -----------------------------
 
                 // Hapus file lama jika ada
                 if (Storage::disk('master_gambar')->exists($gambarOptional->path_gambar_optional)) {
@@ -225,12 +243,16 @@ class H_GambarOptionalController extends Controller
                 $updateData['path_gambar_optional'] = $finalPath;
             }
 
-            // C. Lakukan Update hanya jika ada data yang berubah
             if (!empty($updateData)) {
                 $gambarOptional->update($updateData);
             }
 
-            return response()->json($gambarOptional->load('varianBody.masterData'));
+            // Load relasi untuk respon JSON (Conditional loading agar tidak error)
+            if ($gambarOptional->tipe === 'independen') {
+                return response()->json($gambarOptional->load('masterData'));
+            } else {
+                return response()->json($gambarOptional->load('gambarUtama.varianBody.masterData'));
+            }
         });
     }
     /**
