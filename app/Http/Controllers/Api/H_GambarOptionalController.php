@@ -82,9 +82,11 @@ class H_GambarOptionalController extends Controller
         $validated = $request->validate([
             'tipe' => 'required|in:independen,paket',
             'deskripsi' => 'required|string|max:255',
-            'gambar_optional' => 'required|file|mimes:pdf',
+            'gambar_optional' => 'required|file|mimes:pdf|max:1024',
             'master_data_id' => 'required_if:tipe,independen|exists:master_data,id',
             'g_gambar_utama_id' => 'required_if:tipe,paket|exists:g_gambar_utama,id',
+        ], [
+            'gambar_optional.max' => 'Ukuran file PDF tidak boleh lebih dari 1 MB.',
         ]);
 
         $tipe = $validated['tipe'];
@@ -194,7 +196,9 @@ class H_GambarOptionalController extends Controller
     {
         $validated = $request->validate([
             'deskripsi' => 'nullable|string|max:255',
-            'gambar_optional' => 'nullable|file|mimes:pdf',
+            'gambar_optional' => 'nullable|file|mimes:pdf|max:1024',
+        ], [
+            'gambar_optional.max' => 'Ukuran file PDF tidak boleh lebih dari 1 MB.',
         ]);
 
         return DB::transaction(function () use ($request, $validated, $gambarOptional) {

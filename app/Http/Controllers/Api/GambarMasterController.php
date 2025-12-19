@@ -17,9 +17,13 @@ class GambarMasterController extends Controller
         $validated = $request->validate([
             'master_data_id' => 'required|integer|exists:master_data,id',
             'varian_body' => 'required|string|max:255',
-            'gambar_utama' => 'required|file|mimes:pdf',
-            'gambar_terurai' => 'required|file|mimes:pdf',
-            'gambar_kontruksi' => 'required|file|mimes:pdf',
+            'gambar_utama' => 'required|file|mimes:pdf|max:1024',
+            'gambar_terurai' => 'required|file|mimes:pdf|max:1024',
+            'gambar_kontruksi' => 'required|file|mimes:pdf|max:1024',
+        ], [
+            'gambar_utama.max' => 'Ukuran file Gambar Utama tidak boleh lebih dari 1 MB.',
+            'gambar_terurai.max' => 'Ukuran file Gambar Terurai tidak boleh lebih dari 1 MB.',
+            'gambar_kontruksi.max' => 'Ukuran file Gambar Kontruksi tidak boleh lebih dari 1 MB.',
         ]);
 
         // 2. Buat atau ambil Varian Body (tidak berubah)

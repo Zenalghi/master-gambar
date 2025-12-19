@@ -75,7 +75,9 @@ class I_GambarKelistrikanController extends Controller
             'a_type_engine_id' => 'required|integer|exists:a_type_engines,id',
             'b_merk_id' => 'required|integer|exists:b_merks,id',
             'c_type_chassis_id' => 'required|integer|exists:c_type_chassis,id',
-            'gambar_kelistrikan' => 'required|file|mimes:pdf',
+            'gambar_kelistrikan' => 'required|file|mimes:pdf|max:1024',
+        ], [
+            'gambar_kelistrikan.max' => 'Ukuran file PDF tidak boleh lebih dari 1 MB.',
         ]);
 
         return DB::transaction(function () use ($validated, $request) {
