@@ -236,14 +236,30 @@ class _OptionController extends Controller
 
     public function getDependentOptionals(Request $request)
     {
+        // 1. Validasi input: Kita butuh varian_ids DAN judul_ids
         $validated = $request->validate([
             'varian_ids' => 'required|array',
             'varian_ids.*' => 'integer|exists:e_varian_body,id',
+            'judul_ids' => 'nullable|array',
+            'judul_ids.*' => 'nullable|integer|exists:j_judul_gambars,id',
         ]);
 
         $orderedOptionals = collect();
+        $judulIds = $validated['judul_ids'] ?? [];
 
-        foreach ($validated['varian_ids'] as $varianId) {
+        // Loop berdasarkan index agar Varian dan Judul sinkron
+        foreach ($validated['varian_ids'] as $index => $varianId) {
+
+            // Ambil Judul Gambar pasangannya (jika ada)
+            $judulId = $judulIds[$index] ?? null;
+            $namaJudulSuffix = '';
+
+            if ($judulId) {
+                $judulModel = \App\Models\JJudulGambar::find($judulId);
+                if ($judulModel) {
+                    $namaJudulSuffix = ' ' . $judulModel->nama_judul;
+                }
+            }
 
             // 1. Cari Gambar Utama untuk varian ini
             $gambarUtama = GGambarUtama::where('e_varian_body_id', $varianId)->first();
@@ -255,8 +271,10 @@ class _OptionController extends Controller
                     ->select('id', 'deskripsi')
                     ->get();
 
-                // 3. Masukkan ke koleksi hasil
+                // 3. Masukkan ke koleksi hasil & Modifikasi Deskripsi
                 foreach ($optionals as $opt) {
+                    // GABUNGKAN DESKRIPSI + NAMA JUDUL
+                    $opt->deskripsi = $opt->deskripsi . $namaJudulSuffix;
                     $orderedOptionals->push($opt);
                 }
             }

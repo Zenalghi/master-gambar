@@ -155,9 +155,14 @@ class ProsesTransaksiController extends Controller
                     // di sini kita collect berdasarkan varian loop agar urut.
                     foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
                         if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $validated['h_gambar_optional_ids'] ?? [])) {
+
+                            // LOGIKA PENGGABUNGAN NAMA
+                            $judulDasar = $gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET';
+                            $judulLengkap = $judulDasar . ' ' . $jenisJudul->nama_judul;
+
                             $jobsPaket[] = [
                                 'type' => 'standard',
-                                'title' => $gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET',
+                                'title' => $judulLengkap, // <--- Ganti ini
                                 'varian' => '',
                                 'source_pdf' => $gambarPaket->path_gambar_optional,
                                 'deskripsi_optional' => null
