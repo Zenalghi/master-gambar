@@ -427,7 +427,7 @@ class ProsesTransaksiController extends Controller
         }
 
         // Posisi dan Cetak
-        $pdf->SetXY(217.004, 194.679);
+        $pdf->SetXY(216.984, 194.679);
         $pdf->Cell($cellWidth, 0, $text, 0, 0, 'C');
         // Nomor Halaman
         $pdf->SetFont('arial', '', 7);
@@ -493,8 +493,8 @@ class ProsesTransaksiController extends Controller
 
             // 2. Cetak Deskripsi Optional (hanya ada di standard)
             if (!empty($data['deskripsi_optional'])) {
-                $pdf->SetFont('arial', '', 6);
-                $pdf->SetXY(208.573, 163.897);
+                $pdf->SetFont('arial', '', 8);
+                $pdf->SetXY(211.878, 161.858);
                 $pdf->Write(0, $data['deskripsi_optional']);
             }
         }
