@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
 
-
 class ProsesTransaksiController extends Controller
 {
     public function saveDraft(Request $request, Transaksi $transaksi)
@@ -102,6 +101,10 @@ class ProsesTransaksiController extends Controller
         $pemeriksa = User::find($validated['pemeriksa_id']);
         $masterData = $transaksi->masterData;
 
+        // --- CEK JENIS PENGAJUAN ---
+        $jenisPengajuan = strtoupper($transaksi->fPengajuan->jenis_pengajuan);
+        $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
+
         // --- SIAPKAN WADAH TERPISAH PER KATEGORI ---
         $jobsUtama = [];
         $jobsTerurai = [];
@@ -110,27 +113,30 @@ class ProsesTransaksiController extends Controller
         $jobsIndependen = [];
         $jobsKelistrikan = [];
 
-        // --- TAHAP 1: LOOPING VARIAN BODY (ISI ARRAY TERPISAH) ---
+        // --- TAHAP 1: LOOPING VARIAN BODY ---
         if (!empty($validated['varian_body_ids'])) {
             foreach ($validated['varian_body_ids'] as $index => $varian_id) {
                 $varianBody = EVarianBody::find($varian_id);
-
                 $gambarUtamaData = GGambarUtama::with('gambarOptionals')
                     ->where('e_varian_body_id', $varian_id)
                     ->first();
-
                 $jenisJudul = JJudulGambar::find($validated['judul_gambar_ids'][$index]);
 
                 if ($gambarUtamaData && $jenisJudul) {
-                    // 1. Masukkan ke Array UTAMA
+
+                    // 1. Array UTAMA (SELALU DIMASUKKAN)
                     $jobsUtama[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                         'varian' => $varianBody->varian_body,
                         'source_pdf' => $gambarUtamaData->path_gambar_utama,
-                        // Deskripsi optional biasanya nempel di gambar utama
                         'deskripsi_optional' => $validated['deskripsi_optional'] ?? null
                     ];
+
+                    // --- LOGIKA SKIP: JIKA 'GAMBAR TU', SKIP SISANYA ---
+                    if ($isGambarTU) {
+                        continue; // Lanjut ke varian berikutnya, abaikan Terurai/Kontruksi/Paket
+                    }
 
                     // 2. Masukkan ke Array TERURAI
                     $jobsTerurai[] = [
@@ -172,77 +178,78 @@ class ProsesTransaksiController extends Controller
                 }
             }
         }
+        if (!$isGambarTU) {
+            // --- TAHAP 2: GAMBAR OPTIONAL INDEPENDEN ---
+            if ($request->has('ordered_independent_ids') && !empty($request->ordered_independent_ids)) {
 
-        // --- TAHAP 2: GAMBAR OPTIONAL INDEPENDEN ---
-        if ($request->has('ordered_independent_ids') && !empty($request->ordered_independent_ids)) {
+                $orderedIds = $request->ordered_independent_ids;
 
-            $orderedIds = $request->ordered_independent_ids;
+                // Ambil data gambar berdasarkan ID tersebut
+                $gambarIndependen = HGambarOptional::whereIn('id', $orderedIds)
+                    ->where('tipe', 'independen')
+                    ->get();
 
-            // Ambil data gambar berdasarkan ID tersebut
-            $gambarIndependen = HGambarOptional::whereIn('id', $orderedIds)
-                ->where('tipe', 'independen')
-                ->get();
+                // PENTING: Sorting manual sesuai urutan ID dari Frontend (Drag & Drop)
+                $idMap = array_flip($orderedIds);
+                $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
+                    return $idMap[$model->id] ?? 999;
+                });
 
-            // PENTING: Sorting manual sesuai urutan ID dari Frontend (Drag & Drop)
-            $idMap = array_flip($orderedIds);
-            $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
-                return $idMap[$model->id] ?? 999;
-            });
-
-            foreach ($gambarIndependen as $gambarOptional) {
-                $jobsIndependen[] = [
-                    'type' => 'standard',
-                    'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
-                    'varian' => '',
-                    'source_pdf' => $gambarOptional->path_gambar_optional,
-                    'deskripsi_optional' => null
-                ];
+                foreach ($gambarIndependen as $gambarOptional) {
+                    $jobsIndependen[] = [
+                        'type' => 'standard',
+                        'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
+                        'varian' => '',
+                        'source_pdf' => $gambarOptional->path_gambar_optional,
+                        'deskripsi_optional' => null
+                    ];
+                }
             }
-        }
-        // Fallback (Jaga-jaga jika request lama): Ambil by Varian Body (Logic lama Anda)
-        else if (!empty($validated['varian_body_ids'])) {
-            // 1. Cari Master Data ID dari varian yg dipilih
-            $masterDataIds = EVarianBody::whereIn('id', $validated['varian_body_ids'])
-                ->pluck('master_data_id')
-                ->unique();
+            // Fallback (Jaga-jaga jika request lama): Ambil by Varian Body (Logic lama Anda)
+            else if (!empty($validated['varian_body_ids'])) {
+                // 1. Cari Master Data ID dari varian yg dipilih
+                $masterDataIds = EVarianBody::whereIn('id', $validated['varian_body_ids'])
+                    ->pluck('master_data_id')
+                    ->unique();
 
-            // 2. Ambil Gambar Independen milik Master Data tsb
-            $gambarIndependen = HGambarOptional::whereIn('master_data_id', $masterDataIds)
-                ->where('tipe', 'independen')
-                ->get();
+                // 2. Ambil Gambar Independen milik Master Data tsb
+                $gambarIndependen = HGambarOptional::whereIn('master_data_id', $masterDataIds)
+                    ->where('tipe', 'independen')
+                    ->get();
 
-            // Opsional: Urutkan hasil agar sesuai urutan varian di input
-            // (Agar gambar independen varian 1 muncul sebelum varian 2)
-            $urutanVarian = array_flip($validated['varian_body_ids']);
-            $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($urutanVarian) {
-                return $urutanVarian[$model->e_varian_body_id] ?? 999;
-            });
+                // Opsional: Urutkan hasil agar sesuai urutan varian di input
+                // (Agar gambar independen varian 1 muncul sebelum varian 2)
+                $urutanVarian = array_flip($validated['varian_body_ids']);
+                $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($urutanVarian) {
+                    return $urutanVarian[$model->e_varian_body_id] ?? 999;
+                });
 
-            foreach ($gambarIndependen as $gambarOptional) {
-                $jobsIndependen[] = [
-                    'type' => 'standard',
-                    'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
-                    'varian' => '', // Atau isi dengan nama varian jika perlu
-                    'source_pdf' => $gambarOptional->path_gambar_optional,
-                    'deskripsi_optional' => null
-                ];
+                foreach ($gambarIndependen as $gambarOptional) {
+                    $jobsIndependen[] = [
+                        'type' => 'standard',
+                        'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
+                        'varian' => '', // Atau isi dengan nama varian jika perlu
+                        'source_pdf' => $gambarOptional->path_gambar_optional,
+                        'deskripsi_optional' => null
+                    ];
+                }
             }
-        }
 
-        // --- TAHAP 3: KELISTRIKAN ---
-        if (isset($validated['i_gambar_kelistrikan_id'])) {
-            $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
-                ->find($validated['i_gambar_kelistrikan_id']);
+            // --- TAHAP 3: KELISTRIKAN ---
+            if (isset($validated['i_gambar_kelistrikan_id'])) {
+                $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
+                    ->find($validated['i_gambar_kelistrikan_id']);
 
-            if ($gambarKelistrikan) {
-                $jobsKelistrikan[] = [
-                    'type' => 'kelistrikan',
-                    'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
-                    'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
-                    'varian' => '',
-                    'source_pdf' => $gambarKelistrikan->path_gambar_kelistrikan,
-                    'deskripsi_optional' => null
-                ];
+                if ($gambarKelistrikan) {
+                    $jobsKelistrikan[] = [
+                        'type' => 'kelistrikan',
+                        'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
+                        'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
+                        'varian' => '',
+                        'source_pdf' => $gambarKelistrikan->path_gambar_kelistrikan,
+                        'deskripsi_optional' => null
+                    ];
+                }
             }
         }
 

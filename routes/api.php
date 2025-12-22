@@ -87,7 +87,7 @@ Route::middleware('auth.api')->group(
             // --- MANAJEMEN GAMBAR MASTER (Utama & Optional) ---
             Route::post('/gambar-master/utama', [GambarMasterController::class, 'uploadGambarUtama']);
             Route::post('/gambar-master/optional', [GambarMasterController::class, 'uploadGambarOptional']);
-            Route::delete('/gambar-master/utama/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarUtama']);
+            // SALAH Route::delete('/gambar-master/utama/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarUtama']);
             Route::delete('/gambar-master/optional/{e_varian_body_id}', [GambarMasterController::class, 'destroyGambarOptional']);
             Route::post('master-data/gambar-optional/{gambarOptional}/update-file', [H_GambarOptionalController::class, 'updateFile']);
             // Route hapus spesifik (jika diperlukan)
