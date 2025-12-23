@@ -224,7 +224,19 @@ class TransaksiController extends Controller
     public function destroy(Transaksi $transaksi)
     {
         $this->authorize('delete', $transaksi);
+
+        // 1. Hapus detail transaksi terlebih dahulu
+        // Asumsi relasi di model Transaksi bernama 'detail' atau 'transaksiDetail'
+        if ($transaksi->detail) {
+            $transaksi->detail()->delete();
+        }
+
+        // Jika relasinya hasMany (banyak detail), gunakan:
+        // $transaksi->details()->delete();
+
+        // 2. Baru hapus transaksinya
         $transaksi->delete();
+
         return response()->noContent();
     }
 }
