@@ -19,7 +19,8 @@ class ImageStatusController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            'sortBy' => 'nullable|string|in:id,type_engine,merk,type_chassis,jenis_kendaraan,varian_body,updated_at,deskripsi_optional',
+            // Tambahkan 'latest_updated_at' sebagai opsi sort valid
+            'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -43,8 +44,7 @@ class ImageStatusController extends Controller
                     ->where('h_gambar_optional.tipe', '=', 'paket');
             });
 
-        // 3. Select
-        // Menggunakan alias agar mudah dibaca di frontend
+        // 3. Select dengan LOGIKA KOMPARASI TANGGAL
         $query->select([
             'e_varian_body.*',
             'a_type_engines.type_engine',
@@ -53,9 +53,21 @@ class ImageStatusController extends Controller
             'd_jenis_kendaraan.jenis_kendaraan',
             'g_gambar_utama.updated_at as gambar_utama_updated_at',
             'h_gambar_optional.deskripsi as deskripsi_optional',
+
+            // --- LOGIKA UTAMA: Bandingkan Tanggal ---
+            // Jika Optional NULL, ambil Utama.
+            // Jika Optional ADA, bandingkan mana yang lebih besar (terbaru).
+            DB::raw('
+                CASE 
+                    WHEN g_gambar_utama.updated_at IS NULL THEN NULL
+                    WHEN h_gambar_optional.updated_at IS NULL THEN g_gambar_utama.updated_at
+                    WHEN h_gambar_optional.updated_at > g_gambar_utama.updated_at THEN h_gambar_optional.updated_at
+                    ELSE g_gambar_utama.updated_at
+                END as latest_updated_at
+            ')
         ]);
 
-        // 4. Eager load (untuk meminimalisir N+1 query pada data nested jika ada)
+        // 4. Eager load
         $query->with([
             'masterData.typeEngine',
             'masterData.merk',
@@ -74,12 +86,13 @@ class ImageStatusController extends Controller
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.deskripsi', 'like', "%{$search}%")
-                    ->orWhere('g_gambar_utama.updated_at', 'like', "%{$search}%");
+                    ->orWhere('g_gambar_utama.updated_at', 'like', "%{$search}%")
+                    ->orWhere('h_gambar_optional.updated_at', 'like', "%{$search}%");
             });
         }
 
         // 6. Sorting Mapping
-        // Gunakan nama kolom asli tabel untuk sorting agar lebih aman di SQL
+        // Jika frontend mengirim 'updated_at', kita mapping ke kolom hasil kalkulasi 'latest_updated_at'
         $sortColumn = match ($sortBy) {
             'id' => 'e_varian_body.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -87,37 +100,44 @@ class ImageStatusController extends Controller
             'type_chassis' => 'c_type_chassis.type_chassis',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
-            'deskripsi_optional' => 'h_gambar_optional.deskripsi', // Pakai kolom asli tabel
-            'updated_at' => 'g_gambar_utama.updated_at',           // Pakai kolom asli tabel
+            'deskripsi_optional' => 'h_gambar_optional.deskripsi',
+            // Ubah mapping ini:
+            'updated_at' => 'latest_updated_at',
+
             default => 'e_varian_body.id',
         };
 
-        // 7. Penerapan Sorting (FIXED)
-        if (in_array($sortBy, ['updated_at', 'deskripsi_optional'])) {
+        // 7. Penerapan Sorting
+        // Kita gunakan orderBy biasa karena 'latest_updated_at' sudah berupa kolom kalkulasi yang bersih
+        if ($sortBy === 'updated_at') {
+            // Khusus tanggal, pastikan null (belum upload) ada di bawah/atas sesuai kebutuhan
             if ($sortDirection === 'desc') {
-                // LOGIC DESC (Terbaru/Ada Isinya):
-                // Prioritaskan yang TIDAK NULL (IS NULL ASC = 0 dulu baru 1),
-                // kemudian urutkan nilainya secara DESC.
-                $query->orderByRaw("$sortColumn IS NULL ASC, $sortColumn DESC");
+                // Terbaru paling atas (Null di bawah)
+                $query->orderByRaw("latest_updated_at IS NULL ASC, latest_updated_at DESC");
             } else {
-                // LOGIC ASC (Belum Upload/Kosong):
-                // Prioritaskan yang NULL (IS NULL DESC = 1 dulu baru 0),
-                // kemudian urutkan nilainya secara ASC (opsional).
-                $query->orderByRaw("$sortColumn IS NULL DESC, $sortColumn ASC");
+                // Terlama paling atas
+                $query->orderByRaw("latest_updated_at IS NULL DESC, latest_updated_at ASC");
             }
         } else {
-            // Sorting standar untuk kolom non-nullable
             $query->orderBy($sortColumn, $sortDirection);
         }
 
         // 8. Pagination
-        return $query
-            ->paginate($perPage)
-            ->appends([
-                'search' => $search,
-                'sortBy' => $sortBy,
-                'sortDirection' => $sortDirection,
-                'perPage' => $perPage
-            ]);
+        $paginator = $query->paginate($perPage);
+
+        // 9. Transformasi Data (Opsional, agar Frontend menerima field yang konsisten)
+        // Kita timpa field 'gambar_utama_updated_at' dengan hasil kalkulasi agar frontend menampilkan tanggal terbaru
+        $paginator->getCollection()->transform(function ($item) {
+            // Timpa nilai ini agar UI menampilkan tanggal komparasi
+            $item->gambar_utama_updated_at = $item->latest_updated_at;
+            return $item;
+        });
+
+        return $paginator->appends([
+            'search' => $search,
+            'sortBy' => $sortBy,
+            'sortDirection' => $sortDirection,
+            'perPage' => $perPage
+        ]);
     }
 }

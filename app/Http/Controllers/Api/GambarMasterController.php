@@ -62,6 +62,10 @@ class GambarMasterController extends Controller
             ]
         );
 
+        if (!$gambarUtama->wasChanged()) {
+            $gambarUtama->touch();
+        }
+
         $gambarUtama->load('varianBody.masterData');
         return response()->json($gambarUtama, 201);
     }

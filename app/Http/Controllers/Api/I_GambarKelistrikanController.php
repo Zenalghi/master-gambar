@@ -119,6 +119,7 @@ class I_GambarKelistrikanController extends Controller
             // 3. Update Path di Database
             $fileRecord->path_file = $path;
             $fileRecord->save();
+            $fileRecord->touch();
 
             return response()->json($fileRecord, 201);
         });
@@ -162,6 +163,7 @@ class I_GambarKelistrikanController extends Controller
                 'deskripsi' => Str::upper($validated['deskripsi']),
             ]
         );
+        $gambar->touch();
 
         return response()->json($gambar, 200);
     }

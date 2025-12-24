@@ -250,6 +250,7 @@ class H_GambarOptionalController extends Controller
             if (!empty($updateData)) {
                 $gambarOptional->update($updateData);
             }
+            $gambarOptional->touch();
 
             // Load relasi untuk respon JSON (Conditional loading agar tidak error)
             if ($gambarOptional->tipe === 'independen') {

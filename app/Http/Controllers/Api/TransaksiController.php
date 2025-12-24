@@ -108,7 +108,10 @@ class TransaksiController extends Controller
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('f_pengajuan.jenis_pengajuan', 'like', "%{$search}%")
-                    ->orWhere('users.name', 'like', "%{$search}%");
+                    ->orWhere('users.name', 'like', "%{$search}%")
+                    ->orWhere('z_transaksi.created_at', 'like', "%{$search}%")
+                    ->orWhere('z_transaksi.updated_at', 'like', "%{$search}%")
+                    ->orWhere('z_transaksi_details.updated_at', 'like', "%{$search}%");
             });
         }
 
@@ -123,9 +126,6 @@ class TransaksiController extends Controller
             'jenis_pengajuan' => 'f_pengajuan.jenis_pengajuan',
             'user' => 'users.name',
             'created_at' => 'z_transaksi.created_at',
-
-            // --- [3] GANTI SORTING UPDATED_AT ---
-            // Sort berdasarkan kolom kalkulasi kita
             'updated_at' => 'latest_activity_at',
 
             default => 'latest_activity_at', // Default sort juga pakai tanggal aktivitas terbaru
@@ -141,10 +141,6 @@ class TransaksiController extends Controller
             $item->c_type_chassis = $item->masterData->typeChassis ?? null;
             $item->d_jenis_kendaraan = $item->masterData->jenisKendaraan ?? null;
             $item->judul_gambar_string = $item->judul_gambar_string;
-
-            // --- [4] OVERWRITE UPDATED_AT ---
-            // Kita timpa nilai updated_at asli dengan nilai kalkulasi terbaru
-            // Sehingga Frontend (Flutter) otomatis menampilkan tanggal ini tanpa ubah kode.
             if (isset($item->latest_activity_at)) {
                 $item->updated_at = $item->latest_activity_at;
             }

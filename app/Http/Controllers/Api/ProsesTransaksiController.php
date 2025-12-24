@@ -40,6 +40,7 @@ class ProsesTransaksiController extends Controller
                 'deskripsi_optional' => $validated['deskripsi_optional'],
             ]
         );
+        $detail->touch();
 
         return response()->json(['message' => 'Draft berhasil disimpan', 'detail' => $detail]);
     }
@@ -87,6 +88,7 @@ class ProsesTransaksiController extends Controller
                 'deskripsi_optional' => $request->deskripsi_optional,
             ]
         );
+        $transaksi->detail->touch();
 
         $transaksi->load([
             'user',
