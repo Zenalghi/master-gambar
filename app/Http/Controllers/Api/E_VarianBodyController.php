@@ -84,11 +84,6 @@ class E_VarianBodyController extends Controller
         return response()->json($varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'), 201);
     }
 
-    public function show(EVarianBody $varianBody)
-    {
-        return response()->json($varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'));
-    }
-
     public function update(UpdateVarianBodyRequest $request, EVarianBody $varianBody)
     {
         $varianBody->update($request->validated());
@@ -105,6 +100,12 @@ class E_VarianBodyController extends Controller
 
         return response()->json($varianBody);
     }
+    
+    public function show(EVarianBody $varianBody)
+    {
+        return response()->json($varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'));
+    }
+
 
     public function destroy(EVarianBody $varianBody)
     {

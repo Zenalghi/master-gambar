@@ -14,7 +14,6 @@ class UpdateVarianBodyRequest extends FormRequest
 
     public function rules(): array
     {
-        // Ambil parameter route dengan aman (bisa berupa object atau ID)
         $routeParam = $this->route('varian_body');
         $varianBodyId = $routeParam instanceof \App\Models\EVarianBody ? $routeParam->id : $routeParam;
 
@@ -24,11 +23,17 @@ class UpdateVarianBodyRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                \Illuminate\Validation\Rule::unique('e_varian_body')
+                Rule::unique('e_varian_body')
                     ->where('master_data_id', $this->master_data_id)
-                    ->whereNull('deleted_at')
                     ->ignore($varianBodyId),
             ],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'varian_body.unique' => 'Nama Varian Body ini sudah terdaftar.',
         ];
     }
 }
