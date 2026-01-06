@@ -24,9 +24,8 @@ class ProsesTransaksiController extends Controller
             'pemeriksa_id' => 'required|exists:users,id',
             'jumlah_gambar' => 'required|integer|min:1|max:4',
             'data_gambar_utama' => 'required|array',
-            // 'h_gambar_optional_ids' => DIHAPUS
             'deskripsi_optional' => 'nullable|string',
-            'ordered_independent_ids' => 'nullable|array', // Validasi Array
+            'ordered_independent_ids' => 'nullable|array',
             'ordered_independent_ids.*' => 'integer',
         ]);
 
