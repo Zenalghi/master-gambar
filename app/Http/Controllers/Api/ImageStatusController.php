@@ -19,7 +19,6 @@ class ImageStatusController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            // Tambahkan 'latest_updated_at' sebagai opsi sort valid
             'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
@@ -37,7 +36,6 @@ class ImageStatusController extends Controller
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-            // Gunakan leftJoin agar data master tetap tampil meski belum ada gambar
             ->leftJoin('g_gambar_utama', 'e_varian_body.id', '=', 'g_gambar_utama.e_varian_body_id')
             ->leftJoin('h_gambar_optional', function ($join) {
                 $join->on('g_gambar_utama.id', '=', 'h_gambar_optional.g_gambar_utama_id')
@@ -51,6 +49,7 @@ class ImageStatusController extends Controller
             'b_merks.merk',
             'c_type_chassis.type_chassis',
             'd_jenis_kendaraan.jenis_kendaraan',
+            'g_gambar_utama.created_at as gambar_utama_created_at',
             'g_gambar_utama.updated_at as gambar_utama_updated_at',
             'h_gambar_optional.deskripsi as deskripsi_optional',
 
@@ -86,13 +85,13 @@ class ImageStatusController extends Controller
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.deskripsi', 'like', "%{$search}%")
+                    ->orWhere('g_gambar_utama.created_at', 'like', "%{$search}%")
                     ->orWhere('g_gambar_utama.updated_at', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.updated_at', 'like', "%{$search}%");
             });
         }
 
         // 6. Sorting Mapping
-        // Jika frontend mengirim 'updated_at', kita mapping ke kolom hasil kalkulasi 'latest_updated_at'
         $sortColumn = match ($sortBy) {
             'id' => 'e_varian_body.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -101,7 +100,7 @@ class ImageStatusController extends Controller
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
             'deskripsi_optional' => 'h_gambar_optional.deskripsi',
-            // Ubah mapping ini:
+            'created_at' => 'g_gambar_utama.created_at',
             'updated_at' => 'latest_updated_at',
 
             default => 'e_varian_body.id',
@@ -117,6 +116,13 @@ class ImageStatusController extends Controller
             } else {
                 // Terlama paling atas
                 $query->orderByRaw("latest_updated_at IS NULL DESC, latest_updated_at ASC");
+            }
+        } elseif ($sortBy === 'created_at') {
+            // LOGIKA SORTING CREATED AT (Mirip updated_at)
+            if ($sortDirection === 'desc') {
+                $query->orderByRaw("g_gambar_utama.created_at IS NULL ASC, g_gambar_utama.created_at DESC");
+            } else {
+                $query->orderByRaw("g_gambar_utama.created_at IS NULL DESC, g_gambar_utama.created_at ASC");
             }
         } else {
             $query->orderBy($sortColumn, $sortDirection);
