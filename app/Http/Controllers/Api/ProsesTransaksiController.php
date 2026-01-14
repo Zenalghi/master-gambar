@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class ProsesTransaksiController extends Controller
 {
@@ -46,6 +47,9 @@ class ProsesTransaksiController extends Controller
 
     public function proses(Request $request, Transaksi $transaksi)
     {
+        set_time_limit(300); // 5 Menit
+        ini_set('memory_limit', '512M');
+
         $varianCount = count($request->input('varian_body_ids', []));
 
         $validated = $request->validate([
@@ -290,51 +294,54 @@ class ProsesTransaksiController extends Controller
                 $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                 $pdfContent = $this->generateSinglePdfPage($pdfData);
 
-                // --- FIX PENTING: Bersihkan buffer output sebelum kirim PDF ---
                 if (ob_get_length()) ob_clean();
-                // -------------------------------------------------------------
-
                 return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
             } else {
                 return response()->json(['message' => 'Halaman preview tidak ditemukan.'], 404);
             }
         } else {
-            // Proses Download ZIP
-            $generatedPdfs = [];
-            foreach ($drawingJobs as $job) {
-                if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue; // Skip jika file hilang
+            try {
+                // Proses Download ZIP
+                $generatedPdfs = [];
+                foreach ($drawingJobs as $job) {
+                    if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue; // Skip jika file hilang
 
-                $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
-                $pdfContent = $this->generateSinglePdfPage($pdfData);
-                $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
+                    $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
+                    $pdfContent = $this->generateSinglePdfPage($pdfData);
+                    $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
+                }
+
+                if (empty($generatedPdfs)) {
+                    return response()->json(['message' => 'Tidak ada gambar yang berhasil diproses.'], 404);
+                }
+
+                $zipFileName = sprintf(
+                    '%s (%s) %s_%s %s (%s).zip',
+                    $transaksi->user->username,
+                    $transaksi->fPengajuan->jenis_pengajuan,
+                    $transaksi->customer->nama_pt,
+                    $masterData->merk->merk,
+                    $masterData->typeChassis->type_chassis,
+                    $masterData->jenisKendaraan->jenis_kendaraan
+                );
+                $cleanZipFileName = Str::slug(pathinfo($zipFileName, PATHINFO_FILENAME)) . '.zip';
+
+                $zip = new \ZipArchive();
+                $tempZipPath = tempnam(sys_get_temp_dir(), 'gambar_');
+                $zip->open($tempZipPath, \ZipArchive::CREATE);
+                foreach ($generatedPdfs as $pdfFile) {
+                    $zip->addFromString($pdfFile['name'], $pdfFile['content']);
+                }
+                $zip->close();
+
+                // --- FIX PENTING: Bersihkan buffer di sini juga ---
+                if (ob_get_length()) ob_clean();
+                return response()->download($tempZipPath, $cleanZipFileName)->deleteFileAfterSend(true);
+            } catch (\Exception $e) {
+                // Log error detail ke file laravel.log agar ketahuan penyebab 500-nya
+                Log::error("Error Proses PDF: " . $e->getMessage());
+                return response()->json(['message' => 'Server Error: ' . $e->getMessage()], 500);
             }
-
-            if (empty($generatedPdfs)) {
-                return response()->json(['message' => 'Tidak ada gambar yang berhasil diproses.'], 404);
-            }
-
-            $zipFileName = sprintf(
-                '%s (%s) %s_%s %s (%s).zip',
-                $transaksi->user->username,
-                $transaksi->fPengajuan->jenis_pengajuan,
-                $transaksi->customer->nama_pt,
-                $masterData->merk->merk,
-                $masterData->typeChassis->type_chassis,
-                $masterData->jenisKendaraan->jenis_kendaraan
-            );
-            $cleanZipFileName = Str::slug(pathinfo($zipFileName, PATHINFO_FILENAME)) . '.zip';
-
-            $zip = new \ZipArchive();
-            $tempZipPath = tempnam(sys_get_temp_dir(), 'gambar_');
-            $zip->open($tempZipPath, \ZipArchive::CREATE);
-            foreach ($generatedPdfs as $pdfFile) {
-                $zip->addFromString($pdfFile['name'], $pdfFile['content']);
-            }
-            $zip->close();
-
-            // --- FIX PENTING: Bersihkan buffer di sini juga ---
-            if (ob_get_length()) ob_clean();
-            return response()->download($tempZipPath, $cleanZipFileName)->deleteFileAfterSend(true);
         }
     }
 
