@@ -35,4 +35,8 @@ class MasterData extends Model
     {
         return $this->belongsTo(DJenisKendaraan::class, 'd_jenis_kendaraan_id')->withTrashed();
     }
+    public function gambarKelistrikan()
+    {
+        return $this->hasMany(IGambarKelistrikan::class, 'master_data_id');
+    }
 }
