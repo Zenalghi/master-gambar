@@ -17,7 +17,8 @@ class TransaksiDetail extends Model
         'jumlah_gambar',
         'data_gambar_utama',
         'deskripsi_optional',
-        'ordered_independent_ids'
+        'ordered_independent_ids',
+        'i_gambar_kelistrikan_id'
     ];
 
     protected $casts = [
