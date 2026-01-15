@@ -28,6 +28,7 @@ class ProsesTransaksiController extends Controller
             'deskripsi_optional' => 'nullable|string',
             'ordered_independent_ids' => 'nullable|array',
             'ordered_independent_ids.*' => 'integer',
+            'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
         ]);
 
         $detail = TransaksiDetail::updateOrCreate(
@@ -38,6 +39,7 @@ class ProsesTransaksiController extends Controller
                 'data_gambar_utama' => $validated['data_gambar_utama'],
                 'ordered_independent_ids' => $validated['ordered_independent_ids'] ?? [],
                 'deskripsi_optional' => $validated['deskripsi_optional'],
+                'i_gambar_kelistrikan_id' => $validated['i_gambar_kelistrikan_id'] ?? null,
             ]
         );
         $detail->touch();
@@ -89,6 +91,7 @@ class ProsesTransaksiController extends Controller
                 'data_gambar_utama' => $dataGambarUtamaJSON,
                 'ordered_independent_ids' => $validated['ordered_independent_ids'] ?? [],
                 'deskripsi_optional' => $request->deskripsi_optional,
+                'i_gambar_kelistrikan_id' => $request->i_gambar_kelistrikan_id,
             ]
         );
         $transaksi->detail->touch();
@@ -242,16 +245,17 @@ class ProsesTransaksiController extends Controller
 
             // --- TAHAP 3: KELISTRIKAN ---
             if (isset($validated['i_gambar_kelistrikan_id'])) {
-                $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
+                $gambarKelistrikan = IGambarKelistrikan::with('masterKelistrikanFile')
                     ->find($validated['i_gambar_kelistrikan_id']);
 
-                if ($gambarKelistrikan) {
+                if ($gambarKelistrikan && $gambarKelistrikan->masterKelistrikanFile) {
                     $jobsKelistrikan[] = [
                         'type' => 'kelistrikan',
                         'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
                         'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
                         'varian' => '',
-                        'source_pdf' => $gambarKelistrikan->path_gambar_kelistrikan,
+                        // Ambil path dari tabel master_kelistrikan_files
+                        'source_pdf' => $gambarKelistrikan->masterKelistrikanFile->path_file,
                         'deskripsi_optional' => null
                     ];
                 }

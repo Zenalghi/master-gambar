@@ -334,47 +334,67 @@ class _OptionController extends Controller
      */
     public function getKelistrikanStatusByMasterData($masterDataId)
     {
-        // 1. Ambil Master Data untuk mendapatkan ID Engine, Merk, Chassis
+        // 1. Ambil Master Data
         $masterData = \App\Models\MasterData::find($masterDataId);
 
         if (!$masterData) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Master Data tidak ditemukan',
+                'status_code' => 'error',
                 'display_text' => 'Error: Master Data Invalid'
             ]);
         }
 
-        // 2. Cek File Fisik (Menggunakan 3 ID: Engine, Merk, Chassis)
-        // Kita gunakan query manual karena relasi file di model MasterData mungkin leftJoin standar
+        // 2. Cek File Fisik (Tetap 1 File per Chassis)
         $fileFisik = \App\Models\MasterKelistrikanFile::where('a_type_engine_id', $masterData->a_type_engine_id)
             ->where('b_merk_id', $masterData->b_merk_id)
             ->where('c_type_chassis_id', $masterData->c_type_chassis_id)
             ->first();
 
-        // 3. Cek Deskripsi Logis (Berdasarkan Master Data ID)
-        $descLogis = \App\Models\IGambarKelistrikan::where('master_data_id', $masterDataId)->first();
+        // 3. Cek Deskripsi Logis (Bisa BANYAK)
+        // Gunakan get() bukan first()
+        $descLogisList = \App\Models\IGambarKelistrikan::where('master_data_id', $masterDataId)
+            ->orderBy('id', 'desc')
+            ->get();
 
-        // 4. Logika Penentuan Pesan untuk Frontend
+        // 4. Struktur Respon Default
         $response = [
             'file_id' => $fileFisik ? $fileFisik->id : null,
-            'desc_id' => $descLogis ? $descLogis->id : null,
-            'status_code' => 'ok', // default
-            'display_text' => '', // Ini yang akan ditampilkan langsung di Widget Flutter
+            'status_code' => 'ok',
+            'display_text' => '',
+            'options' => [], // Wadah baru untuk list opsi
+            'selected_id' => null // Untuk auto-select jika cuma 1
         ];
 
+        // 5. Logika Penentuan Status
         if (!$fileFisik) {
             // Kasus A: File Fisik Belum Ada
             $response['status_code'] = 'missing_file';
             $response['display_text'] = 'File gambar kelistrikan belum ditambahkan';
-        } elseif (!$descLogis) {
-            // Kasus B: File Ada, tapi Deskripsi Belum Ada
+        } elseif ($descLogisList->isEmpty()) {
+            // Kasus B: File Ada, tapi belum ada Deskripsi satupun
             $response['status_code'] = 'missing_desc';
             $response['display_text'] = 'Deskripsi kelistrikan belum ditambahkan';
         } else {
-            // Kasus C: Lengkap (File Ada + Deskripsi Ada)
-            $response['status_code'] = 'ready';
-            $response['display_text'] = $descLogis->deskripsi; // Tampilkan Deskripsinya
+            // Data Ada. Cek jumlahnya.
+            if ($descLogisList->count() == 1) {
+                // Kasus C: Single Option (Perilaku Lama)
+                $item = $descLogisList->first();
+                $response['status_code'] = 'ready'; // Ready artinya auto-select
+                $response['display_text'] = $item->deskripsi;
+                $response['selected_id'] = $item->id; // ID otomatis
+            } else {
+                // Kasus D: Multiple Options (Perilaku Baru)
+                $response['status_code'] = 'multiple_options';
+                $response['display_text'] = 'Pilih Opsi Kelistrikan';
+
+                // Masukkan list opsi ke array
+                $response['options'] = $descLogisList->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'deskripsi' => $item->deskripsi
+                    ];
+                });
+            }
         }
 
         return response()->json($response);

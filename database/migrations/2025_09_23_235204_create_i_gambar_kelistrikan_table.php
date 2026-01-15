@@ -3,7 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-
+//2025_09_23_235204_create_i_gambar_kelistrikan_table.php
 return new class extends Migration
 {
     public function up(): void

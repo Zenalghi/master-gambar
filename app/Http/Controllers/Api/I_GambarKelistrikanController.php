@@ -144,26 +144,42 @@ class I_GambarKelistrikanController extends Controller
         $validated = $request->validate([
             'master_data_id' => 'required|integer|exists:master_data,id',
             'deskripsi' => 'required|string|max:255',
+            // Opsional: 'id' jika ingin mode edit baris tertentu
+            'id' => 'nullable|integer|exists:i_gambar_kelistrikan,id'
         ]);
 
-        $masterData = MasterData::findOrFail($validated['master_data_id']);
+        $masterData = \App\Models\MasterData::findOrFail($validated['master_data_id']);
 
-        // Cari file fisik berdasarkan chassis dari Master Data
-        $fileFisik = MasterKelistrikanFile::where('c_type_chassis_id', $masterData->c_type_chassis_id)->first();
+        // Cari file fisik
+        $fileFisik = \App\Models\MasterKelistrikanFile::where('c_type_chassis_id', $masterData->c_type_chassis_id)->first();
 
         if (!$fileFisik) {
-            return response()->json(['message' => 'File PDF belum tersedia untuk Chassis ini. Silakan upload di menu Gambar Kelistrikan.'], 422);
+            return response()->json(['message' => 'File PDF belum tersedia untuk Chassis ini.'], 422);
         }
 
-        // Update or Create Deskripsi
-        $gambar = IGambarKelistrikan::updateOrCreate(
-            ['master_data_id' => $masterData->id],
-            [
-                'master_kelistrikan_file_id' => $fileFisik->id,
-                'deskripsi' => Str::upper($validated['deskripsi']),
-            ]
-        );
-        $gambar->touch();
+        // LOGIKA BARU:
+        // Jika dikirim 'id', maka update baris tersebut.
+        // Jika tidak, buat baris baru (support multiple deskripsi untuk 1 master data)
+
+        if ($request->filled('id')) {
+            // Mode Edit Existing Option
+            $gambar = \App\Models\IGambarKelistrikan::findOrFail($request->id);
+            $gambar->update([
+                'deskripsi' => \Illuminate\Support\Str::upper($validated['deskripsi'])
+            ]);
+        } else {
+            // Mode Add New Option
+            // Cek duplikasi persis (Master ID sama + Deskripsi sama) agar tidak double input
+            $gambar = \App\Models\IGambarKelistrikan::firstOrCreate(
+                [
+                    'master_data_id' => $masterData->id,
+                    'deskripsi' => \Illuminate\Support\Str::upper($validated['deskripsi'])
+                ],
+                [
+                    'master_kelistrikan_file_id' => $fileFisik->id,
+                ]
+            );
+        }
 
         return response()->json($gambar, 200);
     }

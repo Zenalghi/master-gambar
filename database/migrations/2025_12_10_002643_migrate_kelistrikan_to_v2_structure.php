@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
-
+//2025_12_10_002643_migrate_kelistrikan_to_v2_structure
 return new class extends Migration
 {
     public function up(): void
