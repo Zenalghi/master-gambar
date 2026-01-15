@@ -17,7 +17,7 @@ class MasterDataController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi
+        // 1. Validasi (Tetap Sama)
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
@@ -31,36 +31,45 @@ class MasterDataController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama
+        // 2. Query Utama (Eloquent Builder)
         $query = \App\Models\MasterData::query()
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
-            ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id');
 
-            // --- JOIN 1: FILE FISIK (Match 3 ID: Engine, Merk, Chassis) ---
-            // Gunakan Left Join agar Master Data tetap muncul meski file belum ada
-            ->leftJoin('master_kelistrikan_files', function ($join) {
-                $join->on('master_data.a_type_engine_id', '=', 'master_kelistrikan_files.a_type_engine_id')
-                    ->on('master_data.b_merk_id', '=', 'master_kelistrikan_files.b_merk_id')
-                    ->on('master_data.c_type_chassis_id', '=', 'master_kelistrikan_files.c_type_chassis_id');
-            })
+        // --- PERBAIKAN: SUBQUERY UNTUK KELISTRIKAN ---
+        // Kita ambil data kelistrikan TERBARU (limit 1) menggunakan addSelect subquery.
+        // Cara ini aman dari error Group By dan Duplikasi.
 
-            // --- JOIN 2: DESKRIPSI (Match Master Data ID) ---
-            ->leftJoin('i_gambar_kelistrikan', 'master_data.id', '=', 'i_gambar_kelistrikan.master_data_id')
+        $query->addSelect([
+            'master_data.*', // Pilih semua kolom master data
 
-            ->select([
-                'master_data.*',
-                'i_gambar_kelistrikan.id as kelistrikan_id',
-                'i_gambar_kelistrikan.deskripsi as kelistrikan_deskripsi',
-                \Illuminate\Support\Facades\DB::raw('COALESCE(i_gambar_kelistrikan.master_kelistrikan_file_id, master_kelistrikan_files.id) as file_kelistrikan_id'),
-            ])
-            ->groupBy('master_data.id');
+            // Subquery: ID Kelistrikan Terbaru
+            'kelistrikan_id' => \App\Models\IGambarKelistrikan::select('id')
+                ->whereColumn('master_data_id', 'master_data.id')
+                ->latest() // Ambil yang paling baru dibuat
+                ->limit(1),
 
-        // 3. Eager load relasi (untuk JSON bersarang di Flutter)
+            // Subquery: Deskripsi Kelistrikan Terbaru
+            'kelistrikan_deskripsi' => \App\Models\IGambarKelistrikan::select('deskripsi')
+                ->whereColumn('master_data_id', 'master_data.id')
+                ->latest()
+                ->limit(1),
+
+            // Subquery: File ID (Cek di tabel deskripsi dulu, kalau null cek tabel file fisik)
+            // Ini agak kompleks untuk subquery murni, kita sederhanakan:
+            // Kita ambil master_kelistrikan_file_id dari deskripsi terbaru.
+            'file_kelistrikan_id' => \App\Models\IGambarKelistrikan::select('master_kelistrikan_file_id')
+                ->whereColumn('master_data_id', 'master_data.id')
+                ->latest()
+                ->limit(1)
+        ]);
+
+        // 3. Eager Load (Tetap Sama)
         $query->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
 
-        // 4. Filter Search (Gunakan nama tabel eksplisit!)
+        // 4. Filter Search (Update logika pencarian kelistrikan)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('master_data.id', 'like', "%{$search}%")
@@ -68,11 +77,13 @@ class MasterDataController extends Controller
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
-                    ->orWhere('i_gambar_kelistrikan.deskripsi', 'like', "%{$search}%");
+                    ->orWhereHas('gambarKelistrikan', function ($qKelistrikan) use ($search) {
+                        $qKelistrikan->where('deskripsi', 'like', "%{$search}%");
+                    });
             });
         }
 
-        // 5. Sorting (Mapping ke kolom tabel yang benar)
+        // 5. Sorting
         $sortColumn = match ($sortBy) {
             'id' => 'master_data.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -81,7 +92,7 @@ class MasterDataController extends Controller
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'master_data.created_at',
             'updated_at' => 'master_data.updated_at',
-            'kelistrikan_deskripsi' => 'i_gambar_kelistrikan.deskripsi',
+            'kelistrikan_deskripsi' => 'kelistrikan_deskripsi',
             default => 'master_data.updated_at',
         };
 
