@@ -34,12 +34,13 @@ class ProsesTransaksiController extends Controller
         $detail = TransaksiDetail::updateOrCreate(
             ['transaksi_id' => $transaksi->id],
             [
-                'pemeriksa_id' => $validated['pemeriksa_id'],
-                'jumlah_gambar' => $validated['jumlah_gambar'],
-                'data_gambar_utama' => $validated['data_gambar_utama'],
-                'ordered_independent_ids' => $validated['ordered_independent_ids'] ?? [],
-                'deskripsi_optional' => $validated['deskripsi_optional'],
-                'i_gambar_kelistrikan_id' => $validated['i_gambar_kelistrikan_id'] ?? null,
+                'pemeriksa_id' => $request->pemeriksa_id, // Gunakan $request langsung
+                'jumlah_gambar' => $request->jumlah_gambar,
+                'data_gambar_utama' => $request->data_gambar_utama,
+                'ordered_independent_ids' => $request->ordered_independent_ids ?? [],
+                'deskripsi_optional' => $request->deskripsi_optional,
+                // Pastikan ini menangkap input, walau null
+                'i_gambar_kelistrikan_id' => $request->input('i_gambar_kelistrikan_id'),
             ]
         );
         $detail->touch();

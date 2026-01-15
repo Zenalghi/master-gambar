@@ -344,14 +344,13 @@ class _OptionController extends Controller
             ]);
         }
 
-        // 2. Cek File Fisik (Tetap 1 File per Chassis)
+        // 2. Cek File Fisik (1 File per Chassis)
         $fileFisik = \App\Models\MasterKelistrikanFile::where('a_type_engine_id', $masterData->a_type_engine_id)
             ->where('b_merk_id', $masterData->b_merk_id)
             ->where('c_type_chassis_id', $masterData->c_type_chassis_id)
             ->first();
 
-        // 3. Cek Deskripsi Logis (Bisa BANYAK)
-        // Gunakan get() bukan first()
+        // 3. Cek Deskripsi Logis (Bisa BANYAK) - Gunakan get()
         $descLogisList = \App\Models\IGambarKelistrikan::where('master_data_id', $masterDataId)
             ->orderBy('id', 'desc')
             ->get();
@@ -361,39 +360,43 @@ class _OptionController extends Controller
             'file_id' => $fileFisik ? $fileFisik->id : null,
             'status_code' => 'ok',
             'display_text' => '',
-            'options' => [], // Wadah baru untuk list opsi
-            'selected_id' => null // Untuk auto-select jika cuma 1
+            'options' => [], // Wadah list opsi
+            'selected_id' => null // Wadah auto-select
         ];
 
-        // 5. Logika Penentuan Status
+        // 5. Logika Status
         if (!$fileFisik) {
-            // Kasus A: File Fisik Belum Ada
             $response['status_code'] = 'missing_file';
             $response['display_text'] = 'File gambar kelistrikan belum ditambahkan';
         } elseif ($descLogisList->isEmpty()) {
-            // Kasus B: File Ada, tapi belum ada Deskripsi satupun
             $response['status_code'] = 'missing_desc';
             $response['display_text'] = 'Deskripsi kelistrikan belum ditambahkan';
         } else {
-            // Data Ada. Cek jumlahnya.
+            // Jika Data Lengkap
             if ($descLogisList->count() == 1) {
-                // Kasus C: Single Option (Perilaku Lama)
+                // Kasus: Single Option
                 $item = $descLogisList->first();
-                $response['status_code'] = 'ready'; // Ready artinya auto-select
+                $response['status_code'] = 'ready';
                 $response['display_text'] = $item->deskripsi;
-                $response['selected_id'] = $item->id; // ID otomatis
+                $response['selected_id'] = $item->id;
+
+                // Tetap kirim options array agar dialog edit di Master Data Screen bisa membacanya
+                $response['options'] = [[
+                    'id' => $item->id,
+                    'deskripsi' => $item->deskripsi
+                ]];
             } else {
-                // Kasus D: Multiple Options (Perilaku Baru)
+                // Kasus: Multiple Options
                 $response['status_code'] = 'multiple_options';
                 $response['display_text'] = 'Pilih Opsi Kelistrikan';
 
-                // Masukkan list opsi ke array
+                // Map ke array sederhana
                 $response['options'] = $descLogisList->map(function ($item) {
                     return [
                         'id' => $item->id,
                         'deskripsi' => $item->deskripsi
                     ];
-                });
+                })->values();
             }
         }
 

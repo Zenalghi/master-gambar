@@ -183,7 +183,24 @@ class I_GambarKelistrikanController extends Controller
 
         return response()->json($gambar, 200);
     }
+    public function destroyDeskripsi($id)
+    {
+        $gambar = \App\Models\IGambarKelistrikan::findOrFail($id);
 
+        // CEK JUMLAH DATA
+        // Hitung berapa banyak deskripsi yang dimiliki oleh Master Data ini
+        $count = \App\Models\IGambarKelistrikan::where('master_data_id', $gambar->master_data_id)->count();
+
+        if ($count <= 1) {
+            return response()->json([
+                'message' => 'Tidak dapat menghapus. Minimal harus tersisa 1 deskripsi.'
+            ], 422);
+        }
+
+        $gambar->delete();
+
+        return response()->noContent(); // 204 Success
+    }
     public function checkFileStatus($chassisId)
     {
         $existingFile = MasterKelistrikanFile::where('c_type_chassis_id', $chassisId)->first();

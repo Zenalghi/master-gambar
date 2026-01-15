@@ -17,7 +17,7 @@ class MasterDataController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi (Tetap Sama)
+        // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
@@ -31,45 +31,49 @@ class MasterDataController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query Utama (Eloquent Builder)
-        $query = \App\Models\MasterData::query()
+        // 2. Query Utama
+        // Kita gunakan Eloquent murni dengan Eager Loading dan Subquery
+        // HINDARI JOIN MANUAL JIKA TIDAK PERLU UNTUK MENGHINDARI DUPLIKASI ROW
+
+        $query = MasterData::query()
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id');
 
-        // --- PERBAIKAN: SUBQUERY UNTUK KELISTRIKAN ---
-        // Kita ambil data kelistrikan TERBARU (limit 1) menggunakan addSelect subquery.
-        // Cara ini aman dari error Group By dan Duplikasi.
-
+        // 3. Tambahkan Data Kelistrikan via Subquery (Aman dari Group By Error)
         $query->addSelect([
-            'master_data.*', // Pilih semua kolom master data
+            'master_data.*',
 
             // Subquery: ID Kelistrikan Terbaru
             'kelistrikan_id' => \App\Models\IGambarKelistrikan::select('id')
                 ->whereColumn('master_data_id', 'master_data.id')
-                ->latest() // Ambil yang paling baru dibuat
+                ->latest()
                 ->limit(1),
 
-            // Subquery: Deskripsi Kelistrikan Terbaru
+            // Subquery: Deskripsi Terbaru
             'kelistrikan_deskripsi' => \App\Models\IGambarKelistrikan::select('deskripsi')
                 ->whereColumn('master_data_id', 'master_data.id')
                 ->latest()
                 ->limit(1),
 
-            // Subquery: File ID (Cek di tabel deskripsi dulu, kalau null cek tabel file fisik)
-            // Ini agak kompleks untuk subquery murni, kita sederhanakan:
-            // Kita ambil master_kelistrikan_file_id dari deskripsi terbaru.
-            'file_kelistrikan_id' => \App\Models\IGambarKelistrikan::select('master_kelistrikan_file_id')
-                ->whereColumn('master_data_id', 'master_data.id')
-                ->latest()
+            // Subquery: Jumlah Opsi Kelistrikan (PENTING untuk Indikator Multi-Opsi)
+            'kelistrikan_count' => \App\Models\IGambarKelistrikan::selectRaw('count(*)')
+                ->whereColumn('master_data_id', 'master_data.id'),
+
+            // Subquery: ID File Fisik
+            // Kita cari dari tabel file fisik langsung berdasarkan kombinasi ID
+            'file_kelistrikan_id' => \App\Models\MasterKelistrikanFile::select('id')
+                ->whereColumn('a_type_engine_id', 'master_data.a_type_engine_id')
+                ->whereColumn('b_merk_id', 'master_data.b_merk_id')
+                ->whereColumn('c_type_chassis_id', 'master_data.c_type_chassis_id')
                 ->limit(1)
         ]);
 
-        // 3. Eager Load (Tetap Sama)
+        // 4. Eager Load Relasi Standar
         $query->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
 
-        // 4. Filter Search (Update logika pencarian kelistrikan)
+        // 5. Filter Search
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('master_data.id', 'like', "%{$search}%")
@@ -83,7 +87,7 @@ class MasterDataController extends Controller
             });
         }
 
-        // 5. Sorting
+        // 6. Sorting
         $sortColumn = match ($sortBy) {
             'id' => 'master_data.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -92,7 +96,7 @@ class MasterDataController extends Controller
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'master_data.created_at',
             'updated_at' => 'master_data.updated_at',
-            'kelistrikan_deskripsi' => 'kelistrikan_deskripsi',
+            'kelistrikan_deskripsi' => 'kelistrikan_deskripsi', // Sort by alias subquery
             default => 'master_data.updated_at',
         };
 

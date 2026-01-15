@@ -106,6 +106,7 @@ Route::middleware('auth.api')->group(
 
             // 3. Deskripsi (Specific "deskripsi")
             Route::post('/gambar-kelistrikan/deskripsi', [I_GambarKelistrikanController::class, 'storeDeskripsi']);
+            Route::delete('/gambar-kelistrikan/deskripsi/{id}', [I_GambarKelistrikanController::class, 'destroyDeskripsi']);
 
             // 4. Helper View PDF
             Route::get('/gambar-kelistrikan/{gambarKelistrikan}/pdf', [I_GambarKelistrikanController::class, 'showPdf']);
