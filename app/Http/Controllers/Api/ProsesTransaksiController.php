@@ -246,17 +246,17 @@ class ProsesTransaksiController extends Controller
 
             // --- TAHAP 3: KELISTRIKAN ---
             if (isset($validated['i_gambar_kelistrikan_id'])) {
-                $gambarKelistrikan = IGambarKelistrikan::with('masterKelistrikanFile')
+                $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
                     ->find($validated['i_gambar_kelistrikan_id']);
 
-                if ($gambarKelistrikan && $gambarKelistrikan->masterKelistrikanFile) {
+                if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
                     $jobsKelistrikan[] = [
                         'type' => 'kelistrikan',
                         'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
                         'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
                         'varian' => '',
                         // Ambil path dari tabel master_kelistrikan_files
-                        'source_pdf' => $gambarKelistrikan->masterKelistrikanFile->path_file,
+                        'source_pdf' => $gambarKelistrikan->fileKelistrikan->path_file,
                         'deskripsi_optional' => null
                     ];
                 }
