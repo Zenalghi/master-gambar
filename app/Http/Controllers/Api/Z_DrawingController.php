@@ -24,9 +24,9 @@ class Z_DrawingController extends Controller
             'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
             'total_halaman' => '13',
-            'signature_path' => 'D:/_Master/paraf deni.png',
-            'signature_path_2' => 'D:/_Master/paraf umar dani.png',
-            'signature_path_3' => 'D:/_Master/pt antika raya paraf.png',
+            'signature_path' => 'C:/laragon/www/master-gambar/storage/app/master/user/1/1.png',
+            'signature_path_2' => 'C:/laragon/www/master-gambar/storage/app/master/user/3/3.png',
+            'signature_path_3' => 'C:/laragon/www/master-gambar/storage/app/master/customer/3/3.png',
             'deskripsi_optional' => 'Contoh deskripsi tambahan jika diperlukan',
         ];
 
@@ -37,7 +37,7 @@ class Z_DrawingController extends Controller
         $pdf->SetAutoPageBreak(false, 0);
 
         // 2. Impor halaman dari template
-        $templatePath = 'D:\\_Master\\A-MASTER DWG\\pdf kosong.pdf';
+        $templatePath = 'C:/laragon/www/master-gambar/storage/app/master/gambar/1/5/gambar-utama.pdf';
         $pdf->setSourceFile($templatePath);
         $templateId = $pdf->importPage(1);
 

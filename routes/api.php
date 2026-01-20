@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\E_VarianBodyController as VarianBodyController;
 use App\Http\Controllers\Api\X_CustomerController as CustomerController;
 use App\Http\Controllers\Api\X_UserController as UserController;
 use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
+use App\Http\Controllers\Api\Z_pdf_png_pdfController;
 use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\ProsesTransaksiController;
 use App\Http\Controllers\Api\GambarMasterController;
@@ -174,8 +175,8 @@ Route::middleware('auth.api')->group(
             Route::apiResource('varian-body', VarianBodyController::class);
         });
         Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
+        Route::get('/test-pdf-uncopyable', [Z_pdf_png_pdfController::class, 'generateUncopyablePdf']);
     }
-
 );
 
 //pakai alias, g jadi dipake:dibawah ini
