@@ -19,7 +19,7 @@ class Z_DrawingController extends Controller
             'digambar' => 'Deni',
             'diperiksa' => 'Umardani',
             'disetujui' => 'Yohannes',
-            'tanggal' => '01.02.22',
+            'tanggal' => now()->format('d.m.y'),
             'judul_gambar_1' => 'GAMBAR TAMPAK UTAMA STANDAR',
             'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
