@@ -36,7 +36,7 @@ class Z_pdf_png_pdfController extends Controller
         $tempImagePath = storage_path('app/public/temp_image_' . time() . '.png');
 
         // Resolusi 300 DPI cukup untuk teks tajam
-        $command = "gswin64c -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r300 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sOutputFile=\"{$tempImagePath}\" \"{$tempPdfPath}\"";
+        $command = "gswin64c -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r300 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sOutputFile=\"{$tempImagePath}\" \"{$tempPdfPath}\" 2>&1";
         exec($command, $output, $returnVar);
 
         if (!file_exists($tempImagePath) || $returnVar !== 0) {
