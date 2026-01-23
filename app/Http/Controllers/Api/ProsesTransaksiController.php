@@ -51,50 +51,15 @@ class ProsesTransaksiController extends Controller
         set_time_limit(300); // 5 Menit
         ini_set('memory_limit', '512M');
 
-        $varianCount = count($request->input('varian_body_ids', []));
-
-        $validated = $request->validate([
-            'pemeriksa_id' => 'required|exists:users,id',
-            'varian_body_ids' => 'required|array|min:1|max:20',
-            'varian_body_ids.*' => 'required|integer|exists:e_varian_body,id',
-            'judul_gambar_ids' => ['required', 'array', "size:$varianCount"],
-            'judul_gambar_ids.*' => 'required|integer|exists:j_judul_gambars,id',
-            'h_gambar_optional_ids' => 'nullable|array',
-            'h_gambar_optional_ids.*' => 'integer|exists:h_gambar_optional,id',
-            'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
+        // Validasi HANYA parameter kontrol (aksi & page), bukan data transaksi
+        $request->validate([
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
-            'ordered_independent_ids' => 'nullable|array',
-            'ordered_independent_ids.*' => 'integer',
-            'deskripsi_optional' => 'nullable|string|max:255',
         ]);
 
-        // Kita susun ulang data_gambar_utama dari input terpisah (varian & judul)
-        // Agar formatnya sama dengan format Save Draft JSON
-        $dataGambarUtamaJSON = [];
-        $inputVarian = $request->input('varian_body_ids', []);
-        $inputJudul = $request->input('judul_gambar_ids', []);
-
-        foreach ($inputVarian as $index => $varianId) {
-            $dataGambarUtamaJSON[] = [
-                'varian_id' => $varianId,
-                'judul_id' => $inputJudul[$index] ?? null
-            ];
-        }
-        // Simpan ke DB
-        TransaksiDetail::updateOrCreate(
-            ['transaksi_id' => $transaksi->id],
-            [
-                'pemeriksa_id' => $request->pemeriksa_id,
-                'jumlah_gambar' => count($dataGambarUtamaJSON),
-                'data_gambar_utama' => $dataGambarUtamaJSON,
-                'ordered_independent_ids' => $validated['ordered_independent_ids'] ?? [],
-                'deskripsi_optional' => $request->deskripsi_optional,
-                'i_gambar_kelistrikan_id' => $request->i_gambar_kelistrikan_id,
-            ]
-        );
-
+        // 1. AMBIL DATA DARI DATABASE 
         $transaksi->load([
+            'detail',
             'user',
             'customer',
             'fPengajuan',
@@ -104,14 +69,36 @@ class ProsesTransaksiController extends Controller
             'masterData.jenisKendaraan'
         ]);
 
-        $pemeriksa = User::find($validated['pemeriksa_id']);
-        $masterData = $transaksi->masterData;
+        // Cek apakah detail sudah ada? Jika belum, user wajib simpan dulu.
+        if (!$transaksi->detail) {
+            return response()->json(['message' => 'Data detail belum tersimpan. Silakan klik Simpan Draft terlebih dahulu.'], 422);
+        }
 
-        // --- CEK JENIS PENGAJUAN ---
+        $detail = $transaksi->detail;
+
+        // Ambil data-data kunci dari TransaksiDetail yang sudah tersimpan
+        $pemeriksaId = $detail->pemeriksa_id;
+        $dataGambarUtama = $detail->data_gambar_utama ?? []; // Array dari DB: [{'varian_id':1, 'judul_id':2}, ...]
+        $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
+        $deskripsiOptional = $detail->deskripsi_optional;
+        $iGambarKelistrikanId = $detail->i_gambar_kelistrikan_id;
+
+        // Ambil ID Paket Optional (Ini perlu logic sedikit karena tidak disimpan mentah di DB)
+        // Biasanya ID paket optional diambil ulang berdasarkan varian yang disimpan.
+        // Atau jika FE mengirim filternya, kita bisa pakai, TAPI itu berisiko mengubah output tanpa update DB.
+        // Solusi Aman: User harusnya sudah menyimpan kondisi final.
+        // Asumsi: h_gambar_optional_ids dikirim FE hanya untuk filter saat preview? 
+        // Jika logic Anda mengharuskan h_gambar_optional_ids dikirim saat proses, maka itu aneh jika tidak disimpan.
+        // SEMENTARA: Kita ambil h_gambar_optional_ids dari request (karena tidak ada kolomnya di DB TransactionDetail),
+        // TAPI ini tidak mengubah updated_at.
+        $hGambarOptionalIds = $request->input('h_gambar_optional_ids', []);
+
+        $pemeriksa = User::find($pemeriksaId);
+        $masterData = $transaksi->masterData;
         $jenisPengajuan = strtoupper($transaksi->fPengajuan->jenis_pengajuan);
         $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
 
-        // --- SIAPKAN WADAH TERPISAH PER KATEGORI ---
+        // --- SIAPKAN WADAH JOB ---
         $jobsUtama = [];
         $jobsTerurai = [];
         $jobsKontruksi = [];
@@ -119,32 +106,34 @@ class ProsesTransaksiController extends Controller
         $jobsIndependen = [];
         $jobsKelistrikan = [];
 
-        // --- TAHAP 1: LOOPING VARIAN BODY ---
-        if (!empty($validated['varian_body_ids'])) {
-            foreach ($validated['varian_body_ids'] as $index => $varian_id) {
+        // --- TAHAP 1: LOOPING DATA DARI DB (data_gambar_utama) ---
+        if (!empty($dataGambarUtama)) {
+            foreach ($dataGambarUtama as $item) {
+                // Pastikan key sesuai struktur JSON di DB
+                $varian_id = $item['varian_id'] ?? null;
+                $judul_id = $item['judul_id'] ?? null;
+
+                if (!$varian_id || !$judul_id) continue;
+
                 $varianBody = EVarianBody::find($varian_id);
                 $gambarUtamaData = GGambarUtama::with('gambarOptionals')
                     ->where('e_varian_body_id', $varian_id)
                     ->first();
-                $jenisJudul = JJudulGambar::find($validated['judul_gambar_ids'][$index]);
+                $jenisJudul = JJudulGambar::find($judul_id);
 
                 if ($gambarUtamaData && $jenisJudul) {
-
-                    // 1. Array UTAMA (SELALU DIMASUKKAN)
+                    // UTAMA
                     $jobsUtama[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                         'varian' => $varianBody->varian_body,
                         'source_pdf' => $gambarUtamaData->path_gambar_utama,
-                        'deskripsi_optional' => $validated['deskripsi_optional'] ?? null
+                        'deskripsi_optional' => $deskripsiOptional // Pakai dari DB
                     ];
 
-                    // --- LOGIKA SKIP: JIKA 'GAMBAR TU', SKIP SISANYA ---
-                    if ($isGambarTU) {
-                        continue; // Lanjut ke varian berikutnya, abaikan Terurai/Kontruksi/Paket
-                    }
+                    if ($isGambarTU) continue;
 
-                    // 2. Masukkan ke Array TERURAI
+                    // TERURAI
                     $jobsTerurai[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
@@ -153,7 +142,7 @@ class ProsesTransaksiController extends Controller
                         'deskripsi_optional' => null
                     ];
 
-                    // 3. Masukkan ke Array KONTRUKSI
+                    // KONTRUKSI
                     $jobsKontruksi[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
@@ -162,16 +151,14 @@ class ProsesTransaksiController extends Controller
                         'deskripsi_optional' => null
                     ];
 
-                    // 4. Masukkan ke Array PAKET (Cek ID yang dikirim frontend)
+                    // PAKET (Filter by Request Input karena Paket Optional biasanya checklist dinamis di FE)
+                    // Jika ingin persistent, seharusnya paket optional IDs disimpan juga di DB Detail.
                     foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
-                        if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $validated['h_gambar_optional_ids'] ?? [])) {
-                            // LOGIKA PENGGABUNGAN NAMA
-                            $judulDasar = $gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET';
-                            $judulLengkap = $judulDasar . ' ' . $jenisJudul->nama_judul;
-
+                        if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $hGambarOptionalIds)) {
+                            $judulLengkap = ($gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET') . ' ' . $jenisJudul->nama_judul;
                             $jobsPaket[] = [
                                 'type' => 'standard',
-                                'title' => $judulLengkap, // <--- Ganti ini
+                                'title' => $judulLengkap,
                                 'varian' => '',
                                 'source_pdf' => $gambarPaket->path_gambar_optional,
                                 'deskripsi_optional' => null
@@ -181,15 +168,15 @@ class ProsesTransaksiController extends Controller
                 }
             }
         }
+
         if (!$isGambarTU) {
-            // --- TAHAP 2: GAMBAR OPTIONAL INDEPENDEN ---
-            if ($request->has('ordered_independent_ids') && !empty($request->ordered_independent_ids)) {
-                $orderedIds = $request->ordered_independent_ids;
+            // --- TAHAP 2: INDEPENDEN (DARI DB) ---
+            if (!empty($orderedIndependentIds)) {
+                $orderedIds = $orderedIndependentIds;
                 $gambarIndependen = HGambarOptional::whereIn('id', $orderedIds)
                     ->where('tipe', 'independen')
                     ->get();
 
-                // PENTING: Sorting manual sesuai urutan ID dari Frontend (Drag & Drop)
                 $idMap = array_flip($orderedIds);
                 $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
                     return $idMap[$model->id] ?? 999;
@@ -205,35 +192,12 @@ class ProsesTransaksiController extends Controller
                     ];
                 }
             }
-            // Fallback (Jaga-jaga jika request lama): Ambil by Varian Body (Logic lama Anda)
-            else if (!empty($validated['varian_body_ids'])) {
-                $masterDataIds = EVarianBody::whereIn('id', $validated['varian_body_ids'])
-                    ->pluck('master_data_id')
-                    ->unique();
-                $gambarIndependen = HGambarOptional::whereIn('master_data_id', $masterDataIds)
-                    ->where('tipe', 'independen')
-                    ->get();
-                $urutanVarian = array_flip($validated['varian_body_ids']);
-                $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($urutanVarian) {
-                    return $urutanVarian[$model->e_varian_body_id] ?? 999;
-                });
+            // Fallback Logic (Ambil by Varian Body) dihapus atau dikondisikan jika data independen kosong
+            // Agar konsisten dengan apa yang disimpan.
 
-                foreach ($gambarIndependen as $gambarOptional) {
-                    $jobsIndependen[] = [
-                        'type' => 'standard',
-                        'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
-                        'varian' => '',
-                        'source_pdf' => $gambarOptional->path_gambar_optional,
-                        'deskripsi_optional' => null
-                    ];
-                }
-            }
-
-            // --- TAHAP 3: KELISTRIKAN ---
-            if (isset($validated['i_gambar_kelistrikan_id'])) {
-                $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')
-                    ->find($validated['i_gambar_kelistrikan_id']);
-
+            // --- TAHAP 3: KELISTRIKAN (DARI DB) ---
+            if ($iGambarKelistrikanId) {
+                $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')->find($iGambarKelistrikanId);
                 if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
                     $jobsKelistrikan[] = [
                         'type' => 'kelistrikan',
@@ -247,17 +211,9 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        // --- PENGGABUNGAN (MERGE) SESUAI URUTAN BARU ---
-        $drawingJobs = array_merge(
-            $jobsUtama,
-            $jobsTerurai,
-            $jobsKontruksi,
-            $jobsPaket,
-            $jobsIndependen,
-            $jobsKelistrikan
-        );
+        // --- MERGE & PAGE NUMBERING ---
+        $drawingJobs = array_merge($jobsUtama, $jobsTerurai, $jobsKontruksi, $jobsPaket, $jobsIndependen, $jobsKelistrikan);
 
-        // Beri Nomor Halaman Berurutan
         $pageCounter = 1;
         foreach ($drawingJobs as &$job) {
             $job['page'] = $pageCounter++;
@@ -266,19 +222,16 @@ class ProsesTransaksiController extends Controller
 
         $totalHalaman = count($drawingJobs);
 
-        // 5. Eksekusi Preview / Download
-        if ($validated['aksi'] === 'preview') {
-            $previewPage = $validated['preview_page'] ?? 1;
+        // --- LOGIC PREVIEW / DOWNLOAD TETAP SAMA ---
+        if ($request->aksi === 'preview') {
+            $previewPage = $request->preview_page ?? 1;
             $previewIndex = $previewPage - 1;
 
             if (isset($drawingJobs[$previewIndex])) {
                 $job = $drawingJobs[$previewIndex];
-
-                // Validasi file fisik
                 if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) {
-                    return response()->json(['message' => 'File PDF sumber tidak ditemukan: ' . $job['source_pdf']], 404);
+                    return response()->json(['message' => 'File PDF sumber tidak ditemukan.'], 404);
                 }
-
                 $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                 $pdfContent = $this->generateUncopyablePdfPage($pdfData);
 
@@ -290,77 +243,47 @@ class ProsesTransaksiController extends Controller
         } else {
             // --- BAGIAN PROSES (DOWNLOAD) ---
             try {
-                // *** LOGIKA KHUSUS GAMBAR TU (MERGE KE SATU PDF) ***
                 if ($isGambarTU) {
+                    // Logic Merge PDF (Sama seperti sebelumnya)
                     $pdfMerger = new Fpdi();
                     $pdfMerger->setPrintHeader(false);
                     $pdfMerger->setPrintFooter(false);
-
                     $tempFiles = [];
 
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
-
                         $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
-
-                        // Generate halaman ber-watermark (string binary)
                         $pdfContent = $this->generateUncopyablePdfPage($pdfData);
-
-                        // Simpan ke temp file agar bisa di-import oleh FPDI Merger
                         $tempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('merge_', true) . '.pdf';
                         file_put_contents($tempPath, $pdfContent);
                         $tempFiles[] = $tempPath;
-
-                        // Import halaman dari temp file
                         $pageCount = $pdfMerger->setSourceFile($tempPath);
                         for ($i = 1; $i <= $pageCount; $i++) {
                             $tplId = $pdfMerger->importPage($i);
-                            $pdfMerger->AddPage('L', 'A4'); // Paksa Landscape
+                            $pdfMerger->AddPage('L', 'A4');
                             $pdfMerger->useTemplate($tplId, ['adjustPageSize' => true]);
                         }
                     }
 
-                    if (empty($tempFiles)) {
-                        return response()->json(['message' => 'Tidak ada gambar yang berhasil diproses.'], 404);
-                    }
+                    if (empty($tempFiles)) return response()->json(['message' => 'Gagal memproses gambar.'], 404);
 
-                    // Buat Nama File .pdf
-                    $baseFileName = sprintf(
-                        '%s (%s) %s_%s %s (%s).pdf',
-                        $transaksi->user->username,
-                        $transaksi->fPengajuan->jenis_pengajuan,
-                        $transaksi->customer->nama_pt,
-                        $masterData->merk->merk,
-                        $masterData->typeChassis->type_chassis,
-                        $masterData->jenisKendaraan->jenis_kendaraan
-                    );
+                    $baseFileName = sprintf('%s (%s) %s_%s %s (%s).pdf', $transaksi->user->username, $transaksi->fPengajuan->jenis_pengajuan, $transaksi->customer->nama_pt, $masterData->merk->merk, $masterData->typeChassis->type_chassis, $masterData->jenisKendaraan->jenis_kendaraan);
                     $cleanFileName = Str::slug(pathinfo($baseFileName, PATHINFO_FILENAME)) . '.pdf';
 
-                    // Bersihkan file temp
-                    foreach ($tempFiles as $file) {
-                        @unlink($file);
-                    }
-
+                    foreach ($tempFiles as $file) @unlink($file);
                     if (ob_get_length()) ob_clean();
-
-                    // Return file PDF langsung
-                    return response($pdfMerger->Output('S'), 200)
-                        ->header('Content-Type', 'application/pdf')
-                        ->header('Content-Disposition', 'attachment; filename="' . $cleanFileName . '"');
+                    return response($pdfMerger->Output('S'), 200)->header('Content-Type', 'application/pdf')->header('Content-Disposition', 'attachment; filename="' . $cleanFileName . '"');
                 } else {
-                    // *** LOGIKA ZIP (UNTUK SELAIN GAMBAR TU) ***
+                    // Logic ZIP (Sama seperti sebelumnya)
                     $generatedPdfs = [];
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
-
                         $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                         $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                         $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
                     }
 
-                    if (empty($generatedPdfs)) {
-                        return response()->json(['message' => 'Tidak ada gambar yang berhasil diproses.'], 404);
-                    }
+                    if (empty($generatedPdfs)) return response()->json(['message' => 'Gagal memproses gambar.'], 404);
 
                     $zipFileName = sprintf(
                         '%s (%s) %s_%s %s (%s).zip',
@@ -376,17 +299,13 @@ class ProsesTransaksiController extends Controller
                     $zip = new \ZipArchive();
                     $tempZipPath = tempnam(sys_get_temp_dir(), 'gambar_');
                     $zip->open($tempZipPath, \ZipArchive::CREATE);
-                    foreach ($generatedPdfs as $pdfFile) {
-                        $zip->addFromString($pdfFile['name'], $pdfFile['content']);
-                    }
+                    foreach ($generatedPdfs as $pdfFile) $zip->addFromString($pdfFile['name'], $pdfFile['content']);
                     $zip->close();
 
-                    // --- FIX PENTING: Bersihkan buffer di sini juga ---
                     if (ob_get_length()) ob_clean();
                     return response()->download($tempZipPath, $cleanZipFileName)->deleteFileAfterSend(true);
                 }
             } catch (\Exception $e) {
-                // Log error detail ke file laravel.log agar ketahuan penyebab 500-nya
                 Log::error("Error Proses PDF: " . $e->getMessage());
                 return response()->json(['message' => 'Server Error: ' . $e->getMessage()], 500);
             }
