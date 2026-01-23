@@ -47,25 +47,18 @@ class TransaksiController extends Controller
             ->join('f_pengajuan', 'z_transaksi.f_pengajuan_id', '=', 'f_pengajuan.id')
             ->join('users', 'z_transaksi.user_id', '=', 'users.id')
             ->join('master_data', 'z_transaksi.master_data_id', '=', 'master_data.id')
-            // ... (Join Master Data Components Tetap Sama) ...
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
             ->join('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
             ->join('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
-
-            // --- [1] LEFT JOIN KE DETAILS UNTUK AMBIL TANGGAL ---
             ->leftJoin('z_transaksi_details', 'z_transaksi.id', '=', 'z_transaksi_details.transaksi_id')
-
-            // --- [2] SELECT DENGAN LOGIKA TANGGAL TERBARU ---
             ->select([
                 'z_transaksi.*',
-                // Logika: Ambil tanggal terbesar antara Transaksi Utama vs Detail.
-                // Jika Detail null (belum pernah save/draft), pakai Transaksi Utama.
+                // Jika ada detail (sudah pernah save draft/proses), pakai updated_at milik detail.
+                // Jika belum ada detail (baru dibuat), pakai created_at milik transaksi.
+                // update pada tabel z_transaksi (master data/customer berubah) TIDAK akan mengubah ini.
                 \Illuminate\Support\Facades\DB::raw('
-                    GREATEST(
-                        z_transaksi.updated_at, 
-                        COALESCE(z_transaksi_details.updated_at, z_transaksi.updated_at)
-                    ) as latest_activity_at
+                    COALESCE(z_transaksi_details.updated_at, z_transaksi.created_at) as latest_activity_at
                 ')
             ]);
 
@@ -220,17 +213,10 @@ class TransaksiController extends Controller
     public function destroy(Transaksi $transaksi)
     {
         $this->authorize('delete', $transaksi);
-
-        // 1. Hapus detail transaksi terlebih dahulu
-        // Asumsi relasi di model Transaksi bernama 'detail' atau 'transaksiDetail'
         if ($transaksi->detail) {
             $transaksi->detail()->delete();
         }
 
-        // Jika relasinya hasMany (banyak detail), gunakan:
-        // $transaksi->details()->delete();
-
-        // 2. Baru hapus transaksinya
         $transaksi->delete();
 
         return response()->noContent();

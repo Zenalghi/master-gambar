@@ -19,7 +19,6 @@ use Illuminate\Support\Facades\Log;
 
 class ProsesTransaksiController extends Controller
 {
-    // ... (Method saveDraft TETAP SAMA) ...
     public function saveDraft(Request $request, Transaksi $transaksi)
     {
         $validated = $request->validate([
@@ -43,7 +42,6 @@ class ProsesTransaksiController extends Controller
                 'i_gambar_kelistrikan_id' => $request->input('i_gambar_kelistrikan_id'),
             ]
         );
-        $detail->touch();
 
         return response()->json(['message' => 'Draft berhasil disimpan', 'detail' => $detail]);
     }
@@ -95,7 +93,6 @@ class ProsesTransaksiController extends Controller
                 'i_gambar_kelistrikan_id' => $request->i_gambar_kelistrikan_id,
             ]
         );
-        $transaksi->detail->touch();
 
         $transaksi->load([
             'user',
