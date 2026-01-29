@@ -9,13 +9,9 @@ use Illuminate\Support\Facades\DB;
 
 class ImageStatusController extends Controller
 {
-    /**
-     * Menampilkan laporan status gambar dengan paginasi, filter, dan sort
-     * yang sesuai dengan arsitektur MasterData.
-     */
     public function index(Request $request)
     {
-        // 1. Validasi
+        // 1. Validasi (Tetap Sama)
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
@@ -29,7 +25,7 @@ class ImageStatusController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // 2. Query utama
+        // 2. Query Utama
         $query = EVarianBody::query()
             ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
             ->join('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
@@ -40,22 +36,33 @@ class ImageStatusController extends Controller
             ->leftJoin('h_gambar_optional', function ($join) {
                 $join->on('g_gambar_utama.id', '=', 'h_gambar_optional.g_gambar_utama_id')
                     ->where('h_gambar_optional.tipe', '=', 'paket');
-            });
+            })
+            ->withCount(['gambarUtama']); // Penting untuk cek ketersediaan data
 
-        // 3. Select dengan LOGIKA KOMPARASI TANGGAL
+        // 3. Select (DITAMBAHKAN PATH FILE AGAR TOMBOL PREVIEW DINAMIS)
         $query->select([
-            'e_varian_body.*',
+            'e_varian_body.id', // Sebutkan satu per satu field penting agar aman
+            'e_varian_body.varian_body',
+            'e_varian_body.master_data_id', // <--- WAJIB ADA INI
+            'e_varian_body.created_at',
+            'e_varian_body.updated_at',
             'a_type_engines.type_engine',
             'b_merks.merk',
             'c_type_chassis.type_chassis',
             'd_jenis_kendaraan.jenis_kendaraan',
+
+            // --- TAMBAHAN PENTING: ID GAMBAR UTAMA (Alias biar gak bentrok) ---
+            'g_gambar_utama.id as gambar_utama_id',
+
             'g_gambar_utama.created_at as gambar_utama_created_at',
             'g_gambar_utama.updated_at as gambar_utama_updated_at',
+            'g_gambar_utama.path_gambar_utama',
+            'g_gambar_utama.path_gambar_terurai',
+            'g_gambar_utama.path_gambar_kontruksi',
+            'h_gambar_optional.path_gambar_optional as path_gambar_paket',
             'h_gambar_optional.deskripsi as deskripsi_optional',
 
-            // --- LOGIKA UTAMA: Bandingkan Tanggal ---
-            // Jika Optional NULL, ambil Utama.
-            // Jika Optional ADA, bandingkan mana yang lebih besar (terbaru).
+            // Logika Tanggal (Tetap Sama)
             DB::raw('
                 CASE 
                     WHEN g_gambar_utama.updated_at IS NULL THEN NULL
@@ -66,16 +73,16 @@ class ImageStatusController extends Controller
             ')
         ]);
 
-        // 4. Eager load
+        // 4. Eager load (Tetap)
         $query->with([
             'masterData.typeEngine',
             'masterData.merk',
             'masterData.typeChassis',
             'masterData.jenisKendaraan',
-            'gambarUtama.gambarOptionals'
+            // 'gambarUtama.gambarOptionals' // Tidak perlu eager load ini jika kita sudah join manual di atas
         ]);
 
-        // 5. Search
+        // 5. Search (Tetap)
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('e_varian_body.id', 'like', "%{$search}%")
@@ -84,14 +91,11 @@ class ImageStatusController extends Controller
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
-                    ->orWhere('h_gambar_optional.deskripsi', 'like', "%{$search}%")
-                    ->orWhere('g_gambar_utama.created_at', 'like', "%{$search}%")
-                    ->orWhere('g_gambar_utama.updated_at', 'like', "%{$search}%")
-                    ->orWhere('h_gambar_optional.updated_at', 'like', "%{$search}%");
+                    ->orWhere('h_gambar_optional.deskripsi', 'like', "%{$search}%");
             });
         }
 
-        // 6. Sorting Mapping
+        // 6. Sorting (Tetap)
         $sortColumn = match ($sortBy) {
             'id' => 'e_varian_body.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -102,23 +106,16 @@ class ImageStatusController extends Controller
             'deskripsi_optional' => 'h_gambar_optional.deskripsi',
             'created_at' => 'g_gambar_utama.created_at',
             'updated_at' => 'latest_updated_at',
-
             default => 'e_varian_body.id',
         };
 
-        // 7. Penerapan Sorting
-        // Kita gunakan orderBy biasa karena 'latest_updated_at' sudah berupa kolom kalkulasi yang bersih
         if ($sortBy === 'updated_at') {
-            // Khusus tanggal, pastikan null (belum upload) ada di bawah/atas sesuai kebutuhan
             if ($sortDirection === 'desc') {
-                // Terbaru paling atas (Null di bawah)
                 $query->orderByRaw("latest_updated_at IS NULL ASC, latest_updated_at DESC");
             } else {
-                // Terlama paling atas
                 $query->orderByRaw("latest_updated_at IS NULL DESC, latest_updated_at ASC");
             }
         } elseif ($sortBy === 'created_at') {
-            // LOGIKA SORTING CREATED AT (Mirip updated_at)
             if ($sortDirection === 'desc') {
                 $query->orderByRaw("g_gambar_utama.created_at IS NULL ASC, g_gambar_utama.created_at DESC");
             } else {
@@ -127,15 +124,59 @@ class ImageStatusController extends Controller
         } else {
             $query->orderBy($sortColumn, $sortDirection);
         }
-
-        // 8. Pagination
+        // 7. Pagination & Transformasi (UPDATE BAGIAN INI)
         $paginator = $query->paginate($perPage);
 
-        // 9. Transformasi Data (Opsional, agar Frontend menerima field yang konsisten)
-        // Kita timpa field 'gambar_utama_updated_at' dengan hasil kalkulasi agar frontend menampilkan tanggal terbaru
         $paginator->getCollection()->transform(function ($item) {
-            // Timpa nilai ini agar UI menampilkan tanggal komparasi
+            // A. Override updated_at global
             $item->gambar_utama_updated_at = $item->latest_updated_at;
+
+            // B. REKONSTRUKSI OBJEK 'gambar_utama' (Tetap sama seperti sebelumnya)
+            if ($item->gambar_utama_id) {
+                $item->gambar_utama = [
+                    'id' => $item->gambar_utama_id,
+                    'e_varian_body_id' => $item->id,
+                    'path_gambar_utama' => $item->path_gambar_utama,
+                    'path_gambar_terurai' => $item->path_gambar_terurai,
+                    'path_gambar_kontruksi' => $item->path_gambar_kontruksi,
+                    'created_at' => $item->gambar_utama_created_at,
+                    'updated_at' => $item->gambar_utama_updated_at,
+                    // Masukkan juga gambar optionals (paket) ke dalam array ini jika model flutter mengharapkannya
+                    // Tapi biasanya model ImageStatus punya field terpisah untuk optional.
+                    // Jika model GGambarUtama di Flutter punya list 'gambar_optionals', kita perlu format array kosong/isi.
+                    'gambar_optionals' => $item->path_gambar_paket ? [
+                        [
+                            'tipe' => 'paket',
+                            'path_gambar_optional' => $item->path_gambar_paket,
+                            'deskripsi' => $item->deskripsi_optional
+                        ]
+                    ] : []
+                ];
+            } else {
+                $item->gambar_utama = null;
+            }
+
+            // C. REKONSTRUKSI OBJEK 'master_data' (PERBAIKAN UTAMA)
+            // Karena Flutter VarianBody.fromJson mengharapkan json['master_data']
+            // Dan MasterData.fromJson mengharapkan json['type_engine'], json['merk'], dll.
+
+            $item->master_data = [
+                'id' => $item->master_data_id, // Pastikan master_data_id ada di e_varian_body
+                'created_at' => null, // Opsional jika tidak di-select
+                'updated_at' => null, // Opsional jika tidak di-select
+
+                // Nested Objects untuk TypeEngine, Merk, dll
+                'type_engine' => ['id' => 0, 'type_engine' => $item->type_engine],
+                'merk' => ['id' => 0, 'merk' => $item->merk],
+                'type_chassis' => ['id' => 0, 'type_chassis' => $item->type_chassis],
+                'jenis_kendaraan' => ['id' => 0, 'jenis_kendaraan' => $item->jenis_kendaraan],
+            ];
+
+            // D. Logika Status
+            $isComplete = $item->gambar_utama_count > 0;
+            $item->status_gambar = $isComplete ? 'Lengkap' : 'Belum Lengkap';
+            $item->color_status = $isComplete ? 'green' : 'red';
+
             return $item;
         });
 

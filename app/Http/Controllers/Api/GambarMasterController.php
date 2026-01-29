@@ -18,8 +18,8 @@ class GambarMasterController extends Controller
             'master_data_id' => 'required|integer|exists:master_data,id',
             'varian_body' => 'required|string|max:255',
             'gambar_utama' => 'required|file|mimes:pdf|max:1024',
-            'gambar_terurai' => 'required|file|mimes:pdf|max:1024',
-            'gambar_kontruksi' => 'required|file|mimes:pdf|max:1024',
+            'gambar_terurai' => 'nullable|file|mimes:pdf|max:1024',
+            'gambar_kontruksi' => 'nullable|file|mimes:pdf|max:1024',
         ], [
             'gambar_utama.max' => 'Ukuran file Gambar Utama tidak boleh lebih dari 1 MB.',
             'gambar_terurai.max' => 'Ukuran file Gambar Terurai tidak boleh lebih dari 1 MB.',

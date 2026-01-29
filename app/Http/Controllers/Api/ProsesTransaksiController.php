@@ -76,24 +76,16 @@ class ProsesTransaksiController extends Controller
 
         $detail = $transaksi->detail;
 
-        // Ambil data-data kunci dari TransaksiDetail yang sudah tersimpan
-        $pemeriksaId = $detail->pemeriksa_id;
-        $dataGambarUtama = $detail->data_gambar_utama ?? []; // Array dari DB: [{'varian_id':1, 'judul_id':2}, ...]
+        // Gunakan data dari $detail (Database), BUKAN dari $request
+        $pemeriksa = User::find($detail->pemeriksa_id);
+        $dataGambarUtama = $detail->data_gambar_utama ?? [];
         $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
         $deskripsiOptional = $detail->deskripsi_optional;
         $iGambarKelistrikanId = $detail->i_gambar_kelistrikan_id;
 
-        // Ambil ID Paket Optional (Ini perlu logic sedikit karena tidak disimpan mentah di DB)
-        // Biasanya ID paket optional diambil ulang berdasarkan varian yang disimpan.
-        // Atau jika FE mengirim filternya, kita bisa pakai, TAPI itu berisiko mengubah output tanpa update DB.
-        // Solusi Aman: User harusnya sudah menyimpan kondisi final.
-        // Asumsi: h_gambar_optional_ids dikirim FE hanya untuk filter saat preview? 
-        // Jika logic Anda mengharuskan h_gambar_optional_ids dikirim saat proses, maka itu aneh jika tidak disimpan.
-        // SEMENTARA: Kita ambil h_gambar_optional_ids dari request (karena tidak ada kolomnya di DB TransactionDetail),
-        // TAPI ini tidak mengubah updated_at.
+        // Paket Optional diambil dari Request (karena sifatnya checklist filter)
         $hGambarOptionalIds = $request->input('h_gambar_optional_ids', []);
 
-        $pemeriksa = User::find($pemeriksaId);
         $masterData = $transaksi->masterData;
         $jenisPengajuan = strtoupper($transaksi->fPengajuan->jenis_pengajuan);
         $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
@@ -106,10 +98,9 @@ class ProsesTransaksiController extends Controller
         $jobsIndependen = [];
         $jobsKelistrikan = [];
 
-        // --- TAHAP 1: LOOPING DATA DARI DB (data_gambar_utama) ---
+        // --- TAHAP 1: LOOPING DATA DB ---
         if (!empty($dataGambarUtama)) {
             foreach ($dataGambarUtama as $item) {
-                // Pastikan key sesuai struktur JSON di DB
                 $varian_id = $item['varian_id'] ?? null;
                 $judul_id = $item['judul_id'] ?? null;
 
@@ -122,37 +113,40 @@ class ProsesTransaksiController extends Controller
                 $jenisJudul = JJudulGambar::find($judul_id);
 
                 if ($gambarUtamaData && $jenisJudul) {
-                    // UTAMA
+                    // UTAMA (Selalu Ada)
                     $jobsUtama[] = [
                         'type' => 'standard',
                         'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                         'varian' => $varianBody->varian_body,
                         'source_pdf' => $gambarUtamaData->path_gambar_utama,
-                        'deskripsi_optional' => $deskripsiOptional // Pakai dari DB
+                        'deskripsi_optional' => $deskripsiOptional
                     ];
 
                     if ($isGambarTU) continue;
 
-                    // TERURAI
-                    $jobsTerurai[] = [
-                        'type' => 'standard',
-                        'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
-                        'varian' => $varianBody->varian_body,
-                        'source_pdf' => $gambarUtamaData->path_gambar_terurai,
-                        'deskripsi_optional' => null
-                    ];
+                    // TERURAI (Cek Nullable)
+                    if (!empty($gambarUtamaData->path_gambar_terurai)) {
+                        $jobsTerurai[] = [
+                            'type' => 'standard',
+                            'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
+                            'varian' => $varianBody->varian_body,
+                            'source_pdf' => $gambarUtamaData->path_gambar_terurai,
+                            'deskripsi_optional' => null
+                        ];
+                    }
 
-                    // KONTRUKSI
-                    $jobsKontruksi[] = [
-                        'type' => 'standard',
-                        'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
-                        'varian' => $varianBody->varian_body,
-                        'source_pdf' => $gambarUtamaData->path_gambar_kontruksi,
-                        'deskripsi_optional' => null
-                    ];
+                    // KONTRUKSI (Cek Nullable)
+                    if (!empty($gambarUtamaData->path_gambar_kontruksi)) {
+                        $jobsKontruksi[] = [
+                            'type' => 'standard',
+                            'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
+                            'varian' => $varianBody->varian_body,
+                            'source_pdf' => $gambarUtamaData->path_gambar_kontruksi,
+                            'deskripsi_optional' => null
+                        ];
+                    }
 
-                    // PAKET (Filter by Request Input karena Paket Optional biasanya checklist dinamis di FE)
-                    // Jika ingin persistent, seharusnya paket optional IDs disimpan juga di DB Detail.
+                    // PAKET
                     foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
                         if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $hGambarOptionalIds)) {
                             $judulLengkap = ($gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET') . ' ' . $jenisJudul->nama_judul;
@@ -168,16 +162,13 @@ class ProsesTransaksiController extends Controller
                 }
             }
         }
-
         if (!$isGambarTU) {
-            // --- TAHAP 2: INDEPENDEN (DARI DB) ---
+            // INDEPENDEN (Dari DB)
             if (!empty($orderedIndependentIds)) {
-                $orderedIds = $orderedIndependentIds;
-                $gambarIndependen = HGambarOptional::whereIn('id', $orderedIds)
-                    ->where('tipe', 'independen')
-                    ->get();
+                $gambarIndependen = HGambarOptional::whereIn('id', $orderedIndependentIds)
+                    ->where('tipe', 'independen')->get();
 
-                $idMap = array_flip($orderedIds);
+                $idMap = array_flip($orderedIndependentIds);
                 $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
                     return $idMap[$model->id] ?? 999;
                 });
@@ -192,10 +183,8 @@ class ProsesTransaksiController extends Controller
                     ];
                 }
             }
-            // Fallback Logic (Ambil by Varian Body) dihapus atau dikondisikan jika data independen kosong
-            // Agar konsisten dengan apa yang disimpan.
 
-            // --- TAHAP 3: KELISTRIKAN (DARI DB) ---
+            // KELISTRIKAN (Dari DB)
             if ($iGambarKelistrikanId) {
                 $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')->find($iGambarKelistrikanId);
                 if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
@@ -211,18 +200,16 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        // --- MERGE & PAGE NUMBERING ---
+        // Merge & Page Number
         $drawingJobs = array_merge($jobsUtama, $jobsTerurai, $jobsKontruksi, $jobsPaket, $jobsIndependen, $jobsKelistrikan);
-
         $pageCounter = 1;
         foreach ($drawingJobs as &$job) {
             $job['page'] = $pageCounter++;
         }
         unset($job);
-
         $totalHalaman = count($drawingJobs);
 
-        // --- LOGIC PREVIEW / DOWNLOAD TETAP SAMA ---
+        // --- EKSEKUSI (SAMA SEPERTI SEBELUMNYA) ---
         if ($request->aksi === 'preview') {
             $previewPage = $request->preview_page ?? 1;
             $previewIndex = $previewPage - 1;
@@ -234,17 +221,15 @@ class ProsesTransaksiController extends Controller
                 }
                 $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
                 $pdfContent = $this->generateUncopyablePdfPage($pdfData);
-
                 if (ob_get_length()) ob_clean();
                 return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
             } else {
                 return response()->json(['message' => 'Halaman preview tidak ditemukan.'], 404);
             }
         } else {
-            // --- BAGIAN PROSES (DOWNLOAD) ---
             try {
                 if ($isGambarTU) {
-                    // Logic Merge PDF (Sama seperti sebelumnya)
+                    // Logic Merge PDF (GAMBAR TU)
                     $pdfMerger = new Fpdi();
                     $pdfMerger->setPrintHeader(false);
                     $pdfMerger->setPrintFooter(false);
@@ -274,7 +259,7 @@ class ProsesTransaksiController extends Controller
                     if (ob_get_length()) ob_clean();
                     return response($pdfMerger->Output('S'), 200)->header('Content-Type', 'application/pdf')->header('Content-Disposition', 'attachment; filename="' . $cleanFileName . '"');
                 } else {
-                    // Logic ZIP (Sama seperti sebelumnya)
+                    // Logic ZIP (LAINNYA)
                     $generatedPdfs = [];
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
@@ -285,15 +270,7 @@ class ProsesTransaksiController extends Controller
 
                     if (empty($generatedPdfs)) return response()->json(['message' => 'Gagal memproses gambar.'], 404);
 
-                    $zipFileName = sprintf(
-                        '%s (%s) %s_%s %s (%s).zip',
-                        $transaksi->user->username,
-                        $transaksi->fPengajuan->jenis_pengajuan,
-                        $transaksi->customer->nama_pt,
-                        $masterData->merk->merk,
-                        $masterData->typeChassis->type_chassis,
-                        $masterData->jenisKendaraan->jenis_kendaraan
-                    );
+                    $zipFileName = sprintf('%s (%s) %s_%s %s (%s).zip', $transaksi->user->username, $transaksi->fPengajuan->jenis_pengajuan, $transaksi->customer->nama_pt, $masterData->merk->merk, $masterData->typeChassis->type_chassis, $masterData->jenisKendaraan->jenis_kendaraan);
                     $cleanZipFileName = Str::slug(pathinfo($zipFileName, PATHINFO_FILENAME)) . '.zip';
 
                     $zip = new \ZipArchive();
