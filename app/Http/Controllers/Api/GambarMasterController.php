@@ -13,7 +13,7 @@ class GambarMasterController extends Controller
 {
     public function uploadGambarUtama(Request $request)
     {
-        // 1. Validasi (tidak berubah)
+        // 1. Validasi
         $validated = $request->validate([
             'master_data_id' => 'required|integer|exists:master_data,id',
             'varian_body' => 'required|string|max:255',
@@ -26,40 +26,69 @@ class GambarMasterController extends Controller
             'gambar_kontruksi.max' => 'Ukuran file Gambar Kontruksi tidak boleh lebih dari 1 MB.',
         ]);
 
-        // 2. Buat atau ambil Varian Body (tidak berubah)
+        // 2. Buat atau ambil Varian Body
         $varianBody = EVarianBody::firstOrCreate(
             [
                 'master_data_id' => $validated['master_data_id'],
                 'varian_body' => Str::upper($validated['varian_body']),
             ]
         );
-        // Pada titik ini, $varianBody dijamin memiliki ID yang permanen
-        // (misal: 45)
 
-        // 3. Bangun path folder BARU (menggunakan ID, bukan nama)
-        // Hasilnya akan seperti: "12/45"
+        // 3. Bangun path dasar
         $basePath = $this->buildPath($varianBody);
 
-        // 4. Bangun nama file BARU (hanya berdasarkan suffix)
-        // Hasilnya akan seperti: "gambar-utama.pdf"
-        $fileNameUtama = $this->buildFileName('Gambar Utama');
-        $fileNameTerurai = $this->buildFileName('Gambar Terurai');
-        $fileNameKontruksi = $this->buildFileName('Gambar Kontruksi');
+        // --- TAMBAHAN LOGIKA BERSIH-BERSIH FILE LAMA ---
+        // Kita cek apakah sudah ada data sebelumnya. 
+        // Jika ada, kita hapus file fisiknya dulu agar tidak menumpuk (karena nama file berubah).
+        $existingGambar = GGambarUtama::where('e_varian_body_id', $varianBody->id)->first();
 
-        // 5. Simpan file-file (logika sama, path & nama file baru)
-        // Path final cth: "12/45/gambar-utama.pdf"
-        $pathUtama = $request->file('gambar_utama')->storeAs($basePath, $fileNameUtama, 'master_gambar');
-        $pathTerurai = $request->file('gambar_terurai')->storeAs($basePath, $fileNameTerurai, 'master_gambar');
-        $pathKontruksi = $request->file('gambar_kontruksi')->storeAs($basePath, $fileNameKontruksi, 'master_gambar');
+        // 4. Siapkan Array Data
+        $dataToUpdate = [];
 
-        // 6. Simpan data ke database (logika sama)
+        // --- PROSES GAMBAR UTAMA (WAJIB) ---
+        // Hapus file lama jika ada
+        if ($existingGambar && $existingGambar->path_gambar_utama) {
+            Storage::disk('master_gambar')->delete($existingGambar->path_gambar_utama);
+        }
+        // Upload file baru dengan nama format baru
+        $dataToUpdate['path_gambar_utama'] = $request->file('gambar_utama')->storeAs(
+            $basePath,
+            $this->buildFileName($varianBody->id, 'Gambar Utama'), // <-- Pakai ID
+            'master_gambar'
+        );
+
+        // --- PROSES GAMBAR TERURAI (OPSIONAL) ---
+        if ($request->hasFile('gambar_terurai')) {
+            // Hapus file lama jika ada
+            if ($existingGambar && $existingGambar->path_gambar_terurai) {
+                Storage::disk('master_gambar')->delete($existingGambar->path_gambar_terurai);
+            }
+            // Upload baru
+            $dataToUpdate['path_gambar_terurai'] = $request->file('gambar_terurai')->storeAs(
+                $basePath,
+                $this->buildFileName($varianBody->id, 'Gambar Terurai'), // <-- Pakai ID
+                'master_gambar'
+            );
+        }
+
+        // --- PROSES GAMBAR KONTRUKSI (OPSIONAL) ---
+        if ($request->hasFile('gambar_kontruksi')) {
+            // Hapus file lama jika ada
+            if ($existingGambar && $existingGambar->path_gambar_kontruksi) {
+                Storage::disk('master_gambar')->delete($existingGambar->path_gambar_kontruksi);
+            }
+            // Upload baru
+            $dataToUpdate['path_gambar_kontruksi'] = $request->file('gambar_kontruksi')->storeAs(
+                $basePath,
+                $this->buildFileName($varianBody->id, 'Gambar Kontruksi'), // <-- Pakai ID
+                'master_gambar'
+            );
+        }
+
+        // 6. Simpan ke Database
         $gambarUtama = GGambarUtama::updateOrCreate(
             ['e_varian_body_id' => $varianBody->id],
-            [
-                'path_gambar_utama' => $pathUtama,
-                'path_gambar_terurai' => $pathTerurai,
-                'path_gambar_kontruksi' => $pathKontruksi,
-            ]
+            $dataToUpdate
         );
 
         if (!$gambarUtama->wasChanged()) {
@@ -71,8 +100,7 @@ class GambarMasterController extends Controller
     }
 
     /**
-     * Helper function untuk membangun path folder baru yang stabil.
-     * Format: {id_master_data}/{id_varian_body}
+     * Helper function untuk membangun path folder.
      */
     private function buildPath(EVarianBody $varianBody): string
     {
@@ -80,12 +108,14 @@ class GambarMasterController extends Controller
     }
 
     /**
-     * Helper function untuk membangun nama file baru yang stabil.
-     * Format: {suffix_slug}.pdf
+     * Helper function untuk membangun nama file dengan Prefix ID Varian.
+     * Format: {id}_{suffix_slug}.pdf
+     * Contoh: 45_gambar-utama.pdf
      */
-    private function buildFileName(string $suffix): string
+    private function buildFileName(int $varianId, string $suffix): string
     {
-        return Str::slug($suffix, '-') . '.pdf';
+        // Tambahkan ID di depan nama file
+        return $varianId . '_' . Str::slug($suffix, '-') . '.pdf';
     }
 
     /**
@@ -113,20 +143,26 @@ class GambarMasterController extends Controller
         // 1. Load relasi gambarOptionals untuk efisiensi
         $gambarUtama->load('gambarOptionals');
 
-        // 2. Masukkan 3 path wajib
+        // 2. Siapkan array paths
         $paths = [
-            'utama' => $gambarUtama->path_gambar_utama,
-            'terurai' => $gambarUtama->path_gambar_terurai,
-            'kontruksi' => $gambarUtama->path_gambar_kontruksi,
+            'utama' => $gambarUtama->path_gambar_utama, // Gambar utama pasti ada
         ];
 
-        // 3. Cari apakah ada Gambar Optional dengan tipe 'paket'
-        //    menggunakan collection filtering (tanpa query ulang ke DB)
+        // 3. Masukkan Terurai & Kontruksi HANYA JIKA ADA (Tidak Null)
+        if ($gambarUtama->path_gambar_terurai) {
+            $paths['terurai'] = $gambarUtama->path_gambar_terurai;
+        }
+
+        if ($gambarUtama->path_gambar_kontruksi) {
+            $paths['kontruksi'] = $gambarUtama->path_gambar_kontruksi;
+        }
+
+        // 4. Cari apakah ada Gambar Optional dengan tipe 'paket'
         $paketOptional = $gambarUtama->gambarOptionals
             ->where('tipe', 'paket')
             ->first();
 
-        // 4. Jika ketemu, tambahkan ke array response
+        // 5. Jika ketemu, tambahkan ke array response
         if ($paketOptional) {
             $paths['paket'] = $paketOptional->path_gambar_optional;
         }
@@ -164,28 +200,36 @@ class GambarMasterController extends Controller
     {
         $gambarUtama = GGambarUtama::findOrFail($id);
 
-        // 1. Hapus 3 File Utama dari Storage
+        // 1. Kumpulkan file yang ADA saja
         $filesToDelete = [
-            $gambarUtama->path_gambar_utama,
-            $gambarUtama->path_gambar_terurai,
-            $gambarUtama->path_gambar_kontruksi,
+            $gambarUtama->path_gambar_utama, // Wajib ada
         ];
+
+        if ($gambarUtama->path_gambar_terurai) {
+            $filesToDelete[] = $gambarUtama->path_gambar_terurai;
+        }
+
+        if ($gambarUtama->path_gambar_kontruksi) {
+            $filesToDelete[] = $gambarUtama->path_gambar_kontruksi;
+        }
+
+        // Hapus fisik
         Storage::disk('master_gambar')->delete($filesToDelete);
 
-        // 2. Cek & Hapus Gambar Optional Paket yang menempel (Jika ada)
+        // 2. Cek & Hapus Gambar Optional Paket (TETAP SAMA)
         $paketOptionals = \App\Models\HGambarOptional::where('g_gambar_utama_id', $id)
             ->where('tipe', 'paket')
             ->get();
 
         foreach ($paketOptionals as $opt) {
-            // Hapus file fisik optional
-            Storage::disk('master_gambar')->delete($opt->path_gambar_optional);
-            // Hapus record db optional
-            $opt->forceDelete(); // Gunakan forceDelete agar bersih total
+            if ($opt->path_gambar_optional) {
+                Storage::disk('master_gambar')->delete($opt->path_gambar_optional);
+            }
+            $opt->forceDelete();
         }
 
         // 3. Hapus Record Gambar Utama
-        $gambarUtama->delete(); // Atau forceDelete() jika tidak pakai SoftDeletes di model GGambarUtama
+        $gambarUtama->delete();
 
         return response()->noContent();
     }
