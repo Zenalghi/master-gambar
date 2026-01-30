@@ -300,34 +300,39 @@ class _OptionController extends Controller
 
         return response()->json(['exists' => $exists]);
     }
+
     public function getVarianBodyForDropdown(Request $request)
     {
         $search = $request->input('search', '');
 
-        // Query dasar ke EVarianBody
         $query = \App\Models\EVarianBody::query()
             ->select('id', 'varian_body')
-            // Cek keberadaan gambar utama (mengembalikan boolean 1/0 di kolom has_gambar)
-            ->withExists('gambarUtama as has_gambar')
+            // Load relasi gambarUtama untuk cek kolom spesifik
+            ->with(['gambarUtama:e_varian_body_id,path_gambar_utama,path_gambar_terurai,path_gambar_kontruksi'])
             ->where('varian_body', 'like', "%{$search}%")
-            ->limit(30); // Batasi hasil agar ringan
+            ->limit(30);
 
-        // Jika ada filter berdasarkan master_data_id (opsional)
         if ($request->has('master_data_id') && !empty($request->master_data_id)) {
             $query->where('master_data_id', $request->master_data_id);
         }
 
         $results = $query->get()->map(function ($item) {
+            $gbr = $item->gambarUtama; // Relasi HasOne
+
             return [
                 'id' => $item->id,
                 'name' => $item->varian_body,
-                'has_gambar' => $item->has_gambar, // Kirim status ini ke frontend
+
+                // Flag status ketersediaan file
+                // Cek apakah relasi ada DAN path tidak null/kosong
+                'has_gambar' => $gbr && !empty($gbr->path_gambar_utama),
+                'has_terurai' => $gbr && !empty($gbr->path_gambar_terurai),
+                'has_kontruksi' => $gbr && !empty($gbr->path_gambar_kontruksi),
             ];
         });
 
         return response()->json($results);
     }
-
     /**
      * Mengecek status kelistrikan berdasarkan Master Data ID.
      * Mengembalikan status apakah File hilang, Deskripsi hilang, atau Lengkap.
