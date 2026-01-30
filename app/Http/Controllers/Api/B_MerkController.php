@@ -52,9 +52,14 @@ class B_MerkController extends Controller
     }
 
     // --- FITUR BARU: List data sampah ---
-    public function trash()
+    public function trash(Request $request)
     {
-        return BMerk::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+        $search = $request->input('search', '');
+
+        return BMerk::onlyTrashed()
+            ->where('merk', 'like', "%{$search}%") // Filter pencarian
+            ->orderBy('deleted_at', 'desc')
+            ->get();
     }
 
     public function store(StoreMerkRequest $request)
@@ -106,5 +111,30 @@ class B_MerkController extends Controller
         $merk->forceDelete();
 
         return response()->json(null, 204);
+    }
+
+    public function emptyTrash()
+    {
+        // Ambil semua data sampah
+        $trashedItems = BMerk::onlyTrashed()->get();
+        $deletedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($trashedItems as $item) {
+            // Cek apakah dipakai di Master Data
+            if (MasterData::where('b_merk_id', $item->id)->exists()) {
+                $skippedCount++;
+                continue; // Skip, jangan dihapus
+            }
+
+            $item->forceDelete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menghapus $deletedCount data. $skippedCount data dilewati karena masih digunakan.",
+            'deleted' => $deletedCount,
+            'skipped' => $skippedCount
+        ]);
     }
 }

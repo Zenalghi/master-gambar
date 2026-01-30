@@ -151,11 +151,11 @@ Route::middleware('auth.api')->group(
             Route::apiResource('type-engines', TypeEngineController::class);
 
             // --- MERK ---
+            Route::delete('merks/trash/empty', [MerkController::class, 'emptyTrash']);
             Route::get('merks/trash', [MerkController::class, 'trash']);
             Route::post('merks/{id}/restore', [MerkController::class, 'restore']);
             Route::delete('merks/{id}/force-delete', [MerkController::class, 'forceDelete']);
             Route::apiResource('merks', MerkController::class);
-
             // --- TYPE CHASSIS ---
             Route::get('type-chassis/trash', [TypeChassisController::class, 'trash']);
             Route::post('type-chassis/{id}/restore', [TypeChassisController::class, 'restore']);
