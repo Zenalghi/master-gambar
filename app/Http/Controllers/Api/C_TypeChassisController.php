@@ -52,9 +52,45 @@ class C_TypeChassisController extends Controller
     }
 
     // --- FITUR BARU: List data sampah ---
-    public function trash()
+    public function trash(Request $request)
     {
-        return CTypeChassis::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+        $search = $request->input('search', '');
+
+        return CTypeChassis::onlyTrashed()
+            ->where('type_chassis', 'like', "%{$search}%") // Filter pencarian
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    // --- FITUR BARU: Kosongkan Sampah ---
+    public function emptyTrash()
+    {
+        $trashedItems = CTypeChassis::onlyTrashed()->get();
+        $deletedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($trashedItems as $item) {
+            // Cek apakah dipakai di Master Data
+            if (MasterData::where('c_type_chassis_id', $item->id)->exists()) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Cek apakah punya file kelistrikan
+            if ($item->fileKelistrikan()->exists()) {
+                $skippedCount++;
+                continue;
+            }
+
+            $item->forceDelete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menghapus $deletedCount data. $skippedCount data dilewati karena masih digunakan.",
+            'deleted' => $deletedCount,
+            'skipped' => $skippedCount
+        ]);
     }
     /**
      * Menyimpan data baru dengan ID komposit otomatis.
