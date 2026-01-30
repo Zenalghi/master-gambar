@@ -164,6 +164,7 @@ Route::middleware('auth.api')->group(
             Route::apiResource('type-chassis', TypeChassisController::class)->parameters(['type-chassis' => 'typeChassis']);
 
             // --- JENIS KENDARAAN ---
+            Route::delete('jenis-kendaraan/trash/empty', [JenisKendaraanController::class, 'emptyTrash']);
             Route::get('jenis-kendaraan/trash', [JenisKendaraanController::class, 'trash']);
             Route::post('jenis-kendaraan/{id}/restore', [JenisKendaraanController::class, 'restore']);
             Route::delete('jenis-kendaraan/{id}/force-delete', [JenisKendaraanController::class, 'forceDelete']);

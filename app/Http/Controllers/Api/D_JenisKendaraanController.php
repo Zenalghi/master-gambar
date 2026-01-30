@@ -51,9 +51,39 @@ class D_JenisKendaraanController extends Controller
     }
 
     // --- NEW FEATURE: Trash List ---
-    public function trash()
+    public function trash(Request $request)
     {
-        return DJenisKendaraan::onlyTrashed()->orderBy('deleted_at', 'desc')->get();
+        $search = $request->input('search', '');
+
+        return DJenisKendaraan::onlyTrashed()
+            ->where('jenis_kendaraan', 'like', "%{$search}%") // Filter pencarian
+            ->orderBy('deleted_at', 'desc')
+            ->get();
+    }
+
+    // --- FITUR BARU: Kosongkan Sampah ---
+    public function emptyTrash()
+    {
+        $trashedItems = DJenisKendaraan::onlyTrashed()->get();
+        $deletedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($trashedItems as $item) {
+            // Cek apakah dipakai di Master Data
+            if (MasterData::where('d_jenis_kendaraan_id', $item->id)->exists()) {
+                $skippedCount++;
+                continue;
+            }
+
+            $item->forceDelete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menghapus $deletedCount data. $skippedCount data dilewati karena masih digunakan.",
+            'deleted' => $deletedCount,
+            'skipped' => $skippedCount
+        ]);
     }
     /**
      * Menyimpan data baru dengan ID komposit otomatis.
