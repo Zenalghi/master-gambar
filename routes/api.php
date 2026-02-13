@@ -139,6 +139,7 @@ Route::middleware('auth.api')->group(
             Route::get('/options/check-paket-optional/{varianBodyId}', [OptionController::class, 'checkPaketOptionalExists']);
 
             // --- MASTER DATA (RECYCLE BIN & CRUD) ---
+            Route::delete('master-data/trash/empty', [MasterDataController::class, 'emptyTrash']);
             Route::get('master-data/trash', [MasterDataController::class, 'trash']);
             Route::post('master-data/{id}/restore', [MasterDataController::class, 'restore']);
             Route::delete('master-data/{id}/force-delete', [MasterDataController::class, 'forceDelete']);

@@ -144,15 +144,51 @@ class MasterDataController extends Controller
 
         return response()->noContent();
     }
-
     // --- FITUR RECYCLE BIN ---
-    public function trash()
+    public function trash(Request $request)
     {
-        // Ambil data yang dihapus beserta relasinya untuk ditampilkan
-        return MasterData::onlyTrashed()
-            ->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan'])
-            ->orderBy('deleted_at', 'desc')
-            ->get();
+        $search = $request->input('search', '');
+
+        $query = MasterData::onlyTrashed()
+            ->with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan']);
+
+        // Logika Pencarian di tabel relasi
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', 'like', "%{$search}%")
+                    ->orWhereHas('typeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
+                    ->orWhereHas('merk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
+                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
+                    ->orWhereHas('jenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"));
+            });
+        }
+
+        return $query->orderBy('deleted_at', 'desc')->get();
+    }
+
+    // --- FITUR BARU: Kosongkan Sampah ---
+    public function emptyTrash()
+    {
+        $trashedItems = MasterData::onlyTrashed()->get();
+        $deletedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($trashedItems as $item) {
+            // Cek apakah Master Data ini dipakai di Varian Body (aktif atau terhapus)
+            if (EVarianBody::where('master_data_id', $item->id)->withTrashed()->exists()) {
+                $skippedCount++;
+                continue; // Skip penghapusan
+            }
+
+            $item->forceDelete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menghapus $deletedCount data. $skippedCount data dilewati karena masih terkait dengan Varian Body.",
+            'deleted' => $deletedCount,
+            'skipped' => $skippedCount
+        ]);
     }
 
     public function restore($id)
