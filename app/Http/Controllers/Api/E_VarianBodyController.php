@@ -100,7 +100,7 @@ class E_VarianBodyController extends Controller
 
         return response()->json($varianBody);
     }
-    
+
     public function show(EVarianBody $varianBody)
     {
         return response()->json($varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'));
@@ -116,12 +116,52 @@ class E_VarianBodyController extends Controller
     }
 
     // --- FITUR RECYCLE BIN ---
-    public function trash()
+    public function trash(Request $request)
     {
-        return EVarianBody::onlyTrashed()
-            ->with('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan')
-            ->orderBy('deleted_at', 'desc')
-            ->get();
+        $search = $request->input('search', '');
+
+        $query = EVarianBody::onlyTrashed()
+            ->with('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan');
+
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('varian_body', 'like', "%{$search}%")
+                    ->orWhereHas('masterData.typeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
+                    ->orWhereHas('masterData.merk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
+                    ->orWhereHas('masterData.typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
+                    ->orWhereHas('masterData.jenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"));
+            });
+        }
+
+        return $query->orderBy('deleted_at', 'desc')->get();
+    }
+
+    // --- FITUR BARU: Kosongkan Sampah ---
+    public function emptyTrash()
+    {
+        $trashedItems = EVarianBody::onlyTrashed()->get();
+        $deletedCount = 0;
+        $skippedCount = 0;
+
+        foreach ($trashedItems as $item) {
+            // Cek proteksi relasi (misal: punya Gambar Utama / Optional)
+            if (
+                GGambarUtama::where('e_varian_body_id', $item->id)->exists() ||
+                HGambarOptional::where('e_varian_body_id', $item->id)->exists()
+            ) {
+                $skippedCount++;
+                continue; // Skip penghapusan karena terikat gambar
+            }
+
+            $item->forceDelete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menghapus $deletedCount data. $skippedCount data dilewati karena masih memiliki Gambar.",
+            'deleted' => $deletedCount,
+            'skipped' => $skippedCount
+        ]);
     }
 
     public function restore($id)

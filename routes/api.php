@@ -172,6 +172,7 @@ Route::middleware('auth.api')->group(
             Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
 
             // --- VARIAN BODY ---
+            Route::delete('varian-body/trash/empty', [VarianBodyController::class, 'emptyTrash']);
             Route::get('varian-body/trash', [VarianBodyController::class, 'trash']);
             Route::post('varian-body/{id}/restore', [VarianBodyController::class, 'restore']);
             Route::delete('varian-body/{id}/force-delete', [VarianBodyController::class, 'forceDelete']);
