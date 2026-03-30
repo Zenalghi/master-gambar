@@ -8,6 +8,7 @@ use App\Models\GGambarUtama;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Models\TransaksiDetail;
 
 class GambarMasterController extends Controller
 {
@@ -36,51 +37,47 @@ class GambarMasterController extends Controller
 
         // 3. Bangun path dasar
         $basePath = $this->buildPath($varianBody);
-
-        // --- TAMBAHAN LOGIKA BERSIH-BERSIH FILE LAMA ---
-        // Kita cek apakah sudah ada data sebelumnya. 
-        // Jika ada, kita hapus file fisiknya dulu agar tidak menumpuk (karena nama file berubah).
         $existingGambar = GGambarUtama::where('e_varian_body_id', $varianBody->id)->first();
-
-        // 4. Siapkan Array Data
         $dataToUpdate = [];
 
-        // --- PROSES GAMBAR UTAMA (WAJIB) ---
-        // Hapus file lama jika ada
+        // --- PROSES GAMBAR UTAMA ---
         if ($existingGambar && $existingGambar->path_gambar_utama) {
-            Storage::disk('master_gambar')->delete($existingGambar->path_gambar_utama);
+            // CEK: Apakah file lama dipakai di transaksi?
+            if (!$this->isPathUsedInTransaction($existingGambar->path_gambar_utama)) {
+                // Jika TIDAK DIPAKAI (misal salah upload), HAPUS file fisiknya!
+                Storage::disk('master_gambar')->delete($existingGambar->path_gambar_utama);
+            }
         }
-        // Upload file baru dengan nama format baru
         $dataToUpdate['path_gambar_utama'] = $request->file('gambar_utama')->storeAs(
             $basePath,
-            $this->buildFileName($varianBody->id, 'Gambar Utama'), // <-- Pakai ID
+            $this->buildFileName($varianBody->id, 'Gambar Utama'),
             'master_gambar'
         );
 
-        // --- PROSES GAMBAR TERURAI (OPSIONAL) ---
+        // --- PROSES GAMBAR TERURAI ---
         if ($request->hasFile('gambar_terurai')) {
-            // Hapus file lama jika ada
             if ($existingGambar && $existingGambar->path_gambar_terurai) {
-                Storage::disk('master_gambar')->delete($existingGambar->path_gambar_terurai);
+                if (!$this->isPathUsedInTransaction($existingGambar->path_gambar_terurai)) {
+                    Storage::disk('master_gambar')->delete($existingGambar->path_gambar_terurai);
+                }
             }
-            // Upload baru
             $dataToUpdate['path_gambar_terurai'] = $request->file('gambar_terurai')->storeAs(
                 $basePath,
-                $this->buildFileName($varianBody->id, 'Gambar Terurai'), // <-- Pakai ID
+                $this->buildFileName($varianBody->id, 'Gambar Terurai'),
                 'master_gambar'
             );
         }
 
-        // --- PROSES GAMBAR KONTRUKSI (OPSIONAL) ---
+        // --- PROSES GAMBAR KONTRUKSI ---
         if ($request->hasFile('gambar_kontruksi')) {
-            // Hapus file lama jika ada
             if ($existingGambar && $existingGambar->path_gambar_kontruksi) {
-                Storage::disk('master_gambar')->delete($existingGambar->path_gambar_kontruksi);
+                if (!$this->isPathUsedInTransaction($existingGambar->path_gambar_kontruksi)) {
+                    Storage::disk('master_gambar')->delete($existingGambar->path_gambar_kontruksi);
+                }
             }
-            // Upload baru
             $dataToUpdate['path_gambar_kontruksi'] = $request->file('gambar_kontruksi')->storeAs(
                 $basePath,
-                $this->buildFileName($varianBody->id, 'Gambar Kontruksi'), // <-- Pakai ID
+                $this->buildFileName($varianBody->id, 'Gambar Kontruksi'),
                 'master_gambar'
             );
         }
@@ -100,22 +97,27 @@ class GambarMasterController extends Controller
     }
 
     /**
-     * Helper function untuk membangun path folder.
+     * --- FUNGSI PINTAR (SMART DELETE CHECK) ---
+     * Cek apakah path file ini tercatat di JSON transaksi.
      */
+    private function isPathUsedInTransaction(string $path): bool
+    {
+        if (empty($path)) return false;
+
+        // Kita gunakan LIKE untuk mencari string path di dalam kolom JSON snapshot_data.
+        // Ini sangat cepat dan efisien.
+        return TransaksiDetail::where('snapshot_data', 'LIKE', '%"' . $path . '"%')->exists();
+    }
+
     private function buildPath(EVarianBody $varianBody): string
     {
         return $varianBody->master_data_id . '/' . $varianBody->id;
     }
 
-    /**
-     * Helper function untuk membangun nama file dengan Prefix ID Varian.
-     * Format: {id}_{suffix_slug}.pdf
-     * Contoh: 45_gambar-utama.pdf
-     */
     private function buildFileName(int $varianId, string $suffix): string
     {
-        // Tambahkan ID di depan nama file
-        return $varianId . '_' . Str::slug($suffix, '-') . '.pdf';
+        // Tetap pakai time() agar unik
+        return $varianId . '_' . time() . '_' . Str::slug($suffix, '-') . '.pdf';
     }
 
     /**

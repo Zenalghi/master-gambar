@@ -31,6 +31,54 @@ class ProsesTransaksiController extends Controller
             'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
         ]);
 
+        // --- LOGIKA SNAPSHOT (FOTO ALAMAT FILE SAAT INI) ---
+        $snapshot = [
+            'varian' => [],
+            'independen' => [],
+            'kelistrikan' => null
+        ];
+
+        // 1. Snapshot Varian Body (Utama, Terurai, Kontruksi, Paket)
+        if (!empty($request->data_gambar_utama)) {
+            foreach ($request->data_gambar_utama as $item) {
+                $vid = $item['varian_id'] ?? null;
+                if ($vid) {
+                    $g = GGambarUtama::with('gambarOptionals')->where('e_varian_body_id', $vid)->first();
+                    if ($g) {
+                        $paket = [];
+                        foreach ($g->gambarOptionals as $opt) {
+                            if ($opt->tipe === 'paket') {
+                                $paket[$opt->id] = $opt->path_gambar_optional;
+                            }
+                        }
+                        $snapshot['varian'][$vid] = [
+                            'utama' => $g->path_gambar_utama,
+                            'terurai' => $g->path_gambar_terurai,
+                            'kontruksi' => $g->path_gambar_kontruksi,
+                            'paket' => $paket
+                        ];
+                    }
+                }
+            }
+        }
+
+        // 2. Snapshot Independen
+        if (!empty($request->ordered_independent_ids)) {
+            $inds = HGambarOptional::whereIn('id', $request->ordered_independent_ids)->where('tipe', 'independen')->get();
+            foreach ($inds as $ind) {
+                $snapshot['independen'][$ind->id] = $ind->path_gambar_optional;
+            }
+        }
+
+        // 3. Snapshot Kelistrikan
+        if ($request->i_gambar_kelistrikan_id) {
+            $kel = IGambarKelistrikan::with('fileKelistrikan')->find($request->i_gambar_kelistrikan_id);
+            if ($kel && $kel->fileKelistrikan) {
+                $snapshot['kelistrikan'] = $kel->fileKelistrikan->path_file;
+            }
+        }
+        // ----------------------------------------------------
+
         $detail = TransaksiDetail::updateOrCreate(
             ['transaksi_id' => $transaksi->id],
             [
@@ -40,63 +88,51 @@ class ProsesTransaksiController extends Controller
                 'ordered_independent_ids' => $request->ordered_independent_ids ?? [],
                 'deskripsi_optional' => $request->deskripsi_optional,
                 'i_gambar_kelistrikan_id' => $request->input('i_gambar_kelistrikan_id'),
+                'snapshot_data' => $snapshot, // <-- Simpan hasil foto ke DB!
             ]
         );
 
         return response()->json(['message' => 'Draft berhasil disimpan', 'detail' => $detail]);
     }
 
+
     public function proses(Request $request, Transaksi $transaksi)
     {
-        set_time_limit(300); // 5 Menit
+        set_time_limit(300); 
         ini_set('memory_limit', '512M');
 
-        // Validasi HANYA parameter kontrol (aksi & page), bukan data transaksi
         $request->validate([
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
         ]);
 
-        // 1. AMBIL DATA DARI DATABASE 
         $transaksi->load([
-            'detail',
-            'user',
-            'customer',
-            'fPengajuan',
-            'masterData.typeEngine',
-            'masterData.merk',
-            'masterData.typeChassis',
-            'masterData.jenisKendaraan'
+            'detail', 'user', 'customer', 'fPengajuan',
+            'masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'
         ]);
 
-        // Cek apakah detail sudah ada? Jika belum, user wajib simpan dulu.
         if (!$transaksi->detail) {
             return response()->json(['message' => 'Data detail belum tersimpan. Silakan klik Simpan Draft terlebih dahulu.'], 422);
         }
 
         $detail = $transaksi->detail;
+        
+        // --- AMBIL SNAPSHOT ---
+        $snapshot = $detail->snapshot_data ?? [];
 
-        // Gunakan data dari $detail (Database), BUKAN dari $request
         $pemeriksa = User::find($detail->pemeriksa_id);
         $dataGambarUtama = $detail->data_gambar_utama ?? [];
         $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
         $deskripsiOptional = $detail->deskripsi_optional;
         $iGambarKelistrikanId = $detail->i_gambar_kelistrikan_id;
-
-        // Paket Optional diambil dari Request (karena sifatnya checklist filter)
         $hGambarOptionalIds = $request->input('h_gambar_optional_ids', []);
-
+        
         $masterData = $transaksi->masterData;
         $jenisPengajuan = strtoupper($transaksi->fPengajuan->jenis_pengajuan);
         $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
 
-        // --- SIAPKAN WADAH JOB ---
-        $jobsUtama = [];
-        $jobsTerurai = [];
-        $jobsKontruksi = [];
-        $jobsPaket = [];
-        $jobsIndependen = [];
-        $jobsKelistrikan = [];
+        $jobsUtama = []; $jobsTerurai = []; $jobsKontruksi = []; 
+        $jobsPaket = []; $jobsIndependen = []; $jobsKelistrikan = [];
 
         // --- TAHAP 1: LOOPING DATA DB ---
         if (!empty($dataGambarUtama)) {
@@ -107,95 +143,109 @@ class ProsesTransaksiController extends Controller
                 if (!$varian_id || !$judul_id) continue;
 
                 $varianBody = EVarianBody::find($varian_id);
-                $gambarUtamaData = GGambarUtama::with('gambarOptionals')
-                    ->where('e_varian_body_id', $varian_id)
-                    ->first();
+                $gambarUtamaData = GGambarUtama::with('gambarOptionals')->where('e_varian_body_id', $varian_id)->first();
                 $jenisJudul = JJudulGambar::find($judul_id);
 
                 if ($gambarUtamaData && $jenisJudul) {
-                    // UTAMA (Selalu Ada)
-                    $jobsUtama[] = [
-                        'type' => 'standard',
-                        'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
-                        'varian' => $varianBody->varian_body,
-                        'source_pdf' => $gambarUtamaData->path_gambar_utama,
-                        'deskripsi_optional' => $deskripsiOptional
-                    ];
+                    
+                    // !!! KUNCI UTAMA: Coba ambil path dari Snapshot, jika tidak ada (transaksi lama), ambil dari Master !!!
+                    $pathUtama = $snapshot['varian'][$varian_id]['utama'] ?? $gambarUtamaData->path_gambar_utama;
+                    $pathTerurai = $snapshot['varian'][$varian_id]['terurai'] ?? $gambarUtamaData->path_gambar_terurai;
+                    $pathKontruksi = $snapshot['varian'][$varian_id]['kontruksi'] ?? $gambarUtamaData->path_gambar_kontruksi;
+
+                    if ($pathUtama) {
+                        $jobsUtama[] = [
+                            'type' => 'standard',
+                            'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
+                            'varian' => $varianBody->varian_body,
+                            'source_pdf' => $pathUtama, // Pakai file snapshot
+                            'deskripsi_optional' => $deskripsiOptional
+                        ];
+                    }
 
                     if ($isGambarTU) continue;
 
-                    // TERURAI (Cek Nullable)
-                    if (!empty($gambarUtamaData->path_gambar_terurai)) {
+                    if (!empty($pathTerurai)) {
                         $jobsTerurai[] = [
                             'type' => 'standard',
                             'title' => 'GAMBAR TAMPAK TERURAI ' . $jenisJudul->nama_judul,
                             'varian' => $varianBody->varian_body,
-                            'source_pdf' => $gambarUtamaData->path_gambar_terurai,
+                            'source_pdf' => $pathTerurai,
                             'deskripsi_optional' => null
                         ];
                     }
 
-                    // KONTRUKSI (Cek Nullable)
-                    if (!empty($gambarUtamaData->path_gambar_kontruksi)) {
+                    if (!empty($pathKontruksi)) {
                         $jobsKontruksi[] = [
                             'type' => 'standard',
                             'title' => 'GAMBAR DETAIL KONTRUKSI ' . $jenisJudul->nama_judul,
                             'varian' => $varianBody->varian_body,
-                            'source_pdf' => $gambarUtamaData->path_gambar_kontruksi,
+                            'source_pdf' => $pathKontruksi,
                             'deskripsi_optional' => null
                         ];
                     }
 
-                    // PAKET
                     foreach ($gambarUtamaData->gambarOptionals as $gambarPaket) {
                         if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $hGambarOptionalIds)) {
-                            $judulLengkap = ($gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET') . ' ' . $jenisJudul->nama_judul;
-                            $jobsPaket[] = [
-                                'type' => 'standard',
-                                'title' => $judulLengkap,
-                                'varian' => '',
-                                'source_pdf' => $gambarPaket->path_gambar_optional,
-                                'deskripsi_optional' => null
-                            ];
+                            // Cek snapshot paket
+                            $pathPaket = $snapshot['varian'][$varian_id]['paket'][$gambarPaket->id] ?? $gambarPaket->path_gambar_optional;
+                            
+                            if ($pathPaket) {
+                                $judulLengkap = ($gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET') . ' ' . $jenisJudul->nama_judul;
+                                $jobsPaket[] = [
+                                    'type' => 'standard',
+                                    'title' => $judulLengkap,
+                                    'varian' => '',
+                                    'source_pdf' => $pathPaket,
+                                    'deskripsi_optional' => null
+                                ];
+                            }
                         }
                     }
                 }
             }
         }
-        if (!$isGambarTU) {
-            // INDEPENDEN (Dari DB)
-            if (!empty($orderedIndependentIds)) {
-                $gambarIndependen = HGambarOptional::whereIn('id', $orderedIndependentIds)
-                    ->where('tipe', 'independen')->get();
 
+        if (!$isGambarTU) {
+            if (!empty($orderedIndependentIds)) {
+                $gambarIndependen = HGambarOptional::whereIn('id', $orderedIndependentIds)->where('tipe', 'independen')->get();
                 $idMap = array_flip($orderedIndependentIds);
                 $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
                     return $idMap[$model->id] ?? 999;
                 });
 
                 foreach ($gambarIndependen as $gambarOptional) {
-                    $jobsIndependen[] = [
-                        'type' => 'standard',
-                        'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
-                        'varian' => '',
-                        'source_pdf' => $gambarOptional->path_gambar_optional,
-                        'deskripsi_optional' => null
-                    ];
+                    // Ambil snapshot independen
+                    $pathIndependen = $snapshot['independen'][$gambarOptional->id] ?? $gambarOptional->path_gambar_optional;
+                    
+                    if ($pathIndependen) {
+                        $jobsIndependen[] = [
+                            'type' => 'standard',
+                            'title' => $gambarOptional->deskripsi ?: 'GAMBAR OPTIONAL',
+                            'varian' => '',
+                            'source_pdf' => $pathIndependen,
+                            'deskripsi_optional' => null
+                        ];
+                    }
                 }
             }
 
-            // KELISTRIKAN (Dari DB)
             if ($iGambarKelistrikanId) {
                 $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')->find($iGambarKelistrikanId);
                 if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
-                    $jobsKelistrikan[] = [
-                        'type' => 'kelistrikan',
-                        'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
-                        'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
-                        'varian' => '',
-                        'source_pdf' => $gambarKelistrikan->fileKelistrikan->path_file,
-                        'deskripsi_optional' => null
-                    ];
+                    // Ambil snapshot kelistrikan
+                    $pathKelistrikan = $snapshot['kelistrikan'] ?? $gambarKelistrikan->fileKelistrikan->path_file;
+                    
+                    if ($pathKelistrikan) {
+                        $jobsKelistrikan[] = [
+                            'type' => 'kelistrikan',
+                            'title' => $gambarKelistrikan->deskripsi ?: 'GAMBAR KELISTRIKAN',
+                            'jenis_kendaraan' => $masterData->jenisKendaraan->jenis_kendaraan ?? '',
+                            'varian' => '',
+                            'source_pdf' => $pathKelistrikan,
+                            'deskripsi_optional' => null
+                        ];
+                    }
                 }
             }
         }
