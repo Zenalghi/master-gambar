@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\E_VarianBodyController as VarianBodyController;
 use App\Http\Controllers\Api\X_CustomerController as CustomerController;
 use App\Http\Controllers\Api\X_UserController as UserController;
 use App\Http\Controllers\Api\Z_DrawingController as DrawingController;
+use App\Http\Controllers\Api\GarbageCollectorController;
 use App\Http\Controllers\Api\Z_pdf_png_pdfController;
 use App\Http\Controllers\Api\TransaksiController;
 use App\Http\Controllers\Api\ProsesTransaksiController;
@@ -177,6 +178,12 @@ Route::middleware('auth.api')->group(
             Route::post('varian-body/{id}/restore', [VarianBodyController::class, 'restore']);
             Route::delete('varian-body/{id}/force-delete', [VarianBodyController::class, 'forceDelete']);
             Route::apiResource('varian-body', VarianBodyController::class);
+
+            // --- GARBAGE COLLECTOR (PEMBERSIH SERVER) ---
+            Route::post('/garbage-collector/utama', [GarbageCollectorController::class, 'cleanUtama']);
+            Route::post('/garbage-collector/optional', [GarbageCollectorController::class, 'cleanOptional']);
+            Route::post('/garbage-collector/kelistrikan', [GarbageCollectorController::class, 'cleanKelistrikan']);
+            Route::post('/garbage-collector/all', [GarbageCollectorController::class, 'cleanAll']); // Opsional buat nuke semua
         });
         Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf']);
         Route::get('/test-pdf-uncopyable', [Z_pdf_png_pdfController::class, 'generateUncopyablePdf']);
