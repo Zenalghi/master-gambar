@@ -26,6 +26,7 @@ class ProsesTransaksiController extends Controller
             'jumlah_gambar' => 'required|integer|min:1|max:4',
             'data_gambar_utama' => 'required|array',
             'deskripsi_optional' => 'nullable|string',
+            'desc_space' => 'nullable|integer|min:0',
             'ordered_independent_ids' => 'nullable|array',
             'ordered_independent_ids.*' => 'integer',
             'i_gambar_kelistrikan_id' => 'nullable|integer|exists:i_gambar_kelistrikan,id',
@@ -87,6 +88,7 @@ class ProsesTransaksiController extends Controller
                 'data_gambar_utama' => $request->data_gambar_utama,
                 'ordered_independent_ids' => $request->ordered_independent_ids ?? [],
                 'deskripsi_optional' => $request->deskripsi_optional,
+                'desc_space' => $request->input('desc_space', 0),
                 'i_gambar_kelistrikan_id' => $request->input('i_gambar_kelistrikan_id'),
                 'snapshot_data' => $snapshot, // <-- Simpan hasil foto ke DB!
             ]
@@ -98,7 +100,7 @@ class ProsesTransaksiController extends Controller
 
     public function proses(Request $request, Transaksi $transaksi)
     {
-        set_time_limit(300); 
+        set_time_limit(300);
         ini_set('memory_limit', '512M');
 
         $request->validate([
@@ -107,8 +109,14 @@ class ProsesTransaksiController extends Controller
         ]);
 
         $transaksi->load([
-            'detail', 'user', 'customer', 'fPengajuan',
-            'masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'
+            'detail',
+            'user',
+            'customer',
+            'fPengajuan',
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
         ]);
 
         if (!$transaksi->detail) {
@@ -116,7 +124,7 @@ class ProsesTransaksiController extends Controller
         }
 
         $detail = $transaksi->detail;
-        
+
         // --- AMBIL SNAPSHOT ---
         $snapshot = $detail->snapshot_data ?? [];
 
@@ -124,15 +132,20 @@ class ProsesTransaksiController extends Controller
         $dataGambarUtama = $detail->data_gambar_utama ?? [];
         $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
         $deskripsiOptional = $detail->deskripsi_optional;
+        $descSpace = $detail->desc_space ?? 0;
         $iGambarKelistrikanId = $detail->i_gambar_kelistrikan_id;
         $hGambarOptionalIds = $request->input('h_gambar_optional_ids', []);
-        
+
         $masterData = $transaksi->masterData;
         $jenisPengajuan = strtoupper($transaksi->fPengajuan->jenis_pengajuan);
         $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
 
-        $jobsUtama = []; $jobsTerurai = []; $jobsKontruksi = []; 
-        $jobsPaket = []; $jobsIndependen = []; $jobsKelistrikan = [];
+        $jobsUtama = [];
+        $jobsTerurai = [];
+        $jobsKontruksi = [];
+        $jobsPaket = [];
+        $jobsIndependen = [];
+        $jobsKelistrikan = [];
 
         // --- TAHAP 1: LOOPING DATA DB ---
         if (!empty($dataGambarUtama)) {
@@ -147,7 +160,7 @@ class ProsesTransaksiController extends Controller
                 $jenisJudul = JJudulGambar::find($judul_id);
 
                 if ($gambarUtamaData && $jenisJudul) {
-                    
+
                     // !!! KUNCI UTAMA: Coba ambil path dari Snapshot, jika tidak ada (transaksi lama), ambil dari Master !!!
                     $pathUtama = $snapshot['varian'][$varian_id]['utama'] ?? $gambarUtamaData->path_gambar_utama;
                     $pathTerurai = $snapshot['varian'][$varian_id]['terurai'] ?? $gambarUtamaData->path_gambar_terurai;
@@ -159,7 +172,8 @@ class ProsesTransaksiController extends Controller
                             'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
                             'varian' => $varianBody->varian_body,
                             'source_pdf' => $pathUtama, // Pakai file snapshot
-                            'deskripsi_optional' => $deskripsiOptional
+                            'deskripsi_optional' => $deskripsiOptional,
+                            'desc_space' => $descSpace
                         ];
                     }
 
@@ -189,7 +203,7 @@ class ProsesTransaksiController extends Controller
                         if ($gambarPaket->tipe === 'paket' && in_array($gambarPaket->id, $hGambarOptionalIds)) {
                             // Cek snapshot paket
                             $pathPaket = $snapshot['varian'][$varian_id]['paket'][$gambarPaket->id] ?? $gambarPaket->path_gambar_optional;
-                            
+
                             if ($pathPaket) {
                                 $judulLengkap = ($gambarPaket->deskripsi ?: 'GAMBAR OPTIONAL PAKET') . ' ' . $jenisJudul->nama_judul;
                                 $jobsPaket[] = [
@@ -217,7 +231,7 @@ class ProsesTransaksiController extends Controller
                 foreach ($gambarIndependen as $gambarOptional) {
                     // Ambil snapshot independen
                     $pathIndependen = $snapshot['independen'][$gambarOptional->id] ?? $gambarOptional->path_gambar_optional;
-                    
+
                     if ($pathIndependen) {
                         $jobsIndependen[] = [
                             'type' => 'standard',
@@ -235,7 +249,7 @@ class ProsesTransaksiController extends Controller
                 if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
                     // Ambil snapshot kelistrikan
                     $pathKelistrikan = $snapshot['kelistrikan'] ?? $gambarKelistrikan->fileKelistrikan->path_file;
-                    
+
                     if ($pathKelistrikan) {
                         $jobsKelistrikan[] = [
                             'type' => 'kelistrikan',
@@ -359,6 +373,7 @@ class ProsesTransaksiController extends Controller
             'signature_path_2' => $pemeriksa->signature ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null,
             'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
             'deskripsi_optional' => $job['deskripsi_optional'],
+            'desc_space' => $job['desc_space'] ?? 0,
         ];
     }
 
@@ -506,7 +521,16 @@ class ProsesTransaksiController extends Controller
 
             if (!empty($data['deskripsi_optional'])) {
                 $pdf->SetFont('arial', '', 8);
-                $pdf->SetXY(211.878, 161.858);
+
+                // --- LOGIKA DESC SPACE ---
+                $baseY = 161.858;
+                $lineHeight = 2.898;
+                $spaceMultiplier = isset($data['desc_space']) ? (int)$data['desc_space'] : 0;
+
+                // Kalkulasi (Base Y dikurangi (Tinggi baris x Jumlah Space))
+                $calculatedY = $baseY - ($lineHeight * $spaceMultiplier);
+
+                $pdf->SetXY(211.878, $calculatedY);
                 $pdf->Write(0, $data['deskripsi_optional']);
             }
         }

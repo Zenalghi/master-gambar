@@ -17,6 +17,7 @@ class TransaksiDetail extends Model
         'jumlah_gambar',
         'data_gambar_utama',
         'deskripsi_optional',
+        'desc_space',
         'ordered_independent_ids',
         'i_gambar_kelistrikan_id',
         'snapshot_data',
