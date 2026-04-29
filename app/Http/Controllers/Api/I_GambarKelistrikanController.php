@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use App\Models\MasterKelistrikanFile;
 use App\Models\MasterData;
 use App\Models\IGambarKelistrikan;
+use App\Models\TransaksiDetail; // <-- Import ini untuk pengecekan Snapshot
 
 class I_GambarKelistrikanController extends Controller
 {
@@ -29,7 +30,7 @@ class I_GambarKelistrikanController extends Controller
         $sortDirection = $validated['sortDirection'] ?? 'desc';
         $search = $validated['search'] ?? '';
 
-        // Query Langsung ke 3 Tabel Induk (Karena ID sudah ada di tabel file)
+        // Query Langsung ke 3 Tabel Induk
         $query = \App\Models\MasterKelistrikanFile::query()
             ->join('a_type_engines', 'master_kelistrikan_files.a_type_engine_id', '=', 'a_type_engines.id')
             ->join('b_merks', 'master_kelistrikan_files.b_merk_id', '=', 'b_merks.id')
@@ -53,7 +54,7 @@ class I_GambarKelistrikanController extends Controller
             });
         }
 
-        // Sorting Logic (Tanpa Alias, langsung nama tabel.kolom)
+        // Sorting Logic
         $sortColumn = match ($sortBy) {
             'id' => 'master_kelistrikan_files.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -88,36 +89,40 @@ class I_GambarKelistrikanController extends Controller
                 ->first();
 
             if (!$fileRecord) {
-                // Buat record baru sementara (tanpa path dulu) untuk dapat ID
+                // Buat record baru sementara (tanpa path) untuk dapat ID
                 $fileRecord = new MasterKelistrikanFile();
                 $fileRecord->a_type_engine_id = $validated['a_type_engine_id'];
                 $fileRecord->b_merk_id = $validated['b_merk_id'];
                 $fileRecord->c_type_chassis_id = $validated['c_type_chassis_id'];
-                $fileRecord->path_file = 'temp'; // Placeholder
+                $fileRecord->path_file = 'temp';
                 $fileRecord->save();
-            } else {
-                // Hapus file fisik lama jika ada
-                if (Storage::disk('master_gambar')->exists($fileRecord->path_file)) {
-                    Storage::disk('master_gambar')->delete($fileRecord->path_file);
-                }
             }
 
-            // 2. GENERATE PATH SESUAI REQUEST: kelistrikan/{chassis_id}/{file_id}.pdf
+            // 2. GENERATE PATH BARU DENGAN TIMESTAMP (DYNAMIC NAMING)
             $chassisId = $validated['c_type_chassis_id'];
-            $fileId = $fileRecord->id; // ID sudah tersedia sekarang
+            $fileId = $fileRecord->id;
 
-            $fileName = $fileId . '.pdf';
+            // Format: kelistrikan/{chassis_id}/{file_id}_{timestamp}.pdf
+            $fileName = $fileId . '_' . time() . '.pdf';
             $directory = 'kelistrikan/' . $chassisId;
 
-            // Simpan Fisik
-            $path = $request->file('gambar_kelistrikan')->storeAs(
+            $newPath = $request->file('gambar_kelistrikan')->storeAs(
                 $directory,
                 $fileName,
                 'master_gambar'
             );
 
-            // 3. Update Path di Database
-            $fileRecord->path_file = $path;
+            // 3. SMART DELETE (Hapus File Lama jika tidak terpakai)
+            if ($fileRecord->path_file && $fileRecord->path_file !== 'temp' && $fileRecord->path_file !== $newPath) {
+                if (!$this->isPathUsedInTransaction($fileRecord->path_file)) {
+                    if (Storage::disk('master_gambar')->exists($fileRecord->path_file)) {
+                        Storage::disk('master_gambar')->delete($fileRecord->path_file);
+                    }
+                }
+            }
+
+            // 4. Update Path di Database
+            $fileRecord->path_file = $newPath;
             $fileRecord->save();
             $fileRecord->touch();
 
@@ -129,9 +134,15 @@ class I_GambarKelistrikanController extends Controller
     public function destroyFile($id)
     {
         $file = MasterKelistrikanFile::findOrFail($id);
-        if (Storage::disk('master_gambar')->exists($file->path_file)) {
-            Storage::disk('master_gambar')->delete($file->path_file);
+
+        // --- SMART DELETE ---
+        if ($file->path_file && Storage::disk('master_gambar')->exists($file->path_file)) {
+            // Cek apakah file dipakai di transaksi
+            if (!$this->isPathUsedInTransaction($file->path_file)) {
+                Storage::disk('master_gambar')->delete($file->path_file);
+            }
         }
+
         $file->delete();
         return response()->noContent();
     }
@@ -144,7 +155,6 @@ class I_GambarKelistrikanController extends Controller
         $validated = $request->validate([
             'master_data_id' => 'required|integer|exists:master_data,id',
             'deskripsi' => 'required|string|max:255',
-            // Opsional: 'id' jika ingin mode edit baris tertentu
             'id' => 'nullable|integer|exists:i_gambar_kelistrikan,id'
         ]);
 
@@ -157,10 +167,6 @@ class I_GambarKelistrikanController extends Controller
             return response()->json(['message' => 'File PDF belum tersedia untuk Chassis ini.'], 422);
         }
 
-        // LOGIKA BARU:
-        // Jika dikirim 'id', maka update baris tersebut.
-        // Jika tidak, buat baris baru (support multiple deskripsi untuk 1 master data)
-
         if ($request->filled('id')) {
             // Mode Edit Existing Option
             $gambar = \App\Models\IGambarKelistrikan::findOrFail($request->id);
@@ -169,7 +175,6 @@ class I_GambarKelistrikanController extends Controller
             ]);
         } else {
             // Mode Add New Option
-            // Cek duplikasi persis (Master ID sama + Deskripsi sama) agar tidak double input
             $gambar = \App\Models\IGambarKelistrikan::firstOrCreate(
                 [
                     'master_data_id' => $masterData->id,
@@ -183,12 +188,12 @@ class I_GambarKelistrikanController extends Controller
 
         return response()->json($gambar, 200);
     }
+
     public function destroyDeskripsi($id)
     {
         $gambar = \App\Models\IGambarKelistrikan::findOrFail($id);
 
         // CEK JUMLAH DATA
-        // Hitung berapa banyak deskripsi yang dimiliki oleh Master Data ini
         $count = \App\Models\IGambarKelistrikan::where('master_data_id', $gambar->master_data_id)->count();
 
         if ($count <= 1) {
@@ -201,6 +206,7 @@ class I_GambarKelistrikanController extends Controller
 
         return response()->noContent(); // 204 Success
     }
+
     public function checkFileStatus($chassisId)
     {
         $existingFile = MasterKelistrikanFile::where('c_type_chassis_id', $chassisId)->first();
@@ -208,5 +214,33 @@ class I_GambarKelistrikanController extends Controller
             'exists' => $existingFile !== null,
             'filename' => $existingFile ? basename($existingFile->path_file) : null
         ]);
+    }
+
+    /**
+     * Menampilkan file PDF Kelistrikan.
+     * (Saya tambahkan helper method ini agar konsisten dengan controller lain jika dibutuhkan view)
+     */
+    public function showPdf(IGambarKelistrikan $gambarKelistrikan)
+    {
+        $fileFisik = $gambarKelistrikan->fileKelistrikan;
+
+        if (!$fileFisik || !Storage::disk('master_gambar')->exists($fileFisik->path_file)) {
+            return response()->json(['message' => 'File PDF tidak ditemukan.'], 404);
+        }
+
+        $filePath = Storage::disk('master_gambar')->path($fileFisik->path_file);
+        return response()->file($filePath, ['Content-Type' => 'application/pdf']);
+    }
+
+    /**
+     * --- FUNGSI PINTAR (SMART DELETE CHECK) ---
+     * Mengecek apakah path file PDF kelistrikan ini masih tercatat di snapshot transaksi historis.
+     */
+    private function isPathUsedInTransaction(string $path): bool
+    {
+        if (empty($path)) return false;
+
+        // Pengecekan aman dan super cepat via LIKE query JSON
+        return TransaksiDetail::where('snapshot_data', 'LIKE', '%"' . $path . '"%')->exists();
     }
 }

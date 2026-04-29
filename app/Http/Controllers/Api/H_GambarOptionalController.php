@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\EVarianBody;
 use App\Models\HGambarOptional;
+use App\Models\TransaksiDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -97,31 +98,29 @@ class H_GambarOptionalController extends Controller
             // --- PERUBAHAN LOGIKA PATH & ID ---
             if ($tipe === 'independen') {
                 $masterDataId = $validated['master_data_id'];
-                // Path baru: master_data/{id}/independen
                 $basePath = $masterDataId . '/independen';
             } else {
-                // Tipe Paket (Tetap sama)
                 $gambarUtama = \App\Models\GGambarUtama::with('varianBody.masterData')->find($validated['g_gambar_utama_id']);
                 $varianBody = $gambarUtama->varianBody;
                 $basePath = $varianBody->master_data_id . '/' . $varianBody->id . '/paket';
             }
 
-            // --- 2. LOGIKA KHUSUS TIPE 'PAKET' (UPSERT / Update jika ada) ---
+            // --- 2. LOGIKA UPSERT TIPE 'PAKET' ---
             if ($tipe === 'paket') {
                 $existingOptional = HGambarOptional::where('g_gambar_utama_id', $validated['g_gambar_utama_id'])
                     ->where('tipe', 'paket')
                     ->first();
 
                 if ($existingOptional) {
-                    // Gunakan ID yang SUDAH ADA sebagai nama file
-                    $fileName = $existingOptional->id . '.pdf';
+                    // Penamaan Dinamis (Gunakan time() agar tidak menimpa file di CDN/Cache)
+                    $fileName = $existingOptional->id . '_' . time() . '.pdf';
 
-                    // Upload File Baru (akan menimpa file lama jika namanya sama)
+                    // Upload File Baru
                     $newPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
 
-                    // Hapus file lama jika ternyata path/namanya beda (misal dulu pakai slug)
-                    if ($existingOptional->path_gambar_optional !== $newPath) {
-                        if (Storage::disk('master_gambar')->exists($existingOptional->path_gambar_optional)) {
+                    // --- SMART DELETE ---
+                    if ($existingOptional->path_gambar_optional && $existingOptional->path_gambar_optional !== $newPath) {
+                        if (!$this->isPathUsedInTransaction($existingOptional->path_gambar_optional)) {
                             Storage::disk('master_gambar')->delete($existingOptional->path_gambar_optional);
                         }
                     }
@@ -155,10 +154,8 @@ class H_GambarOptionalController extends Controller
 
             $gambarOptional = HGambarOptional::create($createData);
 
-            // C. Sekarang ID sudah ada ($gambarOptional->id)
-            $fileName = $gambarOptional->id . '.pdf';
-
-            // D. Upload File Fisik
+            // Penamaan Dinamis
+            $fileName = $gambarOptional->id . '_' . time() . '.pdf';
             $finalPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
 
             // E. Update record DB dengan path yang valid
@@ -188,9 +185,9 @@ class H_GambarOptionalController extends Controller
 
         return response()->json($updatedItem);
     }
+
     /**
      * Update Gambar Optional (Deskripsi DAN File).
-     * Mode Edit dari Frontend akan memanggil ini.
      */
     public function updateFile(Request $request, HGambarOptional $gambarOptional)
     {
@@ -204,46 +201,37 @@ class H_GambarOptionalController extends Controller
         return DB::transaction(function () use ($request, $validated, $gambarOptional) {
             $updateData = [];
 
-            // A. Cek Update Deskripsi
             if ($request->filled('deskripsi')) {
                 $updateData['deskripsi'] = Str::upper($validated['deskripsi']);
             }
 
-            // B. Cek Update File
             if ($request->hasFile('gambar_optional')) {
                 $basePath = '';
-                $fileName = "{$gambarOptional->id}.pdf";
 
-                // --- PERBAIKAN LOGIKA PATH ---
+                // --- LOGIKA PATH ---
                 if ($gambarOptional->tipe === 'independen') {
-                    // 1. Tipe Independen: Ambil langsung master_data_id
-                    // Path: {master_id}/independen/{id}.pdf
                     $basePath = "{$gambarOptional->master_data_id}/independen";
                 } else {
-                    // 2. Tipe Paket: Ambil via Relasi Gambar Utama -> Varian Body
-                    // Path: {master_id}/{varian_id}/paket/{id}.pdf
-
-                    // Load relasi gambar utama -> varian body
                     $gambarOptional->load('gambarUtama.varianBody');
-
                     $gambarUtama = $gambarOptional->gambarUtama;
-                    // Safety check jika data corrupt
                     if (!$gambarUtama || !$gambarUtama->varianBody) {
                         throw new \Exception("Data Varian Body tidak ditemukan untuk gambar paket ini.");
                     }
-
                     $varianBody = $gambarUtama->varianBody;
                     $basePath = "{$varianBody->master_data_id}/{$varianBody->id}/paket";
                 }
-                // -----------------------------
 
-                // Hapus file lama jika ada
-                if (Storage::disk('master_gambar')->exists($gambarOptional->path_gambar_optional)) {
-                    Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
+                // Penamaan Dinamis Baru
+                $fileName = $gambarOptional->id . '_' . time() . '.pdf';
+                $finalPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
+
+                // --- SMART DELETE (Hapus File Lama) ---
+                if ($gambarOptional->path_gambar_optional && $gambarOptional->path_gambar_optional !== $finalPath) {
+                    if (!$this->isPathUsedInTransaction($gambarOptional->path_gambar_optional)) {
+                        Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
+                    }
                 }
 
-                // Upload file baru
-                $finalPath = $request->file('gambar_optional')->storeAs($basePath, $fileName, 'master_gambar');
                 $updateData['path_gambar_optional'] = $finalPath;
             }
 
@@ -252,7 +240,6 @@ class H_GambarOptionalController extends Controller
             }
             $gambarOptional->touch();
 
-            // Load relasi untuk respon JSON (Conditional loading agar tidak error)
             if ($gambarOptional->tipe === 'independen') {
                 return response()->json($gambarOptional->load('masterData'));
             } else {
@@ -260,13 +247,18 @@ class H_GambarOptionalController extends Controller
             }
         });
     }
+
     /**
      * Menghapus (Soft Delete) gambar optional.
      */
     public function destroy(HGambarOptional $gambarOptional)
     {
+        // --- SMART DELETE ---
+        // Jika file tidak tercatat di transaksi manapun, boleh dihapus fisiknya.
         if ($gambarOptional->path_gambar_optional && Storage::disk('master_gambar')->exists($gambarOptional->path_gambar_optional)) {
-            Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
+            if (!$this->isPathUsedInTransaction($gambarOptional->path_gambar_optional)) {
+                Storage::disk('master_gambar')->delete($gambarOptional->path_gambar_optional);
+            }
         }
 
         $gambarOptional->delete(); // Lakukan Soft Delete
@@ -287,5 +279,17 @@ class H_GambarOptionalController extends Controller
 
         $filePath = Storage::disk('master_gambar')->path($path);
         return response()->file($filePath, ['Content-Type' => 'application/pdf']);
+    }
+
+    /**
+     * --- FUNGSI PINTAR (SMART DELETE CHECK) ---
+     * Mengecek apakah file PDF masih dibutuhkan oleh Transaksi historis.
+     */
+    private function isPathUsedInTransaction(string $path): bool
+    {
+        if (empty($path)) return false;
+
+        // Pengecekan aman dan super cepat via LIKE query JSON
+        return TransaksiDetail::where('snapshot_data', 'LIKE', '%"' . $path . '"%')->exists();
     }
 }
