@@ -98,12 +98,17 @@ class I_GambarKelistrikanController extends Controller
                 $fileRecord->save();
             }
 
-            // 2. GENERATE PATH BARU DENGAN TIMESTAMP (DYNAMIC NAMING)
+            // --- AMBIL NAMA TYPE ENGINE ---
+            $engine = \App\Models\ATypeEngine::find($validated['a_type_engine_id']);
+            $engineName = $engine ? Str::slug($engine->type_engine, '-') : 'engine';
+
+            // 2. GENERATE PATH BARU DENGAN TYPE ENGINE & TIMESTAMP
             $chassisId = $validated['c_type_chassis_id'];
             $fileId = $fileRecord->id;
 
-            // Format: kelistrikan/{chassis_id}/{file_id}_{timestamp}.pdf
-            $fileName = $fileId . '_' . time() . '.pdf';
+            // Format: kelistrikan/{chassis_id}/{type_engine}_{file_id}_{timestamp}.pdf
+            // Contoh: kelistrikan/5/euro-4_12_1715423811.pdf
+            $fileName = $engineName . '_' . $fileId . '_' . time() . '.pdf';
             $directory = 'kelistrikan/' . $chassisId;
 
             $newPath = $request->file('gambar_kelistrikan')->storeAs(
