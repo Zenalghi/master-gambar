@@ -106,6 +106,7 @@ class ProsesTransaksiController extends Controller
         $request->validate([
             'aksi' => 'required|in:preview,proses',
             'preview_page' => 'nullable|integer|min:1',
+            'is_edit_mode' => 'nullable|boolean',
         ]);
 
         $transaksi->load([
@@ -125,8 +126,11 @@ class ProsesTransaksiController extends Controller
 
         $detail = $transaksi->detail;
 
-        // --- AMBIL SNAPSHOT ---
-        $snapshot = $detail->snapshot_data ?? [];
+        // --- LOGIKA BARU: BYPASS SNAPSHOT JIKA MODE EDIT ---
+        $isEditMode = filter_var($request->input('is_edit_mode', false), FILTER_VALIDATE_BOOLEAN);
+
+        // Jika sedang Edit Mode, KOSONGKAN snapshot agar sistem mengambil langsung dari tabel Master terbaru!
+        $snapshot = $isEditMode ? [] : ($detail->snapshot_data ?? []);
 
         $pemeriksa = User::find($detail->pemeriksa_id);
         $dataGambarUtama = $detail->data_gambar_utama ?? [];
