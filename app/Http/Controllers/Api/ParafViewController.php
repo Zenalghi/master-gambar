@@ -5,10 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
 class ParafViewController extends Controller
 {
+    public function __construct()
+    {
+        // Naikkan limit memory hanya untuk controller ini
+        ini_set('memory_limit', '256M');
+    }
     /**
      * Menampilkan file paraf customer.
      */
@@ -19,8 +25,9 @@ class ParafViewController extends Controller
             return response()->json(['message' => 'Paraf not found.'], 404);
         }
 
-        // Periksa apakah file benar-benar ada di storage
         if (!Storage::disk('customer_paraf')->exists($customer->signature_pj)) {
+            // Beri log agar tahu apakah benar-benar hilang atau hanya locked
+            \Log::error("File tidak ditemukan di disk: " . $customer->signature_pj);
             return response()->json(['message' => 'File paraf not found on disk.'], 404);
         }
 

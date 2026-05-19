@@ -22,7 +22,7 @@ class ProsesTransaksiController extends Controller
     public function saveDraft(Request $request, Transaksi $transaksi)
     {
         $validated = $request->validate([
-            'pemeriksa_id' => 'required|exists:users,id',
+            'pemeriksa_id' => 'nullable|exists:users,id',
             'pihak_penyetujuan' => 'nullable|string|in:vendor,customer', // <-- Validasi Baru 'jumlah_gambar'=> 'required|integer|min:1|max:4',
             'data_gambar_utama' => 'required|array',
             'deskripsi_optional' => 'nullable|string',
@@ -371,21 +371,21 @@ class ProsesTransaksiController extends Controller
     }
 
     // --- Helper Data Builder (SEKARANG MENERIMA PIHAK PENYETUJUAN) ---
-    private function buildPdfData(array $job, Transaksi $transaksi, User $pemeriksa, int $totalHalaman, string $pihakPenyetujuan): array
+    private function buildPdfData(array $job, Transaksi $transaksi, ?User $pemeriksa, int $totalHalaman, string $pihakPenyetujuan): array
     {
         // Default (Vendor)
-        $namaDigambar = $transaksi->user->name;
-        $namaDiperiksa = $pemeriksa->name;
+        $namaDigambar = $transaksi->user->name ?? '';
+        $namaDiperiksa = $pemeriksa ? $pemeriksa->name : '';
         $parafDigambarPath = $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null;
-        $parafDiperiksaPath = $pemeriksa->signature ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null;
+        $parafDiperiksaPath = ($pemeriksa && $pemeriksa->signature) ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null;
 
         // --- OVERRIDE JIKA CUSTOMER ---
         if ($pihakPenyetujuan === 'customer') {
             $customer = $transaksi->customer;
 
-            // Nama
-            $namaDigambar = $customer->nama_drafter ?? 'BELUM ADA';
-            $namaDiperiksa = $customer->nama_pemeriksa ?? 'BELUM ADA';
+            // Nama (Gunakan null coalescing fallback)
+            $namaDigambar = $customer->nama_drafter ?? '';
+            $namaDiperiksa = $customer->nama_pemeriksa ?? '';
 
             // Paraf
             $parafDigambarPath = $customer->signature_drafter ? Storage::disk('customer_paraf')->path($customer->signature_drafter) : null;
@@ -393,18 +393,23 @@ class ProsesTransaksiController extends Controller
         }
 
         return [
-            'type' => $job['type'],
-            'digambar' => $namaDigambar, // <--- NAMA DINAMIS 'diperiksa'=> $namaDiperiksa, // <--- NAMA DINAMIS 'disetujui'=> $transaksi->customer->pj,
+            'type' => $job['type'] ?? 'standard',
+            // Pastikan casting ke (string) agar TCPDF Write tidak error null
+            'digambar' => (string) $namaDigambar,
+            'diperiksa' => (string) $namaDiperiksa,
+            'disetujui' => (string) ($transaksi->customer->pj ?? ''),
             'tanggal' => now()->format('d.m.y'),
-            'judul_gambar' => $job['title'],
-            'catatan' => $job['varian'],
+            'judul_gambar' => $job['title'] ?? '',
+            'catatan' => $job['varian'] ?? '',
             'jenis_kendaraan' => $job['jenis_kendaraan'] ?? '',
-            'karoseri' => $transaksi->customer->nama_pt,
-            'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
+            'karoseri' => $transaksi->customer->nama_pt ?? '',
+            'no_halaman' => str_pad($job['page'] ?? 1, 2, '0', STR_PAD_LEFT),
             'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
-            'source_pdf_path' => $job['source_pdf'],
-            'signature_path' => $parafDigambarPath, // <--- PARAF 1 (Drafter) DINAMIS 'signature_path_2'=> $parafDiperiksaPath, // <--- PARAF 2 (Pemeriksa) DINAMIS 'signature_path_3'=> $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
-            'deskripsi_optional' => $job['deskripsi_optional'],
+            'source_pdf_path' => $job['source_pdf'] ?? '',
+            'signature_path'   => $parafDigambarPath,
+            'signature_path_2' => $parafDiperiksaPath,
+            'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
+            'deskripsi_optional' => $job['deskripsi_optional'] ?? '',
             'desc_space' => $job['desc_space'] ?? 0,
         ];
     }
@@ -487,25 +492,25 @@ class ProsesTransaksiController extends Controller
         $pdf->AddPage();
         $pdf->useTemplate($tplId, ['adjustPageSize' => true]);
 
-        // LOGIKA PENULISAN TEKS
+        // LOGIKA PENULISAN TEKS (DIPERBAIKI)
         $pdf->SetFont('arial', '', 4.3);
         $pdf->SetXY(225.862, 175.205);
-        $pdf->Write(0, $data['digambar']);
+        $pdf->Write(0, $data['digambar'] ?? '');
         $pdf->SetXY(225.862, 177.768);
-        $pdf->Write(0, $data['diperiksa']);
+        $pdf->Write(0, $data['diperiksa'] ?? '');
         $pdf->SetXY(225.862, 180.331);
-        $pdf->Write(0, $data['disetujui']);
+        $pdf->Write(0, $data['disetujui'] ?? '');
 
         $pdf->SetXY(243.53, 175.205);
-        $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
+        $pdf->Cell(8.377, 0, $data['tanggal'] ?? '', 0, 0, 'C');
         $pdf->SetXY(243.53, 177.768);
-        $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
+        $pdf->Cell(8.377, 0, $data['tanggal'] ?? '', 0, 0, 'C');
         $pdf->SetXY(243.53, 180.331);
-        $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
+        $pdf->Cell(8.377, 0, $data['tanggal'] ?? '', 0, 0, 'C');
 
         // CATATAN: KITA TIDAK MEMANGGIL placeSignature DI SINI (AGAR PARAF TIDAK DIRASTER)
 
-        $text = $data['karoseri'];
+        $text = $data['karoseri'] ?? '';
         $cellWidth = 44.149;
         $fontSize = 8;
         $pdf->SetFont('arial', '', $fontSize);
@@ -519,13 +524,13 @@ class ProsesTransaksiController extends Controller
 
         $pdf->SetFont('arial', '', 7);
         $pdf->SetXY(274.381, 194.118);
-        $pdf->Write(0, $data['no_halaman']);
+        $pdf->Write(0, $data['no_halaman'] ?? '');
         $pdf->SetFont('arial', '', 5);
         $pdf->SetXY(275.342, 198.311);
-        $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
+        $pdf->Cell(10.139, 0, ($data['no_halaman'] ?? '') . ' / ' . ($data['total_halaman'] ?? ''), 0, 0, 'C');
 
-        if ($data['type'] === 'kelistrikan') {
-            $finalText = sprintf('%s', $data['judul_gambar']);
+        if (($data['type'] ?? '') === 'kelistrikan') {
+            $finalText = sprintf('%s', $data['judul_gambar'] ?? '');
             $maxWidth = 68.54;
             $fontSize = 6;
             $minFontSize = 3;
@@ -537,7 +542,7 @@ class ProsesTransaksiController extends Controller
             $pdf->SetXY(216.847, 188.632);
             $pdf->Cell($maxWidth, 0, $finalText, 0, 0, 'C');
         } else {
-            $text = $data['judul_gambar'];
+            $text = $data['judul_gambar'] ?? '';
             $maxWidth = 68.54;
             $fontSize = 6;
             $minFontSize = 3;
@@ -559,7 +564,6 @@ class ProsesTransaksiController extends Controller
                 $lineHeight = 2.898;
                 $spaceMultiplier = isset($data['desc_space']) ? (int)$data['desc_space'] : 0;
 
-                // Kalkulasi (Base Y dikurangi (Tinggi baris x Jumlah Space))
                 $calculatedY = $baseY - ($lineHeight * $spaceMultiplier);
 
                 $pdf->SetXY(211.878, $calculatedY);

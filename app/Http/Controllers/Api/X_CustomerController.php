@@ -38,13 +38,21 @@ class X_CustomerController extends Controller
                 $q->where('nama_pt', 'like', "%{$search}%")
                     ->orWhere('pj', 'like', "%{$search}%")
                     ->orWhere('nama_drafter', 'like', "%{$search}%")
-                    ->orWhere('nama_pemeriksa', 'like', "%{$search}%");
+                    ->orWhere('nama_pemeriksa', 'like', "%{$search}%")
+                    ->orWhere('created_at', 'like', "%{$search}%")
+                    ->orWhere('updated_at', 'like', "%{$search}%");
             });
         }
 
         // 5. Terapkan logika sorting
-        $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
+        // JIKA yang di-sort adalah kolom yang boleh kosong (nullable) seperti Drafter / Pemeriksa
+        if (in_array($sortBy, ['nama_drafter', 'nama_pemeriksa'])) {
+            // Urutkan nilai NULL agar selalu di bawah
+            // (IS NULL bernilai 1 jika kosong, bernilai 0 jika ada isinya. Jadi 0 naik ke atas, 1 turun ke bawah)
+            $query->orderByRaw("$sortBy IS NULL ASC");
+        }
 
+        $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
         // 6. Ambil data dengan paginasi
         $paginated = $query->paginate($perPage);
 
