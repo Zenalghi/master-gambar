@@ -29,7 +29,7 @@ class ParafViewController extends Controller
     }
 
     /**
-     * Menampilkan file paraf user.
+     * Menampilkan file paraf user. 
      */
     public function showUserParaf(User $user)
     {

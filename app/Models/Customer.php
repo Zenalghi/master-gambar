@@ -25,13 +25,33 @@ class Customer extends Model
      */
     protected $fillable = [
         'nama_pt',
-        'pj', // Penanggung Jawab
-        'signature_pj', // Path ke file gambar tanda tangan penanggung jawab
+        'pj',
+        'signature_pj',
+        'nama_drafter',           // <-- TAMBAHKAN INI
+        'signature_drafter',      // <-- TAMBAHKAN INI
+        'nama_pemeriksa',         // <-- TAMBAHKAN INI
+        'signature_pemeriksa',    // <-- TAMBAHKAN INI
     ];
+
     protected function namaPt(): Attribute
     {
         return Attribute::make(
             set: fn($value) => strtoupper($value),
+        );
+    }
+
+    // --- TAMBAHAN OPSIONAL: Auto Uppercase ---
+    protected function namaDrafter(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => $value ? strtoupper($value) : null,
+        );
+    }
+
+    protected function namaPemeriksa(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => $value ? strtoupper($value) : null,
         );
     }
 }
