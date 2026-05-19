@@ -23,7 +23,7 @@ class ProsesTransaksiController extends Controller
     {
         $validated = $request->validate([
             'pemeriksa_id' => 'required|exists:users,id',
-            'jumlah_gambar' => 'required|integer|min:1|max:4',
+            'pihak_penyetujuan' => 'nullable|string|in:vendor,customer', // <-- Validasi Baru 'jumlah_gambar'=> 'required|integer|min:1|max:4',
             'data_gambar_utama' => 'required|array',
             'deskripsi_optional' => 'nullable|string',
             'desc_space' => 'nullable|integer|min:0',
@@ -84,7 +84,7 @@ class ProsesTransaksiController extends Controller
             ['transaksi_id' => $transaksi->id],
             [
                 'pemeriksa_id' => $request->pemeriksa_id,
-                'jumlah_gambar' => $request->jumlah_gambar,
+                'pihak_penyetujuan' => $request->input('pihak_penyetujuan', 'vendor'), // <-- Simpan ke DB! 'jumlah_gambar'=> $request->jumlah_gambar,
                 'data_gambar_utama' => $request->data_gambar_utama,
                 'ordered_independent_ids' => $request->ordered_independent_ids ?? [],
                 'deskripsi_optional' => $request->deskripsi_optional,
@@ -133,6 +133,10 @@ class ProsesTransaksiController extends Controller
         $snapshot = $isEditMode ? [] : ($detail->snapshot_data ?? []);
 
         $pemeriksa = User::find($detail->pemeriksa_id);
+
+        // --- AMBIL PIHAK PENYETUJUAN DARI DB ---
+        $pihakPenyetujuan = $detail->pihak_penyetujuan ?? 'vendor';
+
         $dataGambarUtama = $detail->data_gambar_utama ?? [];
         $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
         $deskripsiOptional = $detail->deskripsi_optional;
@@ -287,7 +291,10 @@ class ProsesTransaksiController extends Controller
                 if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) {
                     return response()->json(['message' => 'File PDF sumber tidak ditemukan.'], 404);
                 }
-                $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
+
+                // --- KIRIM PIHAK PENYETUJUAN KE BUILDER ---
+                $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
+
                 $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                 if (ob_get_length()) ob_clean();
                 return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
@@ -305,7 +312,10 @@ class ProsesTransaksiController extends Controller
 
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
-                        $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
+
+                        // --- KIRIM PIHAK PENYETUJUAN KE BUILDER ---
+                        $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
+
                         $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                         $tempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('merge_', true) . '.pdf';
                         file_put_contents($tempPath, $pdfContent);
@@ -331,7 +341,10 @@ class ProsesTransaksiController extends Controller
                     $generatedPdfs = [];
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
-                        $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman);
+
+                        // --- KIRIM PIHAK PENYETUJUAN KE BUILDER ---
+                        $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
+
                         $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                         $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
                     }
@@ -357,14 +370,31 @@ class ProsesTransaksiController extends Controller
         }
     }
 
-    // --- Helper Data Builder ---
-    private function buildPdfData(array $job, Transaksi $transaksi, User $pemeriksa, int $totalHalaman): array
+    // --- Helper Data Builder (SEKARANG MENERIMA PIHAK PENYETUJUAN) ---
+    private function buildPdfData(array $job, Transaksi $transaksi, User $pemeriksa, int $totalHalaman, string $pihakPenyetujuan): array
     {
+        // Default (Vendor)
+        $namaDigambar = $transaksi->user->name;
+        $namaDiperiksa = $pemeriksa->name;
+        $parafDigambarPath = $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null;
+        $parafDiperiksaPath = $pemeriksa->signature ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null;
+
+        // --- OVERRIDE JIKA CUSTOMER ---
+        if ($pihakPenyetujuan === 'customer') {
+            $customer = $transaksi->customer;
+
+            // Nama
+            $namaDigambar = $customer->nama_drafter ?? 'BELUM ADA';
+            $namaDiperiksa = $customer->nama_pemeriksa ?? 'BELUM ADA';
+
+            // Paraf
+            $parafDigambarPath = $customer->signature_drafter ? Storage::disk('customer_paraf')->path($customer->signature_drafter) : null;
+            $parafDiperiksaPath = $customer->signature_pemeriksa ? Storage::disk('customer_paraf')->path($customer->signature_pemeriksa) : null;
+        }
+
         return [
             'type' => $job['type'],
-            'digambar' => $transaksi->user->name,
-            'diperiksa' => $pemeriksa->name,
-            'disetujui' => $transaksi->customer->pj,
+            'digambar' => $namaDigambar, // <--- NAMA DINAMIS 'diperiksa'=> $namaDiperiksa, // <--- NAMA DINAMIS 'disetujui'=> $transaksi->customer->pj,
             'tanggal' => now()->format('d.m.y'),
             'judul_gambar' => $job['title'],
             'catatan' => $job['varian'],
@@ -373,9 +403,7 @@ class ProsesTransaksiController extends Controller
             'no_halaman' => str_pad($job['page'], 2, '0', STR_PAD_LEFT),
             'total_halaman' => str_pad($totalHalaman, 2, '0', STR_PAD_LEFT),
             'source_pdf_path' => $job['source_pdf'],
-            'signature_path' => $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null,
-            'signature_path_2' => $pemeriksa->signature ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null,
-            'signature_path_3' => $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
+            'signature_path' => $parafDigambarPath, // <--- PARAF 1 (Drafter) DINAMIS 'signature_path_2'=> $parafDiperiksaPath, // <--- PARAF 2 (Pemeriksa) DINAMIS 'signature_path_3'=> $transaksi->customer->signature_pj ? Storage::disk('customer_paraf')->path($transaksi->customer->signature_pj) : null,
             'deskripsi_optional' => $job['deskripsi_optional'],
             'desc_space' => $job['desc_space'] ?? 0,
         ];
