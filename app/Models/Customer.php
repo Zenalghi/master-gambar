@@ -27,10 +27,10 @@ class Customer extends Model
         'nama_pt',
         'pj',
         'signature_pj',
-        'nama_drafter',           // <-- TAMBAHKAN INI
-        'signature_drafter',      // <-- TAMBAHKAN INI
-        'nama_pemeriksa',         // <-- TAMBAHKAN INI
-        'signature_pemeriksa',    // <-- TAMBAHKAN INI
+        'nama_drafter',
+        'signature_drafter',
+        'nama_pemeriksa',
+        'signature_pemeriksa',
     ];
 
     protected function namaPt(): Attribute

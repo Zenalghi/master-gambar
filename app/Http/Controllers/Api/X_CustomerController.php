@@ -94,6 +94,22 @@ class X_CustomerController extends Controller
             // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
             Storage::disk('customer_paraf')->deleteDirectory($folderPath);
         }
+        // Cek apakah customer memiliki file paraf (signature_drafter)
+        if ($customer->signature_drafter) {
+            // Ambil nama folder dari path file
+            $folderPath = dirname($customer->signature_drafter);
+
+            // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
+            Storage::disk('customer_paraf')->deleteDirectory($folderPath);
+        }
+        // Cek apakah customer memiliki file paraf (signature_pemeriksa)
+        if ($customer->signature_pemeriksa) {
+            // Ambil nama folder dari path file
+            $folderPath = dirname($customer->signature_pemeriksa);
+
+            // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
+            Storage::disk('customer_paraf')->deleteDirectory($folderPath);
+        }
 
         // Hapus data customer dari database
         $customer->delete();
