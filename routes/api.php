@@ -122,6 +122,8 @@ Route::middleware('auth.api')->group(
             Route::delete('/users/{user}/paraf', [ParafUploadController::class, 'destroyUserParaf']);
             Route::post('/customers/{customer}/paraf', [ParafUploadController::class, 'uploadCustomerParaf']);
             Route::get('/customers/{customer}/paraf', [ParafViewController::class, 'showCustomerParaf']);
+            Route::get('/customers/{customer}/paraf-drafter', [ParafViewController::class, 'showCustomerDrafterParaf']);
+            Route::get('/customers/{customer}/paraf-pemeriksa', [ParafViewController::class, 'showCustomerPemeriksaParaf']);
             Route::get('/users/{user}/paraf', [ParafViewController::class, 'showUserParaf']);
 
             // --- RESOURCE LAINNYA ---

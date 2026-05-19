@@ -12,6 +12,82 @@ use Illuminate\Support\Str;
 class ParafUploadController extends Controller
 {
     /**
+     * Mengunggah atau memperbarui paraf untuk Customer (PJ, Drafter, Pemeriksa).
+     */
+    public function uploadCustomerParaf(Request $request, Customer $customer)
+    {
+        $request->validate([
+            'paraf_pj' => 'nullable|image|mimes:png|max:1024',
+            'paraf_drafter' => 'nullable|image|mimes:png|max:1024',
+            'paraf_pemeriksa' => 'nullable|image|mimes:png|max:1024',
+        ]);
+
+        $folderPath = (string) $customer->id;
+
+        // 1. Upload Paraf PJ
+        if ($request->hasFile('paraf_pj')) {
+            if ($customer->signature_pj) {
+                Storage::disk('customer_paraf')->delete($customer->signature_pj);
+            }
+            $fileName = $customer->id . '_pj.png'; // Penamaan dibedakan
+            $path = $request->file('paraf_pj')->storeAs($folderPath, $fileName, 'customer_paraf');
+            $customer->signature_pj = $path;
+        }
+
+        // 2. Upload Paraf Drafter
+        if ($request->hasFile('paraf_drafter')) {
+            if ($customer->signature_drafter) {
+                Storage::disk('customer_paraf')->delete($customer->signature_drafter);
+            }
+            $fileName = $customer->id . '_drafter.png';
+            $path = $request->file('paraf_drafter')->storeAs($folderPath, $fileName, 'customer_paraf');
+            $customer->signature_drafter = $path;
+        }
+
+        // 3. Upload Paraf Pemeriksa
+        if ($request->hasFile('paraf_pemeriksa')) {
+            if ($customer->signature_pemeriksa) {
+                Storage::disk('customer_paraf')->delete($customer->signature_pemeriksa);
+            }
+            $fileName = $customer->id . '_pemeriksa.png';
+            $path = $request->file('paraf_pemeriksa')->storeAs($folderPath, $fileName, 'customer_paraf');
+            $customer->signature_pemeriksa = $path;
+        }
+
+        $customer->save();
+        $customer->touch(); // Paksa update timestamp
+
+        return response()->json($customer->fresh());
+    }
+
+    /**
+     * Menghapus paraf Customer berdasarkan tipe (opsional: via query string ?type=drafter).
+     */
+    public function destroyCustomerParaf(Request $request, Customer $customer)
+    {
+        $type = $request->query('type', 'all'); // 'all', 'pj', 'drafter', 'pemeriksa'
+
+        if (in_array($type, ['all', 'pj']) && $customer->signature_pj) {
+            Storage::disk('customer_paraf')->delete($customer->signature_pj);
+            $customer->signature_pj = null;
+        }
+
+        if (in_array($type, ['all', 'drafter']) && $customer->signature_drafter) {
+            Storage::disk('customer_paraf')->delete($customer->signature_drafter);
+            $customer->signature_drafter = null;
+        }
+
+        if (in_array($type, ['all', 'pemeriksa']) && $customer->signature_pemeriksa) {
+            Storage::disk('customer_paraf')->delete($customer->signature_pemeriksa);
+            $customer->signature_pemeriksa = null;
+        }
+
+        $customer->save();
+
+        return response()->json(null, 204);
+    }
+    
+    /**
      * Mengunggah atau memperbarui paraf untuk User.
      */
     public function uploadUserParaf(Request $request, User $user)
@@ -37,31 +113,6 @@ class ParafUploadController extends Controller
     }
 
     /**
-     * Mengunggah atau memperbarui paraf untuk Penanggung Jawab Customer.
-     */
-    public function uploadCustomerParaf(Request $request, Customer $customer)
-    {
-        $request->validate([
-            'paraf_pj' => 'required|image|mimes:png|max:1024',
-        ]);
-
-        if ($customer->signature_pj) {
-            Storage::disk('customer_paraf')->delete($customer->signature_pj);
-        }
-
-        $folderPath = $customer->id;
-        $fileName = $customer->id . '.png';
-
-        $path = $request->file('paraf_pj')->storeAs($folderPath, $fileName, 'customer_paraf');
-
-        // Update path dan paksa update timestamp
-        $customer->update(['signature_pj' => $path]);
-        $customer->touch();
-
-        return response()->json($customer->fresh());
-    }
-
-    /**
      * Menghapus paraf User.
      */
     public function destroyUserParaf(User $user)
@@ -69,18 +120,6 @@ class ParafUploadController extends Controller
         if ($user->signature) {
             Storage::disk('user_paraf')->delete($user->signature);
             $user->update(['signature' => null]);
-        }
-        return response()->json(null, 204);
-    }
-
-    /**
-     * Menghapus paraf Customer.
-     */
-    public function destroyCustomerParaf(Customer $customer)
-    {
-        if ($customer->signature_pj) {
-            Storage::disk('customer_paraf')->delete($customer->signature_pj);
-            $customer->update(['signature_pj' => null]);
         }
         return response()->json(null, 204);
     }

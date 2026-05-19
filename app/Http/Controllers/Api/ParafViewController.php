@@ -27,7 +27,27 @@ class ParafViewController extends Controller
         // Kembalikan file sebagai respons gambar
         return Storage::disk('customer_paraf')->response($customer->signature_pj);
     }
+    /**
+     * Menampilkan file paraf Drafter Customer.
+     */
+    public function showCustomerDrafterParaf(Customer $customer)
+    {
+        if (!$customer->signature_drafter || !Storage::disk('customer_paraf')->exists($customer->signature_drafter)) {
+            return response()->json(['message' => 'Paraf Drafter not found.'], 404);
+        }
+        return Storage::disk('customer_paraf')->response($customer->signature_drafter);
+    }
 
+    /**
+     * Menampilkan file paraf Pemeriksa Customer.
+     */
+    public function showCustomerPemeriksaParaf(Customer $customer)
+    {
+        if (!$customer->signature_pemeriksa || !Storage::disk('customer_paraf')->exists($customer->signature_pemeriksa)) {
+            return response()->json(['message' => 'Paraf Pemeriksa not found.'], 404);
+        }
+        return Storage::disk('customer_paraf')->response($customer->signature_pemeriksa);
+    }
     /**
      * Menampilkan file paraf user. 
      */

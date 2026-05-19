@@ -19,6 +19,10 @@ class UpdateCustomerRequest extends FormRequest
             'nama_pt' => 'sometimes|required|string|max:255|unique:customers,nama_pt,' . $customerId,
             'pj' => 'sometimes|required|string|max:255',
             'signature_pj' => 'nullable|string',
+            'nama_drafter' => 'nullable|string|max:255',
+            'signature_drafter' => 'nullable|string',
+            'nama_pemeriksa' => 'nullable|string|max:255',
+            'signature_pemeriksa' => 'nullable|string',
         ];
     }
 }
