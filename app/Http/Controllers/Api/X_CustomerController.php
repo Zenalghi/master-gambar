@@ -24,7 +24,7 @@ class X_CustomerController extends Controller
         $sortAsc = $request->input('sort_asc', 'false') === 'true';
 
         // 2. Tentukan kolom yang diizinkan untuk di-sort
-        $allowedSorts = ['nama_pt', 'pj', 'created_at', 'updated_at'];
+        $allowedSorts = ['nama_pt', 'pj', 'nama_drafter', 'nama_pemeriksa', 'created_at', 'updated_at'];
         if (!in_array($sortBy, $allowedSorts)) {
             $sortBy = 'updated_at';
         }
@@ -36,7 +36,9 @@ class X_CustomerController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('nama_pt', 'like', "%{$search}%")
-                    ->orWhere('pj', 'like', "%{$search}%");
+                    ->orWhere('pj', 'like', "%{$search}%")
+                    ->orWhere('nama_drafter', 'like', "%{$search}%")
+                    ->orWhere('nama_pemeriksa', 'like', "%{$search}%");
             });
         }
 

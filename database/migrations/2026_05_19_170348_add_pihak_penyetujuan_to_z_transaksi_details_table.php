@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('z_transaksi_details', function (Blueprint $table) {
-            // Pihak penyetujuan, defaultnya 'vendor'
-            $table->string('pihak_penyetujuan')->default('vendor')->after('pemeriksa_id');
+            // Pihak penyetujuan, diletakkan di akhir tabel.
+            $table->string('pihak_penyetujuan')->default('vendor');
         });
     }
 

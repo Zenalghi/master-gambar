@@ -12,13 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('customers', function (Blueprint $table) {
-            // Kolom Drafter dari sisi Customer
-            $table->string('nama_drafter')->nullable()->after('signature_pj');
-            $table->string('signature_drafter')->nullable()->after('nama_drafter');
-
-            // Kolom Pemeriksa dari sisi Customer
-            $table->string('nama_pemeriksa')->nullable()->after('signature_drafter');
-            $table->string('signature_pemeriksa')->nullable()->after('nama_pemeriksa');
+            // Kolom Drafter & Pemeriksa diletakkan di akhir tabel secara default (tanpa ->after)
+            // Sangat aman dan tidak akan menggeser data existing.
+            $table->string('nama_drafter')->nullable();
+            $table->string('signature_drafter')->nullable();
+            $table->string('nama_pemeriksa')->nullable();
+            $table->string('signature_pemeriksa')->nullable();
         });
     }
 
