@@ -132,10 +132,10 @@ class ProsesTransaksiController extends Controller
         // Jika sedang Edit Mode, KOSONGKAN snapshot agar sistem mengambil langsung dari tabel Master terbaru!
         $snapshot = $isEditMode ? [] : ($detail->snapshot_data ?? []);
 
-        $pemeriksa = User::find($detail->pemeriksa_id);
+        $pihakPenyetujuan = $request->input('pihak_penyetujuan') ?? ($detail->pihak_penyetujuan ?? 'vendor');
 
-        // --- AMBIL PIHAK PENYETUJUAN DARI DB ---
-        $pihakPenyetujuan = $detail->pihak_penyetujuan ?? 'vendor';
+        $pemeriksaIdRaw = $request->input('pemeriksa_id') ?? $detail->pemeriksa_id;
+        $pemeriksa = $pemeriksaIdRaw ? User::find($pemeriksaIdRaw) : null;
 
         $dataGambarUtama = $detail->data_gambar_utama ?? [];
         $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
