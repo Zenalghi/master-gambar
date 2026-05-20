@@ -43,16 +43,17 @@ class X_CustomerController extends Controller
                     ->orWhere('updated_at', 'like', "%{$search}%");
             });
         }
-
         // 5. Terapkan logika sorting
-        // JIKA yang di-sort adalah kolom yang boleh kosong (nullable) seperti Drafter / Pemeriksa
+        $direction = $sortAsc ? 'ASC' : 'DESC';
+
         if (in_array($sortBy, ['nama_drafter', 'nama_pemeriksa'])) {
-            // Urutkan nilai NULL agar selalu di bawah
-            // (IS NULL bernilai 1 jika kosong, bernilai 0 jika ada isinya. Jadi 0 naik ke atas, 1 turun ke bawah)
-            $query->orderByRaw("$sortBy IS NULL ASC");
+
+            $query->orderByRaw("$sortBy IS NULL ASC, $sortBy $direction");
+        } else {
+            // Untuk kolom yang tidak nullable (nama_pt, pj, dll)
+            $query->orderBy($sortBy, $direction);
         }
 
-        $query->orderBy($sortBy, $sortAsc ? 'asc' : 'desc');
         // 6. Ambil data dengan paginasi
         $paginated = $query->paginate($perPage);
 
