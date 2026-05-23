@@ -80,8 +80,71 @@ class E_VarianBodyController extends Controller
 
     public function store(StoreVarianBodyRequest $request)
     {
-        $varianBody = EVarianBody::create($request->validated());
-        return response()->json($varianBody->load('masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'), 201);
+        $validated = $request->validated();
+        $masterDataId = $validated['master_data_id'];
+
+        $createdItems = [];
+        $skippedItems = [];
+        $seenInBatch = [];
+
+        // Gunakan DB Transaction agar proses massal ini tetap aman
+        \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $masterDataId, &$createdItems, &$skippedItems, &$seenInBatch) {
+            foreach ($validated['varian_bodies'] as $namaVarian) {
+                // Bersihkan spasi dan buat uppercase agar konsisten dengan mutator
+                $upperVarian = \Illuminate\Support\Str::upper(trim($namaVarian));
+
+                // KUNCINYA DI SINI: Buat unique key gabungan master_data_id dan nama varian
+                $uniqueBatchKey = $masterDataId . '-' . $upperVarian;
+
+                if (isset($seenInBatch[$uniqueBatchKey])) {
+                    $skippedItems[] = $upperVarian;
+                    continue;
+                }
+
+                $seenInBatch[$uniqueBatchKey] = true;
+
+                // Cek ke database berdasarkan master_data_id DAN varian_body (termasuk yang di trash)
+                $existing = EVarianBody::withTrashed()
+                    ->where('master_data_id', $masterDataId)
+                    ->where('varian_body', $upperVarian)
+                    ->first();
+
+                if ($existing) {
+                    // Jika kombinasi ID dan Nama sudah ada, masukkan ke list dilewati
+                    $skippedItems[] = $upperVarian;
+                } else {
+                    // Jika benar-benar kombinasi baru, lakukan insert
+                    $varianBody = EVarianBody::create([
+                        'master_data_id' => $masterDataId,
+                        'varian_body' => $upperVarian,
+                    ]);
+
+                    // Load relasi lengkap untuk response data yang berhasil dibuat
+                    $createdItems[] = $varianBody->load([
+                        'masterData.typeEngine',
+                        'masterData.merk',
+                        'masterData.typeChassis',
+                        'masterData.jenisKendaraan'
+                    ]);
+                }
+            }
+        });
+
+        $skippedItems = array_values(array_unique($skippedItems));
+
+        // Menentukan pesan response berdasarkan kondisi data
+        $statusMessage = match (true) {
+            count($skippedItems) === 0 => 'Semua varian body berhasil disimpan.',
+            count($createdItems) === 0 => 'Data berikut sudah ada: ' . implode(', ', $skippedItems) . '.',
+            default => 'Beberapa varian berhasil disimpan, namun data berikut sudah ada: ' . implode(', ', $skippedItems) . '.',
+        };
+
+        // Mengembalikan response terstruktur (Format JSON) - Tetap sesuai request-mu
+        return response()->json([
+            'message' => $statusMessage,
+            'created' => $createdItems, // Array of object data baru
+            'skipped' => $skippedItems  // Array of string nama-nama yang duplikat
+        ], 201);
     }
 
     public function update(UpdateVarianBodyRequest $request, EVarianBody $varianBody)

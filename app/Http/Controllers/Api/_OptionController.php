@@ -108,7 +108,8 @@ class _OptionController extends Controller
 
             return [
                 'id' => $item->id,
-                'name' => "$engine / $merk / $chassis / $jenis"
+                'name' => "$engine / $merk / $chassis / $jenis",
+                'd_jenis_kendaraan_id' => $item->d_jenis_kendaraan_id
             ];
         });
 

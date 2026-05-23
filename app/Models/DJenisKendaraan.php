@@ -24,4 +24,9 @@ class DJenisKendaraan extends Model
     {
         $this->attributes['jenis_kendaraan'] = Str::upper($value);
     }
+
+    public function masterVarians()
+    {
+        return $this->hasMany(MMasterVarian::class, 'd_jenis_kendaraan_id');
+    }
 }

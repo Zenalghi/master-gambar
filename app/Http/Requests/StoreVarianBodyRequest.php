@@ -16,21 +16,15 @@ class StoreVarianBodyRequest extends FormRequest
     {
         return [
             'master_data_id' => 'required|integer|exists:master_data,id',
-            'varian_body' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('e_varian_body')
-                    ->where('master_data_id', $this->master_data_id),
-            ],
+            'varian_bodies'   => 'required|array|min:1',
+            'varian_bodies.*' => 'required|string|max:255',
         ];
     }
 
-    // Tambahkan custom message agar pesan lebih user friendly
     public function messages(): array
     {
         return [
-            'varian_body.unique' => 'Nama Varian Body ini sudah terdaftar (termasuk di data sampah). Silakan restore data lama atau gunakan nama lain.',
+            'varian_bodies.required' => 'Minimal satu varian harus dipilih/diisi.',
         ];
     }
 }

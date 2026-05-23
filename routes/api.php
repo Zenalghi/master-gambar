@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\H_GambarOptionalController;
 use App\Http\Controllers\Api\I_GambarKelistrikanController;
 use App\Http\Controllers\Api\ImageStatusController;
 use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\M_MasterVarianController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -173,6 +174,17 @@ Route::middleware('auth.api')->group(
             Route::post('jenis-kendaraan/{id}/restore', [JenisKendaraanController::class, 'restore']);
             Route::delete('jenis-kendaraan/{id}/force-delete', [JenisKendaraanController::class, 'forceDelete']);
             Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
+
+            // --- MASTER VARIAN ---
+            Route::apiResource('master-varian', App\Http\Controllers\Api\M_MasterVarianController::class);
+
+            // Recycle bin Master Varian
+            Route::get('master-varian-trash', [App\Http\Controllers\Api\M_MasterVarianController::class, 'trash']);
+            Route::post('master-varian-trash/{id}/restore', [App\Http\Controllers\Api\M_MasterVarianController::class, 'restore']);
+            Route::delete('master-varian-trash/{id}/force-delete', [App\Http\Controllers\Api\M_MasterVarianController::class, 'forceDelete']);
+            
+            // Endpoint khusus untuk Checkbox Option Flutter
+            Route::get('options/master-varian/{jenisKendaraanId}', [App\Http\Controllers\Api\M_MasterVarianController::class, 'getOptionsByJenisKendaraan']);
 
             // --- VARIAN BODY ---
             Route::delete('varian-body/trash/empty', [VarianBodyController::class, 'emptyTrash']);
