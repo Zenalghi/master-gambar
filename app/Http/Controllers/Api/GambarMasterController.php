@@ -9,11 +9,34 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
 use App\Models\TransaksiDetail;
+use Illuminate\Support\Facades\Log;
 
 class GambarMasterController extends Controller
 {
     public function uploadGambarUtama(Request $request)
     {
+
+        // --- LOGGING INFO FILE DARI REQUEST ---
+        Log::info('=== Menerima Request Upload Gambar Master ===');
+
+        $filesToCheck = ['gambar_utama', 'gambar_terurai', 'gambar_kontruksi'];
+        foreach ($filesToCheck as $fileKey) {
+            if ($request->hasFile($fileKey)) {
+                $file = $request->file($fileKey);
+                Log::info("File [{$fileKey}]:", [
+                    'Original Name' => $file->getClientOriginalName(),
+                    'MIME Type' => $file->getClientMimeType(),
+                    'Size (Bytes)' => $file->getSize(),
+                    'Extension' => $file->getClientOriginalExtension(),
+                    'Error Code' => $file->getError()
+                ]);
+            } else {
+                Log::info("File [{$fileKey}] tidak ditemukan dalam request.");
+            }
+        }
+        Log::info('=============================================');
+        // --- END LOGGING ---
+
         // 1. Validasi
         $validated = $request->validate([
             'master_data_id' => 'required|integer|exists:master_data,id',

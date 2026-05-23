@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB; // Penting untuk Transaction
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use App\Models\MasterKelistrikanFile;
 use App\Models\MasterData;
 use App\Models\IGambarKelistrikan;
-use App\Models\TransaksiDetail; // <-- Import ini untuk pengecekan Snapshot
+use App\Models\TransaksiDetail;
+use Illuminate\Support\Facades\Log;
 
 class I_GambarKelistrikanController extends Controller
 {
@@ -72,6 +73,22 @@ class I_GambarKelistrikanController extends Controller
     // === 2. UPLOAD FILE (TRANSACTION LOGIC) ===
     public function storeFile(Request $request)
     {
+        // --- LOGGING INFO FILE DARI REQUEST ---
+        Log::info('=== Menerima Request Store File Kelistrikan ===');
+        if ($request->hasFile('gambar_kelistrikan')) {
+            $file = $request->file('gambar_kelistrikan');
+            Log::info("File [gambar_kelistrikan]:", [
+                'Original Name' => $file->getClientOriginalName(),
+                'MIME Type' => $file->getClientMimeType(),
+                'Size (Bytes)' => $file->getSize(),
+                'Error Code' => $file->getError()
+            ]);
+        } else {
+            Log::info("File [gambar_kelistrikan] tidak ditemukan dalam request.");
+        }
+        Log::info('=============================================');
+
+        // --- END LOGGING ---
         $validated = $request->validate([
             'a_type_engine_id' => 'required|integer|exists:a_type_engines,id',
             'b_merk_id' => 'required|integer|exists:b_merks,id',

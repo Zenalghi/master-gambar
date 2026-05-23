@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class H_GambarOptionalController extends Controller
 {
@@ -80,6 +81,22 @@ class H_GambarOptionalController extends Controller
 
     public function store(Request $request)
     {
+        // --- LOGGING INFO FILE DARI REQUEST ---
+        Log::info('=== Menerima Request Store Gambar Optional ===');
+        if ($request->hasFile('gambar_optional')) {
+            $file = $request->file('gambar_optional');
+            Log::info("File [gambar_optional]:", [
+                'Original Name' => $file->getClientOriginalName(),
+                'MIME Type' => $file->getClientMimeType(),
+                'Size (Bytes)' => $file->getSize(),
+                'Error Code' => $file->getError()
+            ]);
+        } else {
+            Log::info("File [gambar_optional] tidak ditemukan dalam request.");
+        }
+        Log::info('=============================================');
+
+        // --- END LOGGING ---
         $validated = $request->validate([
             'tipe' => 'required|in:independen,paket',
             'deskripsi' => 'required|string|max:255',
@@ -191,9 +208,23 @@ class H_GambarOptionalController extends Controller
      */
     public function updateFile(Request $request, HGambarOptional $gambarOptional)
     {
+        // --- LOGGING INFO FILE DARI REQUEST ---
+        Log::info('=== Menerima Request Update File Gambar Optional ===');
+        if ($request->hasFile('gambar_optional')) {
+            $file = $request->file('gambar_optional');
+            Log::info("File [gambar_optional]:", [
+                'Original Name' => $file->getClientOriginalName(),
+                'MIME Type' => $file->getClientMimeType(),
+                'Size (Bytes)' => $file->getSize(),
+                'Error Code' => $file->getError()
+            ]);
+        }
+        Log::info('=============================================');
+
+        // --- END LOGGING ---
         $validated = $request->validate([
             'deskripsi' => 'nullable|string|max:255',
-            'gambar_optional' => 'nullable|file|mimes:pdf|max:1024',
+            'gambar_optional' => 'nullable|file|max:1024',
         ], [
             'gambar_optional.max' => 'Ukuran file PDF tidak boleh lebih dari 1 MB.',
         ]);
