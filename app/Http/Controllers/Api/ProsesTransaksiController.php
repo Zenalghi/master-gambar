@@ -23,7 +23,8 @@ class ProsesTransaksiController extends Controller
     {
         $validated = $request->validate([
             'pemeriksa_id' => 'nullable|exists:users,id',
-            'pihak_penyetujuan' => 'nullable|string|in:vendor,customer', // <-- Validasi Baru 'jumlah_gambar'=> 'required|integer|min:1|max:4',
+            'pihak_penyetujuan' => 'nullable|string|in:vendor,customer',
+            'jumlah_gambar' => 'required|integer|min:1|max:4',
             'data_gambar_utama' => 'required|array',
             'deskripsi_optional' => 'nullable|string',
             'desc_space' => 'nullable|integer|min:0',
@@ -84,7 +85,8 @@ class ProsesTransaksiController extends Controller
             ['transaksi_id' => $transaksi->id],
             [
                 'pemeriksa_id' => $request->pemeriksa_id,
-                'pihak_penyetujuan' => $request->input('pihak_penyetujuan', 'vendor'), // <-- Simpan ke DB! 'jumlah_gambar'=> $request->jumlah_gambar,
+                'pihak_penyetujuan' => $request->input('pihak_penyetujuan', 'vendor'),
+                'jumlah_gambar' => $request->jumlah_gambar,
                 'data_gambar_utama' => $request->data_gambar_utama,
                 'ordered_independent_ids' => $request->ordered_independent_ids ?? [],
                 'deskripsi_optional' => $request->deskripsi_optional,
