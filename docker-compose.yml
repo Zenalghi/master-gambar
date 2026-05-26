@@ -12,7 +12,8 @@ services:
     env_file:
       - .env.docker
     volumes:
-      - app-code:/app-shared
+      - .:/var/www/html          # <-- Sinkronisasi code dari laptop ke container
+      - app-code:/var/www/html   # <-- Berbagi volume dengan Nginx pada folder yang sama
     networks:
       - master-gambar-network
 
@@ -21,12 +22,13 @@ services:
     container_name: master-gambar-nginx
     depends_on:
       - app
-    command: sh -c "until [ -f /var/www/html/public/index.php ]; do sleep 2; done; nginx -g 'daemon off;'"
+    # Perintah tunggu disederhanakan untuk memeriksa folder public
+    command: sh -c "until [ -d /var/www/html/public ]; do sleep 2; done; nginx -g 'daemon off;'"
     ports:
       - "8080:80"
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - app-code:/var/www/html:ro
+      - app-code:/var/www/html:ro  # <-- Sekarang akan membaca data dari target yang benar
     networks:
       - master-gambar-network
 
