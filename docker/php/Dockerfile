@@ -45,16 +45,14 @@ RUN apt-get update \
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
 COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY docker/php/generate_env.php /tmp/generate_env.php
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 COPY composer.json composer.lock ./
-COPY .env.docker /tmp/.env.docker
 COPY . /var/www/html
 COPY --from=frontend /app/public/build /var/www/html/public/build
 
-RUN cp /tmp/.env.docker /var/www/html/.env \
-    && rm /tmp/.env.docker \
-    && composer install --no-interaction --prefer-dist --optimize-autoloader \
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache \
     && chown -R www-data:www-data /var/www/html

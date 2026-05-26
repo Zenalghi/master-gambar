@@ -34,17 +34,16 @@ services:
   mysql:
     image: mysql:9.7.0
     container_name: master-gambar-mysql
-    environment:
-      MYSQL_DATABASE: db_master
-      MYSQL_ROOT_PASSWORD: s3cur3_mysql_r00t
-      MYSQL_USER: app
-      MYSQL_PASSWORD: s3cur3_mysql_4pp
+    env_file:
+      - .env.docker
     ports:
       - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./docker/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ./docker/mysql/healthcheck.sh:/healthcheck.sh:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ps3cur3_mysql_r00t"]
+      test: ["CMD", "sh", "/healthcheck.sh"]
       interval: 10s
       timeout: 5s
       retries: 10
