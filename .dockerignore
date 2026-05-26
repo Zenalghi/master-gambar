@@ -3,7 +3,6 @@
 .env
 .env.*
 !.env.docker
-/docker
 /node_modules
 /public/build
 /public/hot
