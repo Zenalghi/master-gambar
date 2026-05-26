@@ -20,7 +20,15 @@ if [ ! -f .env ]; then
     cp /var/www/html/.env.docker.example /var/www/html/.env 2>/dev/null || true
 fi
 
-# 3. OTOMATIS GENERATE APP_KEY: Jika APP_KEY kosong, script ini akan membuatkannya untukmu
+# ---> TAMBAHKAN BLOK KODE INI <---
+# Install composer dependencies jika folder vendor belum ada (khusus mode Development)
+if [ ! -d "vendor" ]; then
+    echo "-> Folder vendor tidak ditemukan! Menjalankan composer install..."
+    composer install --no-interaction
+fi
+# --------------------------------
+
+# Generate APP_KEY if empty
 if grep -q "^APP_KEY=$" .env 2>/dev/null || grep -q "^APP_KEY=base64:$" .env 2>/dev/null || ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
     echo "-> Generating APP_KEY..."
     php artisan key:generate --force
