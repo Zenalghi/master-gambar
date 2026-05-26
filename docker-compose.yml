@@ -10,7 +10,9 @@ services:
       mysql:
         condition: service_healthy
     env_file:
-      - .env.docker
+      - .env.docker.example 
+    environment:
+      - APP_URL=http://192.168.100.173:8080 # Isi IP Server Anda langsung di sini
     volumes:
       - app-code:/app-shared
       - storage-data:/var/www/html/storage/app
@@ -35,7 +37,11 @@ services:
     image: mysql:9.7.0
     container_name: master-gambar-mysql
     env_file:
-      - .env.docker
+      - .env.docker.example  # Menggunakan file example langsung sebagai base template
+    environment:
+      - MYSQL_ROOT_PASSWORD=IsiPasswordRootDisini  # Ubah password root di sini
+      - MYSQL_PASSWORD=IsiPasswordUserDisini       # Ubah password user di sini
+      - MYSQL_DATABASE=db_master
     ports:
       - "3307:3306"
     volumes:
