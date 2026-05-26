@@ -4,9 +4,9 @@ namespace App\Providers;
 
 use App\Models\Transaksi;
 use App\Policies\TransaksiPolicy;
-use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Foundation\Support\Providers\AuthServiceProvider as BaseAuthServiceProvider;
 
-class AuthServiceProvider extends ServiceProvider
+class AppServiceProvider extends BaseAuthServiceProvider
 {
     /**
      * The model to policy mappings for the application.
@@ -14,7 +14,6 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // Daftarkan Policy Anda di sini
         Transaksi::class => TransaksiPolicy::class,
     ];
 
@@ -23,7 +22,6 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Baris ini akan secara otomatis mendaftarkan semua policy di atas
         $this->registerPolicies();
     }
 }

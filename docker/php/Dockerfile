@@ -40,7 +40,7 @@ RUN apt-get update \
         exif \
         intl \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt-lists/*
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
@@ -56,9 +56,10 @@ RUN cp /tmp/.env.docker /var/www/html/.env \
     && rm /tmp/.env.docker \
     && composer install --no-interaction --prefer-dist --optimize-autoloader \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache \
+    && chown -R www-data:www-data /var/www/html
 
-USER www-data
+RUN mkdir -p /app-shared && chown -R www-data:www-data /app-shared
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["php-fpm"]
