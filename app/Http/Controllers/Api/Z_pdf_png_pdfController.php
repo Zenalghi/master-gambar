@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\OsCommand;
 use Illuminate\Http\Request;
-use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Facades\Storage;
+use setasign\Fpdi\Tcpdf\Fpdi;
 
 class Z_pdf_png_pdfController extends Controller
 {
@@ -21,9 +22,9 @@ class Z_pdf_png_pdfController extends Controller
             'karoseri' => 'PT SURYA INDAH PRATAMA',
             'no_halaman' => '01',
             'total_halaman' => '13',
-            'signature_path' => 'C:/laragon/www/master-gambar/storage/app/master/user/1/1.png',
-            'signature_path_2' => 'C:/laragon/www/master-gambar/storage/app/master/user/3/3.png',
-            'signature_path_3' => 'C:/laragon/www/master-gambar/storage/app/master/customer/3/3.png',
+            'signature_path' => Storage::disk('user_paraf')->path('1/1.png'),
+            'signature_path_2' => Storage::disk('user_paraf')->path('3/3.png'),
+            'signature_path_3' => Storage::disk('customer_paraf')->path('3/3.png'),
             'deskripsi_optional' => 'Contoh deskripsi tambahan jika diperlukan',
         ];
 
@@ -36,7 +37,7 @@ class Z_pdf_png_pdfController extends Controller
         $tempImagePath = storage_path('app/public/temp_image_' . time() . '.png');
 
         // Resolusi 300 DPI cukup untuk teks tajam
-        $command = "gswin64c -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r300 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sOutputFile=\"{$tempImagePath}\" \"{$tempPdfPath}\" 2>&1";
+        $command = OsCommand::buildGhostscriptCommand($tempPdfPath, $tempImagePath);
         exec($command, $output, $returnVar);
 
         if (!file_exists($tempImagePath) || $returnVar !== 0) {
@@ -83,8 +84,8 @@ class Z_pdf_png_pdfController extends Controller
         $pdf->setPrintFooter(false);
         $pdf->SetAutoPageBreak(false, 0);
 
-        // Template Path (Sesuaikan path lokal)
-        $templatePath = 'C:/laragon/www/master-gambar/storage/app/master/gambar/1/5/gambar-utama.pdf';
+        // Template Path (portable)
+        $templatePath = Storage::disk('master_gambar')->path('1/5/gambar-utama.pdf');
 
         if (file_exists($templatePath)) {
             $pdf->setSourceFile($templatePath);

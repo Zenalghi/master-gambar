@@ -11,6 +11,7 @@ use App\Models\JJudulGambar;
 use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
 use App\Models\User;
+use App\Support\OsCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Tcpdf\Fpdi;
@@ -428,12 +429,7 @@ class ProsesTransaksiController extends Controller
         $this->createVectorPdfFile($tempPdfVector, $data);
 
         // 3. Rasterize using Ghostscript (Vector PDF -> PNG)
-        // Command Windows (Laragon)
-        $gsCmd = sprintf(
-            'gswin64c -dSAFER -dBATCH -dNOPAUSE -sDEVICE=png16m -r300 -dTextAlphaBits=4 -dGraphicsAlphaBits=4 -sOutputFile="%s" "%s"',
-            $tempPng,
-            $tempPdfVector
-        );
+        $gsCmd = OsCommand::buildGhostscriptCommand($tempPdfVector, $tempPng);
         exec($gsCmd, $output, $returnVar);
 
         // Fallback jika GS gagal: Return Vector PDF (agar user tetap dapat file)
