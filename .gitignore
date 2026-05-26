@@ -21,9 +21,6 @@
 /storage/*.key
 /storage/pail
 /vendor
-!vendor/tecnickcom/tcpdf/fonts/arial.z
-!vendor/tecnickcom/tcpdf/fonts/arial.php
-!vendor/tecnickcom/tcpdf/fonts/arial.ctg.z
 Homestead.json
 Homestead.yaml
 Thumbs.db

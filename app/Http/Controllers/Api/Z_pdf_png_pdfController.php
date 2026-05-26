@@ -6,13 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Support\OsCommand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use setasign\Fpdi\Tcpdf\Fpdi;
+use App\Support\MasterPdf;
 
 class Z_pdf_png_pdfController extends Controller
 {
     public function generateUncopyablePdf(Request $request)
     {
-        // --- 0. DATA DUMMY (Dipindahkan ke sini agar bisa dipakai di 2 tempat) ---
         $data = [
             'digambar' => 'Deni',
             'diperiksa' => 'Umardani',
@@ -44,11 +43,8 @@ class Z_pdf_png_pdfController extends Controller
             return response()->json(['message' => 'Gagal convert PDF ke Gambar.', 'debug' => $output], 500);
         }
 
-        // --- 3. BUAT PDF FINAL ---
-        $finalPdf = new Fpdi('L', 'mm', 'A4');
-        $finalPdf->setPrintHeader(false);
-        $finalPdf->setPrintFooter(false);
-        $finalPdf->SetAutoPageBreak(false, 0);
+        // MENGGUNAKAN CLASS BARU (MasterPdf)
+        $finalPdf = new MasterPdf();
         $finalPdf->AddPage();
 
         // A. TEMPEL GAMBAR BACKGROUND (TEKS YANG SUDAH JADI GAMBAR)
@@ -79,12 +75,9 @@ class Z_pdf_png_pdfController extends Controller
      */
     private function createVectorPdf($outputPath, $data)
     {
-        $pdf = new Fpdi('L', 'mm', 'A4');
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetAutoPageBreak(false, 0);
+        // MENGGUNAKAN CLASS BARU (MasterPdf)
+        $pdf = new MasterPdf();
 
-        // Template Path (portable)
         $templatePath = Storage::disk('master_gambar')->path('1/5/gambar-utama.pdf');
 
         if (file_exists($templatePath)) {
@@ -141,7 +134,7 @@ class Z_pdf_png_pdfController extends Controller
         $pdf->Output($outputPath, 'F');
     }
 
-    private function placeSignature(Fpdi &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
+    private function placeSignature(MasterPdf &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
     {
         if (!file_exists($imagePath)) return;
         list($originalWidth, $originalHeight) = getimagesize($imagePath);

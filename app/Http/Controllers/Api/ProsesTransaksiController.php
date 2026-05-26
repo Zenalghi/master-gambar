@@ -12,9 +12,9 @@ use App\Models\Transaksi;
 use App\Models\TransaksiDetail;
 use App\Models\User;
 use App\Support\OsCommand;
+use App\Support\MasterPdf; // <-- IMPORT CLASS BARU KITA
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use setasign\Fpdi\Tcpdf\Fpdi;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
@@ -128,25 +128,17 @@ class ProsesTransaksiController extends Controller
         }
 
         $detail = $transaksi->detail;
-
-        // --- LOGIKA BARU: BYPASS SNAPSHOT JIKA MODE EDIT ---
         $isEditMode = filter_var($request->input('is_edit_mode', false), FILTER_VALIDATE_BOOLEAN);
-
-        // Jika sedang Edit Mode, KOSONGKAN snapshot agar sistem mengambil langsung dari tabel Master terbaru!
         $snapshot = $isEditMode ? [] : ($detail->snapshot_data ?? []);
-
         $pihakPenyetujuan = $request->input('pihak_penyetujuan') ?? ($detail->pihak_penyetujuan ?? 'vendor');
-
         $pemeriksaIdRaw = $request->input('pemeriksa_id') ?? $detail->pemeriksa_id;
         $pemeriksa = $pemeriksaIdRaw ? User::find($pemeriksaIdRaw) : null;
-
         $dataGambarUtama = $detail->data_gambar_utama ?? [];
         $orderedIndependentIds = $detail->ordered_independent_ids ?? [];
         $deskripsiOptional = $detail->deskripsi_optional;
         $descSpace = $detail->desc_space ?? 0;
         $iGambarKelistrikanId = $detail->i_gambar_kelistrikan_id;
         $hGambarOptionalIds = $request->input('h_gambar_optional_ids', []);
-
         $masterData = $transaksi->masterData;
         $jenisPengajuan = strtoupper($transaksi->fPengajuan->jenis_pengajuan);
         $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
@@ -158,21 +150,16 @@ class ProsesTransaksiController extends Controller
         $jobsIndependen = [];
         $jobsKelistrikan = [];
 
-        // --- TAHAP 1: LOOPING DATA DB ---
         if (!empty($dataGambarUtama)) {
             foreach ($dataGambarUtama as $item) {
                 $varian_id = $item['varian_id'] ?? null;
                 $judul_id = $item['judul_id'] ?? null;
-
                 if (!$varian_id || !$judul_id) continue;
-
                 $varianBody = EVarianBody::find($varian_id);
                 $gambarUtamaData = GGambarUtama::with('gambarOptionals')->where('e_varian_body_id', $varian_id)->first();
                 $jenisJudul = JJudulGambar::find($judul_id);
 
                 if ($gambarUtamaData && $jenisJudul) {
-
-                    // !!! KUNCI UTAMA: Coba ambil path dari Snapshot, jika tidak ada (transaksi lama), ambil dari Master !!!
                     $pathUtama = $snapshot['varian'][$varian_id]['utama'] ?? $gambarUtamaData->path_gambar_utama;
                     $pathTerurai = $snapshot['varian'][$varian_id]['terurai'] ?? $gambarUtamaData->path_gambar_terurai;
                     $pathKontruksi = $snapshot['varian'][$varian_id]['kontruksi'] ?? $gambarUtamaData->path_gambar_kontruksi;
@@ -238,9 +225,7 @@ class ProsesTransaksiController extends Controller
                 $gambarIndependen = $gambarIndependen->sortBy(function ($model) use ($idMap) {
                     return $idMap[$model->id] ?? 999;
                 });
-
                 foreach ($gambarIndependen as $gambarOptional) {
-                    // Ambil snapshot independen
                     $pathIndependen = $snapshot['independen'][$gambarOptional->id] ?? $gambarOptional->path_gambar_optional;
 
                     if ($pathIndependen) {
@@ -258,7 +243,6 @@ class ProsesTransaksiController extends Controller
             if ($iGambarKelistrikanId) {
                 $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')->find($iGambarKelistrikanId);
                 if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
-                    // Ambil snapshot kelistrikan
                     $pathKelistrikan = $snapshot['kelistrikan'] ?? $gambarKelistrikan->fileKelistrikan->path_file;
 
                     if ($pathKelistrikan) {
@@ -275,7 +259,6 @@ class ProsesTransaksiController extends Controller
             }
         }
 
-        // Merge & Page Number
         $drawingJobs = array_merge($jobsUtama, $jobsTerurai, $jobsKontruksi, $jobsPaket, $jobsIndependen, $jobsKelistrikan);
         $pageCounter = 1;
         foreach ($drawingJobs as &$job) {
@@ -284,7 +267,7 @@ class ProsesTransaksiController extends Controller
         unset($job);
         $totalHalaman = count($drawingJobs);
 
-        // --- EKSEKUSI (SAMA SEPERTI SEBELUMNYA) ---
+        // --- EKSEKUSI ---
         if ($request->aksi === 'preview') {
             $previewPage = $request->preview_page ?? 1;
             $previewIndex = $previewPage - 1;
@@ -295,9 +278,7 @@ class ProsesTransaksiController extends Controller
                     return response()->json(['message' => 'File PDF sumber tidak ditemukan.'], 404);
                 }
 
-                // --- KIRIM PIHAK PENYETUJUAN KE BUILDER ---
                 $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
-
                 $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                 if (ob_get_length()) ob_clean();
                 return response($pdfContent, 200)->header('Content-Type', 'application/pdf');
@@ -307,18 +288,14 @@ class ProsesTransaksiController extends Controller
         } else {
             try {
                 if ($isGambarTU) {
-                    // Logic Merge PDF (GAMBAR TU)
-                    $pdfMerger = new Fpdi();
-                    $pdfMerger->setPrintHeader(false);
-                    $pdfMerger->setPrintFooter(false);
+                    // MENGGUNAKAN CLASS BARU (MasterPdf)
+                    $pdfMerger = new MasterPdf();
                     $tempFiles = [];
 
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
 
-                        // --- KIRIM PIHAK PENYETUJUAN KE BUILDER ---
                         $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
-
                         $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                         $tempPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . uniqid('merge_', true) . '.pdf';
                         file_put_contents($tempPath, $pdfContent);
@@ -332,7 +309,6 @@ class ProsesTransaksiController extends Controller
                     }
 
                     if (empty($tempFiles)) return response()->json(['message' => 'Gagal memproses gambar.'], 404);
-
                     $baseFileName = sprintf('%s (%s) %s_%s %s (%s).pdf', $transaksi->user->username, $transaksi->fPengajuan->jenis_pengajuan, $transaksi->customer->nama_pt, $masterData->merk->merk, $masterData->typeChassis->type_chassis, $masterData->jenisKendaraan->jenis_kendaraan);
                     $cleanFileName = Str::slug(pathinfo($baseFileName, PATHINFO_FILENAME)) . '.pdf';
 
@@ -340,20 +316,15 @@ class ProsesTransaksiController extends Controller
                     if (ob_get_length()) ob_clean();
                     return response($pdfMerger->Output('S'), 200)->header('Content-Type', 'application/pdf')->header('Content-Disposition', 'attachment; filename="' . $cleanFileName . '"');
                 } else {
-                    // Logic ZIP (LAINNYA)
                     $generatedPdfs = [];
                     foreach ($drawingJobs as $job) {
                         if (!Storage::disk('master_gambar')->exists($job['source_pdf'])) continue;
-
-                        // --- KIRIM PIHAK PENYETUJUAN KE BUILDER ---
                         $pdfData = $this->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
-
                         $pdfContent = $this->generateUncopyablePdfPage($pdfData);
                         $generatedPdfs[] = ['name' => $job['page'] . '.pdf', 'content' => $pdfContent];
                     }
 
                     if (empty($generatedPdfs)) return response()->json(['message' => 'Gagal memproses gambar.'], 404);
-
                     $zipFileName = sprintf('%s (%s) %s_%s %s (%s).zip', $transaksi->user->username, $transaksi->fPengajuan->jenis_pengajuan, $transaksi->customer->nama_pt, $masterData->merk->merk, $masterData->typeChassis->type_chassis, $masterData->jenisKendaraan->jenis_kendaraan);
                     $cleanZipFileName = Str::slug(pathinfo($zipFileName, PATHINFO_FILENAME)) . '.zip';
 
@@ -373,7 +344,6 @@ class ProsesTransaksiController extends Controller
         }
     }
 
-    // --- Helper Data Builder (SEKARANG MENERIMA PIHAK PENYETUJUAN) ---
     private function buildPdfData(array $job, Transaksi $transaksi, ?User $pemeriksa, int $totalHalaman, string $pihakPenyetujuan): array
     {
         // Default (Vendor)
@@ -382,22 +352,16 @@ class ProsesTransaksiController extends Controller
         $parafDigambarPath = $transaksi->user->signature ? Storage::disk('user_paraf')->path($transaksi->user->signature) : null;
         $parafDiperiksaPath = ($pemeriksa && $pemeriksa->signature) ? Storage::disk('user_paraf')->path($pemeriksa->signature) : null;
 
-        // --- OVERRIDE JIKA CUSTOMER ---
         if ($pihakPenyetujuan === 'customer') {
             $customer = $transaksi->customer;
-
-            // Nama (Gunakan null coalescing fallback)
             $namaDigambar = $customer->nama_drafter ?? '';
             $namaDiperiksa = $customer->nama_pemeriksa ?? '';
-
-            // Paraf
             $parafDigambarPath = $customer->signature_drafter ? Storage::disk('customer_paraf')->path($customer->signature_drafter) : null;
             $parafDiperiksaPath = $customer->signature_pemeriksa ? Storage::disk('customer_paraf')->path($customer->signature_pemeriksa) : null;
         }
 
         return [
             'type' => $job['type'] ?? 'standard',
-            // Pastikan casting ke (string) agar TCPDF Write tidak error null
             'digambar' => (string) $namaDigambar,
             'diperiksa' => (string) $namaDiperiksa,
             'disetujui' => (string) ($transaksi->customer->pj ?? ''),
@@ -419,38 +383,28 @@ class ProsesTransaksiController extends Controller
 
     private function generateUncopyablePdfPage(array $data): string
     {
-        // 1. Setup Temporary Files
         $tempDir = sys_get_temp_dir();
         $uniqueId = uniqid('pdf_secure_', true);
         $tempPdfVector = $tempDir . DIRECTORY_SEPARATOR . $uniqueId . '_vector.pdf';
         $tempPng = $tempDir . DIRECTORY_SEPARATOR . $uniqueId . '.png';
 
-        // 2. Generate Vector PDF (HANYA TEKS + TEMPLATE, TANPA PARAF)
         $this->createVectorPdfFile($tempPdfVector, $data);
 
-        // 3. Rasterize using Ghostscript (Vector PDF -> PNG)
         $gsCmd = OsCommand::buildGhostscriptCommand($tempPdfVector, $tempPng);
         exec($gsCmd, $output, $returnVar);
 
-        // Fallback jika GS gagal: Return Vector PDF (agar user tetap dapat file)
         if (!file_exists($tempPng) || $returnVar !== 0) {
             Log::warning("Ghostscript conversion failed. Returning vector PDF. Error: " . implode(" ", $output));
-            $content = file_get_contents($tempPdfVector); // Kembalikan vector jika gagal
+            $content = file_get_contents($tempPdfVector);
             @unlink($tempPdfVector);
             return $content;
         }
 
-        // 4. Create Final PDF (Background Image + Signatures Overlay)
-        $finalPdf = new Fpdi('L', 'mm', 'A4');
-        $finalPdf->setPrintHeader(false);
-        $finalPdf->setPrintFooter(false);
-        $finalPdf->SetAutoPageBreak(false, 0);
+        // MENGGUNAKAN CLASS BARU (MasterPdf)
+        $finalPdf = new MasterPdf();
         $finalPdf->AddPage();
-
-        // Layer 1: Background Image (Anti Copy)
         $finalPdf->Image($tempPng, 0, 0, 297, 210, 'PNG');
 
-        // Layer 2: Signatures (High Quality Overlay)
         $boxX = 238.59;
         $boxWidth = 4.529;
         $boxHeight = 2.074;
@@ -458,10 +412,7 @@ class ProsesTransaksiController extends Controller
         $this->placeSignature($finalPdf, $data['signature_path_2'], $boxX, 177.625, $boxWidth, $boxHeight);
         $this->placeSignature($finalPdf, $data['signature_path_3'], $boxX, 180.188, $boxWidth, $boxHeight);
 
-        // 5. Output Content
         $content = $finalPdf->Output('doc.pdf', 'S');
-
-        // 6. Cleanup
         @unlink($tempPdfVector);
         @unlink($tempPng);
 
@@ -470,13 +421,10 @@ class ProsesTransaksiController extends Controller
 
     private function createVectorPdfFile($outputPath, $data)
     {
-        $pdf = new Fpdi('L', 'mm', 'A4');
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetAutoPageBreak(false, 0);
+        // MENGGUNAKAN CLASS BARU (MasterPdf)
+        $pdf = new MasterPdf();
 
         $templatePath = Storage::disk('master_gambar')->path($data['source_pdf_path']);
-
         if (!file_exists($templatePath)) {
             $pdf->AddPage();
             $pdf->SetFont('arial', '', 12);
@@ -490,7 +438,6 @@ class ProsesTransaksiController extends Controller
         $pdf->AddPage();
         $pdf->useTemplate($tplId, ['adjustPageSize' => true]);
 
-        // LOGIKA PENULISAN TEKS (DIPERBAIKI)
         $pdf->SetFont('arial', '', 4.3);
         $pdf->SetXY(225.862, 175.205);
         $pdf->Write(0, $data['digambar'] ?? '');
@@ -505,8 +452,6 @@ class ProsesTransaksiController extends Controller
         $pdf->Cell(8.377, 0, $data['tanggal'] ?? '', 0, 0, 'C');
         $pdf->SetXY(243.53, 180.331);
         $pdf->Cell(8.377, 0, $data['tanggal'] ?? '', 0, 0, 'C');
-
-        // CATATAN: KITA TIDAK MEMANGGIL placeSignature DI SINI (AGAR PARAF TIDAK DIRASTER)
 
         $text = $data['karoseri'] ?? '';
         $cellWidth = 44.149;
@@ -556,23 +501,19 @@ class ProsesTransaksiController extends Controller
 
             if (!empty($data['deskripsi_optional'])) {
                 $pdf->SetFont('arial', '', 8);
-
-                // --- LOGIKA DESC SPACE ---
                 $baseY = 161.858;
                 $lineHeight = 2.898;
                 $spaceMultiplier = isset($data['desc_space']) ? (int)$data['desc_space'] : 0;
-
                 $calculatedY = $baseY - ($lineHeight * $spaceMultiplier);
-
                 $pdf->SetXY(211.878, $calculatedY);
                 $pdf->Write(0, $data['deskripsi_optional']);
             }
         }
-
         $pdf->Output($outputPath, 'F');
     }
 
-    private function placeSignature(Fpdi &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
+    // UBAH TIPE DATA PARAMETER $pdf MENJADI MasterPdf
+    private function placeSignature(MasterPdf &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
     {
         if (!$imagePath || !file_exists($imagePath)) return;
         list($w, $h) = getimagesize($imagePath);

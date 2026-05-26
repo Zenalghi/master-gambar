@@ -4,13 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use setasign\Fpdi\Tcpdf\Fpdi;
+use App\Support\MasterPdf;
 
 class Z_DrawingController extends Controller
 {
     public function generatePdf(Request $request)
     {
-        // --- DATA INPUT ---
         $data = [
             // 'catatan' => '- Model Bak Besi 5 Way',
             // 'judul_gambar_2' => 'MEREK MITSUBISHI TIPE CANTER FE 74 N (4X2) M/T',
@@ -30,42 +29,38 @@ class Z_DrawingController extends Controller
             'deskripsi_optional' => 'Contoh deskripsi tambahan jika diperlukan',
         ];
 
-        // 1. Inisialisasi PDF dengan orientasi LANDSCAPE
-        $pdf = new Fpdi('L', 'mm', 'A4');
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetAutoPageBreak(false, 0);
+        // MENGGUNAKAN CLASS BARU (MasterPdf)
+        $pdf = new MasterPdf();
 
-        // 2. Impor halaman dari template
         $templatePath = 'C:/laragon/www/master-gambar/storage/app/master/gambar/1/5/gambar-utama.pdf';
-        $pdf->setSourceFile($templatePath);
-        $templateId = $pdf->importPage(1);
 
-        $pdf->AddPage();
-        $pdf->useTemplate($templateId, ['adjustPageSize' => true]);
+        if (file_exists($templatePath)) {
+            $pdf->setSourceFile($templatePath);
+            $templateId = $pdf->importPage(1);
+            $pdf->AddPage();
+            $pdf->useTemplate($templateId, ['adjustPageSize' => true]);
+        } else {
+            $pdf->AddPage();
+        }
 
-        $pdf->SetFont('arial', '', 4.3); // Gunakan 'arial'
-        $pdf->setFontSpacing(0); // Reset spasi font ke 0
+        $pdf->SetFont('arial', '', 4.3);
+        $pdf->setFontSpacing(0);
 
         $pdf->SetXY(225.862, 175.205);
         $pdf->Write(0, $data['digambar']);
-        // ... (sisa kode SetXY dan Write lainnya tetap sama) ...
         $pdf->SetXY(225.862, 177.768);
         $pdf->Write(0, $data['diperiksa']);
         $pdf->SetXY(225.862, 180.331);
         $pdf->Write(0, $data['disetujui']);
 
-
         $pdf->SetXY(243.53, 175.205);
-        // $pdf->Write(0, $data['tanggal']);
         $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
         $pdf->SetXY(243.53, 177.768);
         $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
         $pdf->SetXY(243.53, 180.331);
         $pdf->Cell(8.377, 0, $data['tanggal'], 0, 0, 'C');
 
-        // $pdf->SetFont($arial, 'B', 8); 
-        $pdf->SetFont('arial', '', 6); // Gunakan 'arial'
+        $pdf->SetFont('arial', '', 6);
         $pdf->setFontSpacing(-0.09);
         $pdf->SetXY(215.686, 183.252);
         $pdf->Cell(68.654, 0, $data['judul_gambar_1'], 0, 0, 'C');
@@ -73,16 +68,16 @@ class Z_DrawingController extends Controller
         $pdf->SetXY(208.573, 163.897);
         $pdf->Write(0, $data['deskripsi_optional']);
 
-        $pdf->SetFont('arial', '', 8); // Gunakan 'arial'
+        $pdf->SetFont('arial', '', 8);
         $pdf->setFontSpacing(0);
         $pdf->SetXY(217.004, 194.679);
         $pdf->Cell(44.149, 0, $data['karoseri'], 0, 0, 'C');
 
-        $pdf->SetFont('arial', '', 7); // Gunakan 'arial'
+        $pdf->SetFont('arial', '', 7);
         $pdf->SetXY(274.381, 194.118);
         $pdf->Write(0, $data['no_halaman']);
 
-        $pdf->SetFont('arial', '', 5); // Gunakan 'arial'
+        $pdf->SetFont('arial', '', 5);
         $pdf->SetXY(275.342, 198.311);
         $pdf->Cell(10.139, 0, $data['no_halaman'] . ' / ' . $data['total_halaman'], 0, 0, 'C');
 
@@ -101,11 +96,11 @@ class Z_DrawingController extends Controller
         $this->placeSignature($pdf, $data['signature_path_2'], $boxX, 177.625, $boxWidth, $boxHeight);
         $this->placeSignature($pdf, $data['signature_path_3'], $boxX, 180.188, $boxWidth, $boxHeight);
 
-        // 6. Kirim PDF ke browser
         return $pdf->Output('hasil.pdf', 'D');
     }
 
-    private function placeSignature(Fpdi &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
+    // UBAH TIPE DATA PARAMETER $pdf MENJADI MasterPdf
+    private function placeSignature(MasterPdf &$pdf, $imagePath, $boxX, $boxY, $boxWidth, $boxHeight)
     {
         // Pastikan file gambar ada sebelum diproses
         if (!file_exists($imagePath)) {
