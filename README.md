@@ -59,3 +59,61 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Run with Docker
+
+This project includes a Docker setup for nginx, PHP 8.3.16 FPM, and MySQL 9.7.0.
+
+### Prerequisites
+
+- Docker Desktop or Docker Engine
+- Docker Compose
+
+### Start the containers
+
+```bash
+docker compose up --build -d
+```
+
+### Access the app
+
+Open the application at:
+
+```text
+http://localhost:8080
+```
+
+### Useful commands
+
+```bash
+# View container logs
+
+docker compose logs -f
+
+# Run migrations manually
+
+docker compose exec app php artisan migrate --force
+
+# Open a shell in the app container
+
+docker compose exec app sh
+
+# Stop and remove containers and volumes
+
+docker compose down -v
+```
+
+### Notes
+
+- The Docker image installs the PHP extensions required for PDF/FPDI/ZIP workflows:
+  - `pdo_mysql`
+  - `zip`
+  - `mbstring`
+  - `xml`
+  - `curl`
+  - `bcmath`
+  - `gd`
+  - `exif`
+  - `intl`
+- `ghostscript` is installed in the container for PDF processing.
+- `APP_URL` is configured to `http://localhost:8080` for the Docker environment.
