@@ -5,13 +5,13 @@ echo "=== Master Gambar - Laravel Docker Entrypoint ==="
 
 cd /var/www/html
 
-# Sync shared volume on first run
+# Sync shared volume on first run (Untuk membagi file ke Nginx)
 if [ -d /app-shared ] && [ ! -f /app-shared/public/index.php ]; then
     cp -a /var/www/html/. /app-shared/
     chown -R www-data:www-data /app-shared
 fi
 
-# 1. Jalankan script PHP untuk membuat .env dari environment variable Docker Compose
+# 1. Jalankan script PHP untuk membuat .env dari environment variable
 echo "-> Generating .env from environment variables..."
 php /tmp/generate_env.php 2>/dev/null || true
 
@@ -20,12 +20,12 @@ if [ ! -f .env ]; then
     cp /var/www/html/.env.docker.example /var/www/html/.env 2>/dev/null || true
 fi
 
-if [ ! -f "vendor/autoload.php" ]; then
-    echo "-> vendor/autoload.php tidak ditemukan! Menjalankan composer install..."
-    composer install --no-interaction
+# 3. Pastikan baris APP_KEY= selalu ada di dalam file .env yang baru dirakit
+if ! grep -q "^APP_KEY=" .env; then
+    echo "APP_KEY=" >> .env
 fi
 
-# Generate APP_KEY if empty
+# 4. Generate APP_KEY if empty
 if grep -q "^APP_KEY=$" .env 2>/dev/null || grep -q "^APP_KEY=base64:$" .env 2>/dev/null || ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
     echo "-> Generating APP_KEY..."
     php artisan key:generate --force
@@ -36,7 +36,6 @@ APP_KEY_VALUE=$(grep "^APP_KEY=" .env 2>/dev/null | cut -d= -f2-)
 if [ -n "$APP_KEY_VALUE" ]; then
     echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/www.conf
 fi
-
 
 # Wait for MySQL
 echo "-> Waiting for MySQL..."
