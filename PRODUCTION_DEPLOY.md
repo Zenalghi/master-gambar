@@ -200,6 +200,17 @@ http://192.168.100.17:8080
 
 ## 7. Update Aplikasi
 
+
+### ⚠️ Jangan Lupa Backup Sebelum Update
+
+```bash
+# Backup database
+docker exec master-gambar-mysql sh /backup.sh
+
+# Backup storage
+bash docker/backup-storage.sh
+```
+
 ### ✅ Cara Update (Password Aman!)
 
 ```bash
@@ -219,17 +230,6 @@ docker compose -f docker-compose.prod.yml ps
 - `git pull` akan update `docker-compose.yml` (template)
 - `docker-compose.prod.yml` tidak berubah (di-ignore Git)
 - Password tetap aman!
-
-### ⚠️ Jangan Lupa Backup Sebelum Update
-
-```bash
-# Backup database
-docker exec master-gambar-mysql sh /backup.sh
-
-# Backup storage
-bash docker/backup-storage.sh
-```
-
 ---
 
 ## 8. Troubleshooting

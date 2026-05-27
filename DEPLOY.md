@@ -228,7 +228,6 @@ docker network prune
 
 1. **Password MySQL** harus diganti dari default di:
    - `docker-compose.yml` (baris 6-7)
-   - `.env.docker.example` (baris 26, 28-29)
 
 2. **MySQL port** hanya bisa diakses dari localhost (`127.0.0.1:3307`)
 
