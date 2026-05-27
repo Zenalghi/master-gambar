@@ -37,6 +37,9 @@ if [ -n "$APP_KEY_VALUE" ]; then
     echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/www.conf
 fi
 
+echo "ping.path = /ping" >> /usr/local/etc/php-fpm.d/www.conf
+echo "pm.status_path = /status" >> /usr/local/etc/php-fpm.d/www.conf
+
 # Wait for MySQL
 echo "-> Waiting for MySQL..."
 cat > /tmp/wait_mysql.php << 'PHPEOF'

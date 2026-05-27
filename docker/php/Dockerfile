@@ -29,7 +29,7 @@ RUN apt-get update \
         locales \
         ghostscript \
         wget \
-        libfcgi0ldbl \
+        libfcgi-bin \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo_mysql \
