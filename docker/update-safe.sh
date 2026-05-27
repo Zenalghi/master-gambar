@@ -31,12 +31,36 @@ fi
 # STEP 1: Backup Database
 # =====================================================================
 echo -e "${BLUE}[1/7] Backup database MySQL...${NC}"
+
+# Konfigurasi backup folder
+BACKUP_DIR="${BACKUP_DIR:-~/laravel/backups}"
+FOLDER_NAME="master-$(date +%F-%H%M)"
+FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
+
+mkdir -p "${FOLDER_BACKUP}"
+
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
-    docker exec master-gambar-mysql sh /backup.sh
-    echo -e "${GREEN}  ✓ Database backup selesai${NC}"
+
+    DB_BACKUP_FILE="mysql-backup-$(date +%F-%H%M%S).sql"
+
+    echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+
+    # Export database dari container langsung ke host
+    docker exec master-gambar-mysql \
+        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
+        > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+
+    if [ $? -eq 0 ]; then
+        DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
+        echo -e "${GREEN}  ✓ Database backup selesai (${DB_SIZE})${NC}"
+    else
+        echo -e "${RED}  ✗ Database backup gagal!${NC}"
+    fi
+
 else
     echo -e "${YELLOW}  ⚠ MySQL container tidak running, skip backup${NC}"
 fi
+
 echo ""
 
 # =====================================================================
@@ -44,12 +68,6 @@ echo ""
 # =====================================================================
 echo -e "${BLUE}[2/7] Backup storage (file PDF/PNG/ZIP)...${NC}"
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
-    # Konfigurasi backup storage
-    BACKUP_DIR="${BACKUP_DIR:-~/laravel/backups}"
-    FOLDER_NAME="master-$(date +%F-%H%M)"
-    FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
-
-    mkdir -p "${FOLDER_BACKUP}"
 
     echo "  Backup folder: ${FOLDER_BACKUP}"
 
@@ -62,9 +80,11 @@ if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
     else
         echo -e "${RED}  ✗ Storage backup gagal!${NC}"
     fi
+
 else
     echo -e "${YELLOW}  ⚠ App container tidak running, skip storage backup${NC}"
 fi
+
 echo ""
 
 # =====================================================================
