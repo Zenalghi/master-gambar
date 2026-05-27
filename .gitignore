@@ -27,3 +27,6 @@ Thumbs.db
 
 # Docker Compose Production (contains real passwords)
 docker-compose.prod.yml
+
+# MySQL Backup Script (contains real password)
+docker/mysql/backup.sh
