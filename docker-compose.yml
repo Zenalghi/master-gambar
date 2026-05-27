@@ -1,10 +1,20 @@
 # =====================================================================
-# INI BLOK VARIABEL KUSTOM ANDA
-# Ganti password di sini sebelum deploy ke server!
+# DOCKER COMPOSE TEMPLATE - MASTER GAMBAR
 # =====================================================================
+#
+# FILE INI ADALAH TEMPLATE - JANGAN EDIT LANGSUNG!
+#
+# Cara deploy:
+#   1. Copy file ini: cp docker-compose.yml docker-compose.prod.yml
+#   2. Edit password di docker-compose.prod.yml
+#   3. Jalankan: docker compose -f docker-compose.prod.yml up -d --build
+#
+# File docker-compose.prod.yml sudah di .gitignore
+# =====================================================================
+
 x-passwords:
-  root_password: &root_pass s3cur3_mysql_r00t
-  app_password: &app_pass s3cur3_mysql_4pp
+  root_password: &root_pass GANTI_PASSWORD_ROOT_DI_SINI
+  app_password: &app_pass GANTI_PASSWORD_APP_DI_SINI
 # =====================================================================
 
 services:
@@ -22,7 +32,7 @@ services:
     env_file:
       - .env.docker.example
     environment:
-      APP_URL: http://IP_SERVER_ANDA:8080 # <-- GANTI DENGAN IP/DOMAIN SERVER
+      APP_URL: http://GANTI_IP_SERVER:8080
       DB_HOST: mysql
       DB_PASSWORD: *app_pass
       MYSQL_ROOT_PASSWORD: *root_pass
@@ -35,11 +45,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '2.0'
+          # Increased for PDF/Ghostscript processing (can use 1-2GB per process)
+          memory: 3G
+          cpus: '3.0'
         reservations:
-          memory: 512M
-          cpus: '1.0'
+          memory: 1G
+          cpus: '1.5'
     logging:
       driver: json-file
       options:
@@ -50,7 +61,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
 
   nginx:
     image: nginx:1.27-alpine
@@ -108,16 +119,17 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
     networks:
       - master-gambar-network
     deploy:
       resources:
         limits:
-          memory: 2G
+          # Increased for better performance with 30-50 users
+          memory: 3G
           cpus: '2.0'
         reservations:
-          memory: 1G
+          memory: 1.5G
           cpus: '1.0'
     logging:
       driver: json-file

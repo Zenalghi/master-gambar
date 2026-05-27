@@ -1,109 +1,124 @@
-# Deploy Checklist - Master Gambar
+# 📚 Dokumentasi Teknis - Master Gambar
 
-## Requirement Server
-- Ubuntu 22.04+ / Debian 12
-- Docker + Docker Compose
-- Git
-- RAM minimal 4 GB (untuk 30-50 users)
-- Storage minimal 20 GB
+Dokumentasi teknis untuk maintenance dan troubleshooting aplikasi Master Gambar.
 
-## Langkah Deploy
-
-### 1. Install Docker
-```bash
-sudo apt update && sudo apt upgrade -y
-curl -fsSL https://get.docker.com | sh
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
-### 2. Clone Repo
-```bash
-git clone <REPO_URL> master-gambar
-cd master-gambar
-```
-
-### 3. Setup Environment
-```bash
-cp .env.docker.example .env.docker
-nano .env.docker
-```
-Ubah:
-- `APP_URL` = http://<IP_SERVER>:8080
-- `MYSQL_ROOT_PASSWORD` = password root MySQL
-- `MYSQL_PASSWORD` = password user app MySQL
-
-### 4. Build dan Jalankan
-```bash
-docker compose up -d --build
-```
-
-### 5. Setup Auto-Start & Backup (PENTING!)
-```bash
-sudo bash docker/setup-autostart.sh
-```
-Script ini akan:
-- Mengaktifkan Docker auto-start saat boot
-- Mengatur backup otomatis setiap jam 2 pagi
-- Mengatur log rotation
-
-### 6. Cek Status
-```bash
-docker compose ps
-```
-Semua container harus Up dan Healthy.
-
-### 7. Verifikasi
-```bash
-curl -I http://localhost:8080
-```
-Harus return HTTP 200.
-
-### 8. Healthcheck
-```bash
-bash docker/healthcheck.sh
-```
-Menampilkan status lengkap semua container dan resource usage.
+> **Untuk panduan deploy production, lihat:** [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md)
 
 ---
 
-## 🔄 Auto-Restart Policy
+## 📋 Daftar Isi
 
-Semua container sudah dikonfigurasi dengan `restart: always`, artinya:
-
-| Kondisi | Perilaku |
-|---------|----------|
-| Container crash | Otomatis restart |
-| Docker daemon restart | Otomatis start |
-| Server reboot | Otomatis start saat Docker aktif |
-| Healthcheck gagal | Otomatis restart |
-
-**Pastikan Docker service aktif saat boot:**
-```bash
-sudo systemctl enable docker
-```
+1. [Arsitektur Sistem](#arsitektur-sistem)
+2. [Konfigurasi Resource](#konfigurasi-resource)
+3. [Backup & Restore](#backup--restore)
+4. [Maintenance](#maintenance)
+5. [Troubleshooting](#troubleshooting)
+6. [File Konfigurasi](#file-konfigurasi)
 
 ---
 
-## 💾 Backup Database
+## Arsitektur Sistem
 
-### Setup Cron Job (Backup otomatis setiap jam 2 pagi)
-```bash
-crontab -e
 ```
-Tambahkan:
-```cron
-# Backup MySQL setiap jam 2 pagi
-0 2 * * * docker exec master-gambar-mysql sh /backup.sh
+                    ┌─────────────────────────────────────┐
+                    │           Server 192.168.100.17     │
+                    │                                     │
+   Browser ──────►  │  :8080  ┌─────────┐  :9000          │
+                    │ ──────► │  nginx  │ ──────►         │
+                    │         └─────────┘                 │
+                    │                        ┌─────────┐  │
+                    │                        │   app   │  │
+                    │                        │ PHP-FPM │  │
+                    │                        └────┬────┘  │
+                    │                             │       │
+                    │                          :3306      │
+                    │                             ▼       │
+                    │                        ┌─────────┐  │
+                    │                        │  mysql  │  │
+                    │                        └─────────┘  │
+                    │                                     │
+                    └─────────────────────────────────────┘
 ```
+
+### Services
+
+| Service | Image | Port | Container Name |
+|---------|-------|------|----------------|
+| nginx | nginx:1.27-alpine | 8080 | master-gambar-nginx |
+| app | master-gambar:production | 9000 | master-gambar-app |
+| mysql | mysql:9.7.0 | 3307 (localhost only) | master-gambar-mysql |
+
+### Volumes
+
+| Volume | Isi | Lokasi di Container |
+|--------|-----|---------------------|
+| `mysql-data` | Database MySQL | `/var/lib/mysql` |
+| `app-shared` | Shared code untuk nginx | `/app-shared` |
+| `storage-data` | File PDF/PNG/ZIP | `/var/www/html/storage/app` |
+| `mysql-backup` | Backup database | `/backup` |
+
+---
+
+## Konfigurasi Resource
+
+### Docker Resource Limits
+
+| Container | Memory Limit | CPU Limit | Memory Reservation | CPU Reservation |
+|-----------|-------------|-----------|-------------------|-----------------|
+| app (PHP-FPM) | 3 GB | 3.0 cores | 1 GB | 1.5 cores |
+| nginx | 256 MB | 0.5 cores | 128 MB | 0.25 cores |
+| mysql | 3 GB | 2.0 cores | 1.5 GB | 1.0 core |
+
+**Total yang dibutuhkan:** ~6.25 GB RAM, ~5.5 cores
+
+### PHP Configuration (`docker/php/php.ini`)
+
+| Setting | Value | Keterangan |
+|---------|-------|------------|
+| `memory_limit` | 2048M | Untuk PDF/Ghostscript processing |
+| `upload_max_filesize` | 128M | Upload file besar |
+| `post_max_size` | 128M | POST data limit |
+| `max_execution_time` | 600 | 10 menit untuk proses PDF lama |
+
+### MySQL Configuration (`docker/mysql/custom.cnf`)
+
+| Setting | Value | Keterangan |
+|---------|-------|------------|
+| `innodb_buffer_pool_size` | 1280M | Buffer pool untuk query cepat |
+| `max_connections` | 150 | Maksimal koneksi bersamaan |
+| `innodb_io_capacity` | 2000 | I/O performance |
+
+### Nginx Configuration (`docker/nginx/default.conf`)
+
+| Setting | Value | Keterangan |
+|---------|-------|------------|
+| `client_max_body_size` | 256M | Upload file besar |
+| `proxy_read_timeout` | 600s | Timeout untuk proses lama |
+| `fastcgi_read_timeout` | 600s | Timeout untuk PHP-FPM |
+
+---
+
+## Backup & Restore
+
+### Backup Schedule
+
+| Backup | Waktu | Script | Retensi |
+|--------|-------|--------|---------|
+| Database MySQL | 12:00 siang | `docker exec master-gambar-mysql sh /backup.sh` | 7 hari |
+| Storage (PDF/PNG/ZIP) | 12:30 siang | `bash docker/backup-storage.sh` | 14 hari |
 
 ### Manual Backup
+
 ```bash
+# Backup database
 docker exec master-gambar-mysql sh /backup.sh
+
+# Backup storage
+bash docker/healthcheck.sh
 ```
 
-### Restore Backup
+### Restore Database
+
 ```bash
 # List backup files
 docker exec master-gambar-mysql ls -lh /backup
@@ -112,71 +127,26 @@ docker exec master-gambar-mysql ls -lh /backup
 docker exec -i master-gambar-mysql mysql -u root -p db_master < backup_file.sql
 ```
 
-### Retention Policy
-- Backup disimpan di volume `mysql-backup`
-- Backup otomatis dihapus setelah 7 hari
-- Pastikan volume backup memiliki cukup space
+### Restore Storage
 
----
-
-## 📊 Resource Limits
-
-| Container | Memory Limit | CPU Limit | Memory Reservation | CPU Reservation |
-|-----------|-------------|-----------|-------------------|-----------------|
-| app (PHP-FPM) | 1 GB | 2.0 cores | 512 MB | 1.0 core |
-| nginx | 256 MB | 0.5 cores | 128 MB | 0.25 cores |
-| mysql | 2 GB | 2.0 cores | 1 GB | 1.0 core |
-
-**Total yang dibutuhkan:** ~3.25 GB RAM, ~4.5 cores
-
-### Monitoring Resource Usage
 ```bash
-docker stats
+# Copy backup kembali ke container
+docker cp ~/laravel/backups/master-2026-05-27-1200/app master-gambar-app:/var/www/html/storage/
 ```
 
 ---
 
-## 🔒 Security Hardening
-
-| Item | Status | Keterangan |
-|------|--------|------------|
-| MySQL port | ✅ Aman | Hanya bisa diakses dari localhost (`127.0.0.1:3307`) |
-| Resource limits | ✅ Aktif | Mencegah container habis resource |
-| Logging rotation | ✅ Aktif | Max 20MB per file, 5 files per container |
-| Healthcheck | ✅ Aktif | Semua container termonitor |
-
----
-
-## 📝 Logging
-
-### Melihat Logs
-```bash
-# Semua container
-docker compose logs -f
-
-# Container tertentu
-docker compose logs -f app
-docker compose logs -f nginx
-docker compose logs -f mysql
-```
-
-### Log Rotation
-- Driver: `json-file`
-- Max size: 10-20 MB per file
-- Max files: 3-5 files per container
-- Total log per container: max 100 MB
-
----
-
-## 🔧 Maintenance
+## Maintenance
 
 ### Update Aplikasi
+
 ```bash
-git pull
-docker compose up -d --build
+# Gunakan script update-safe (backup otomatis)
+bash docker/update-safe.sh
 ```
 
 ### Restart Container
+
 ```bash
 # Restart semua
 docker compose restart
@@ -186,11 +156,26 @@ docker compose restart app
 ```
 
 ### Rebuild Container
+
 ```bash
 docker compose up -d --build --force-recreate
 ```
 
+### Monitoring
+
+```bash
+# Resource usage
+docker stats
+
+# Healthcheck
+bash docker/healthcheck.sh
+
+# Logs
+docker compose logs -f
+```
+
 ### Cleanup
+
 ```bash
 # Hapus unused images
 docker image prune -a
@@ -204,7 +189,7 @@ docker network prune
 
 ---
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 | Masalah | Solusi |
 |---------|--------|
@@ -216,17 +201,37 @@ docker network prune
 | Healthcheck gagal | `docker inspect master-gambar-app` |
 | Disk penuh | `docker system prune -a` dan cek log rotation |
 | Backup gagal | Cek volume `mysql-backup` dan space |
+| PDF processing crash (memory) | Naikkan `memory_limit` di `docker/php/php.ini` |
+| Upload file gagal | Cek `upload_max_filesize` dan `client_max_body_size` |
+| Proses PDF timeout | Naikkan `max_execution_time` di `docker/php/php.ini` |
 
 ---
 
-## 📁 File Config
+## File Konfigurasi
 
 | File | Isi | Di-edit? |
 |------|-----|----------|
-| `.env.docker` | APP_URL, MySQL password, port | Ya |
-| `.env` | Docker Compose variables | Tidak (auto) |
-| `docker-compose.yml` | Service definition | Tidak |
+| `docker-compose.yml` | Service definition, password, resource limits | Ya (password & APP_URL) |
+| `.env.docker.example` | Environment variables, password | Ya (password & APP_URL) |
+| `docker/php/php.ini` | PHP configuration | Opsional |
 | `docker/mysql/custom.cnf` | MySQL configuration | Opsional |
-| `docker/mysql/backup.sh` | Backup script | Tidak |
+| `docker/nginx/default.conf` | Nginx configuration | Opsional |
+| `docker/mysql/backup.sh` | Database backup script | Tidak |
+| `docker/backup-storage.sh` | Storage backup script | Tidak |
 | `docker/healthcheck.sh` | Healthcheck script | Tidak |
 | `docker/setup-autostart.sh` | Auto-start setup | Jalankan sekali |
+| `docker/update-safe.sh` | Safe update script | Jalankan saat update |
+
+---
+
+## 🔒 Security Notes
+
+1. **Password MySQL** harus diganti dari default di:
+   - `docker-compose.yml` (baris 6-7)
+   - `.env.docker.example` (baris 26, 28-29)
+
+2. **MySQL port** hanya bisa diakses dari localhost (`127.0.0.1:3307`)
+
+3. **APP_DEBUG** harus `false` di production
+
+4. **Log rotation** sudah dikonfigurasi untuk mencegah disk penuh

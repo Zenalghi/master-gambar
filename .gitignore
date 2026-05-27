@@ -24,3 +24,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Docker Compose Production (contains real passwords)
+docker-compose.prod.yml
