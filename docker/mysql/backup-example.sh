@@ -1,19 +1,39 @@
 #!/bin/bash
 # =====================================================================
-# MySQL Backup Script for Master Gambar
-# Run via cron: 0 2 * * * /path/to/backup.sh
+# MySQL Backup Script - TEMPLATE
+# =====================================================================
+#
+# CARA PAKAI:
+#   1. Copy file ini: cp docker/mysql/backup-example.sh docker/mysql/backup.sh
+#   2. Edit password di docker/mysql/backup.sh
+#   3. Jalankan: docker exec master-gambar-mysql sh /backup.sh
+#
+# File docker/mysql/backup.sh sudah di .gitignore
 # =====================================================================
 
 set -e
 
-# Configuration
+# =====================================================================
+# KONFIGURASI - SESUAIKAN DENGAN SERVER ANDA
+# =====================================================================
+
+# Folder backup di dalam container
 BACKUP_DIR="/backup"
+
+# MySQL connection settings
 MYSQL_HOST="localhost"
 MYSQL_PORT="3306"
 MYSQL_USER="root"
-MYSQL_PASSWORD="${MYSQL_ROOT_PASSWORD:-s3cur3_mysql_r00t}"
+
+# PASSWORD - GANTI DENGAN PASSWORD ANDA!
+MYSQL_PASSWORD="GANTI_PASSWORD_ROOT_DI_SINI"
+
+# Database settings
 DATABASE="db_master"
 RETENTION_DAYS=7
+
+# =====================================================================
+
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/${DATABASE}_${DATE}.sql.gz"
 

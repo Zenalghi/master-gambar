@@ -15,8 +15,9 @@ Panduan lengkap deploy aplikasi Master Gambar ke server production.
 4. [Build & Jalankan](#4-build--jalankan)
 5. [Setup Auto-Start & Backup](#5-setup-auto-start--backup)
 6. [Verifikasi](#6-verifikasi)
-7. [Update Aplikasi](#7-update-aplikasi)
-8. [Troubleshooting](#8-troubleshooting)
+7. [Migrasi dari Laragon](#7-migrasi-dari-laragon)
+8. [Update Aplikasi](#8-update-aplikasi)
+9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
@@ -58,10 +59,11 @@ cd ~/laravel/master-gambar
     ├── docker/
     │   ├── nginx/
     │   ├── mysql/
+    │   │   ├── backup-example.sh    # Template (masuk Git)
+    │   │   └── backup.sh            # Production (gitignore)
     │   └── php/
-    ├── docker-compose.yml          # Template (placeholder)
-    ├── docker-compose.prod.yml     # Production (gitignore)
-    ├── .env.docker.example
+    ├── docker-compose.yml           # Template (masuk Git)
+    ├── docker-compose.prod.yml      # Production (gitignore)
     └── ...
 ```
 
@@ -75,22 +77,27 @@ cd ~/laravel/master-gambar
 cd ~/laravel/master-gambar
 
 # Copy template ke file production
+cp docker/mysql/backup-example.sh docker/mysql/backup.sh
 cp docker-compose.yml docker-compose.prod.yml
 ```
 
 ### 3.2 Edit Password & APP_URL
 
 ```bash
+# Edit docker-compose.prod.yml
 nano docker-compose.prod.yml
+
+# Edit backup.sh
+nano docker/mysql/backup.sh
 ```
 
-**Cari dan GANTI bagian ini:**
+**File 1: `docker-compose.prod.yml`**
 
 | Baris | Placeholder | Ganti Dengan |
 |-------|-------------|--------------|
-| 6 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda |
-| 7 | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda |
-| 25 | `http://GANTI_IP_SERVER:8080` | `http://192.168.100.17:8080` |
+| 16 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda |
+| 17 | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda |
+| 35 | `http://GANTI_IP_SERVER:8080` | `http://192.168.100.17:8080` |
 
 **Contoh hasil edit:**
 ```yaml
@@ -104,6 +111,18 @@ environment:
   APP_URL: http://192.168.100.17:8080
 ```
 
+**File 2: `docker/mysql/backup.sh`**
+
+| Baris | Placeholder | Ganti Dengan |
+|-------|-------------|--------------|
+| 22 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda (sama dengan docker-compose.prod.yml) |
+
+**Contoh hasil edit:**
+```bash
+# PASSWORD - GANTI DENGAN PASSWORD ANDA!
+MYSQL_PASSWORD="PasswordRootKuat123!"
+```
+
 **Simpan:** `Ctrl+O` → `Enter` → `Ctrl+X`
 
 ### 📌 Mengapa Harus Copy?
@@ -111,15 +130,20 @@ environment:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
+│  Template (Git)              Production (Gitignore)             │
+│  ─────────────               ──────────────────────             │
+│                                                                 │
 │  docker-compose.yml          docker-compose.prod.yml            │
-│  ─────────────────           ──────────────────────            │
-│  - Template (placeholder)    - Production (password asli)      │
+│  - Placeholder password      - Password asli                   │
 │  - Masuk ke Git              - DI-IGNORE oleh Git              │
-│  - Aman di-push              - Tidak akan ter-overwrite        │
+│                                                                 │
+│  docker/mysql/backup-example.sh  docker/mysql/backup.sh         │
+│  - Placeholder password      - Password asli                   │
+│  - Masuk ke Git              - DI-IGNORE oleh Git              │
 │                                                                 │
 │  Setiap git pull:                                               │
-│  - docker-compose.yml berubah → OK (itu template)              │
-│  - docker-compose.prod.yml tetap → Password aman!              │
+│  - Template berubah → OK                                       │
+│  - Production tetap → Password aman!                           │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -198,10 +222,59 @@ http://192.168.100.17:8080
 
 ---
 
-## 7. Update Aplikasi
+## 7. Migrasi dari Laragon
 
+Jika Anda sebelumnya menggunakan Laragon dan ingin memindahkan data ke Docker.
 
-### ⚠️ Jangan Lupa Backup Sebelum Update
+### 7.1 Backup Database dari Laragon (HeidiSQL)
+
+```
+Di HeidiSQL:
+1. Connect ke Laragon MySQL (127.0.0.1:3306, user: root)
+2. Pilih database db_master
+3. Klik kanan → Export database as SQL
+4. Pilih: Structure + Data
+5. Simpan sebagai db_master.sql di ~/laravel/
+```
+
+### 7.2 Restore Database ke Docker
+
+```bash
+# Restore dari file SQL
+cat ~/laravel/db_master.sql | docker exec -i master-gambar-mysql mysql -u root -p db_master
+
+# Masukkan password MySQL Anda saat diminta
+```
+
+### 7.3 Copy Storage dari Laragon ke Docker
+
+```bash
+# Copy folder storage dari host ke container
+docker cp ~/laravel/master-gambar/storage/app/master master-gambar-app:/var/www/html/storage/app/
+
+# Kritis: Ubah permission agar Laravel bisa baca/tulis
+docker exec -u root master-gambar-app chown -R www-data:www-data /var/www/html/storage/app/master
+docker exec -u root master-gambar-app chmod -R 775 /var/www/html/storage/app/master
+```
+
+### 7.4 Verifikasi Migrasi
+
+```bash
+# Cek database
+docker exec -it master-gambar-mysql mysql -u root -p -e "SHOW TABLES;" db_master
+
+# Cek storage
+docker exec master-gambar-app ls -lh /var/www/html/storage/app/
+
+# Test aplikasi
+curl -I http://localhost:8080
+```
+
+---
+
+## 8. Update Aplikasi
+
+### ⚠️ Backup Sebelum Update (Opsional tapi Disarankan)
 
 ```bash
 # Backup database
@@ -218,7 +291,7 @@ bash docker/backup-storage.sh
 ```bash
 cd ~/laravel/master-gambar
 
-# 1. Pull update (docker-compose.yml berubah, tapi tidak masalah)
+# 1. Pull update (template berubah, tapi production tetap aman)
 git pull
 
 # 2. Rebuild dan restart (gunakan file production)
@@ -229,19 +302,22 @@ docker compose -f docker-compose.prod.yml ps
 ```
 
 **Kenapa aman?**
-- `git pull` akan update `docker-compose.yml` (template)
-- `docker-compose.prod.yml` tidak berubah (di-ignore Git)
-- Password tetap aman!
+- `git pull` update file template (`docker-compose.yml`, `backup-example.sh`)
+- File production (`docker-compose.prod.yml`, `backup.sh`) tidak berubah
+- Password tetap aman di file production!
+
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Masalah | Solusi |
 |---------|--------|
 | Container tidak start | `docker compose -f docker-compose.prod.yml logs app` |
 | MySQL connection refused | Tunggu container mysql healthy |
 | Port 8080 dipakai | Ubah port di `docker-compose.prod.yml` |
-| Password salah | Edit `docker-compose.prod.yml`, lalu restart |
+| Password salah | Edit `docker-compose.prod.yml` dan `backup.sh`, lalu restart |
+| Backup gagal | Cek password di `backup.sh` sama dengan `docker-compose.prod.yml` |
+| Storage permission error | Jalankan `chown -R www-data:www-data /var/www/html/storage/app/` |
 
 ---
 
@@ -251,14 +327,17 @@ docker compose -f docker-compose.prod.yml ps
 |------|------------|-----|
 | `docker-compose.yml` | Template dengan placeholder | ✅ Masuk |
 | `docker-compose.prod.yml` | Production dengan password asli | ❌ Ignore |
-| `docker/mysql/backup.sh` | Baca password dari environment | ✅ Masuk |
+| `docker/mysql/backup-example.sh` | Template dengan placeholder | ✅ Masuk |
+| `docker/mysql/backup.sh` | Production dengan password asli | ❌ Ignore |
 
 ---
 
 ## 🔒 Security Checklist
 
 - [ ] `docker-compose.prod.yml` sudah dibuat dan password sudah diganti
+- [ ] `docker/mysql/backup.sh` sudah dibuat dan password sudah diganti
 - [ ] `docker-compose.prod.yml` ada di `.gitignore`
+- [ ] `docker/mysql/backup.sh` ada di `.gitignore`
 - [ ] `APP_DEBUG=false` di `.env.docker.example`
 - [ ] MySQL port hanya localhost (`127.0.0.1:3307`)
 - [ ] Docker auto-start sudah di-enable
@@ -279,24 +358,3 @@ docker compose -f docker-compose.prod.yml ps
 **Spesifikasi Server:**
 - Intel i5 Gen 12 ✅
 - RAM 16 GB ✅
-
----
-
-## 📝 Instruksi untuk Developer (Setup Gitignore)
-
-File berikut harus di-ignore agar password tidak ter-push ke repo:
-
-```bash
-# Tambahkan ke .gitignore
-echo "docker-compose.prod.yml" >> .gitignore
-```
-
-Kemudian update `docker-compose.yml` dengan placeholder:
-
-```yaml
-x-passwords:
-  root_password: &root_pass GANTI_PASSWORD_ROOT_DI_SINI
-  app_password: &app_pass GANTI_PASSWORD_APP_DI_SINI
-```
-
-Dan update `docker/mysql/backup.sh` untuk baca dari environment variable (sudah dilakukan).
