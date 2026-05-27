@@ -205,6 +205,8 @@ http://192.168.100.17:8080
 
 ```bash
 # Backup database
+cd ~/laravel/master-gambar
+
 docker exec master-gambar-mysql sh /backup.sh
 
 # Backup storage
