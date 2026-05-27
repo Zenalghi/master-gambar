@@ -28,6 +28,8 @@ RUN apt-get update \
         libzip-dev \
         locales \
         ghostscript \
+        wget \
+        libfcgi0ldbl \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo_mysql \
@@ -40,7 +42,9 @@ RUN apt-get update \
         exif \
         intl \
     && apt-get clean \
-    && rm -rf /var/lib/apt-lists/*
+    && rm -rf /var/lib/apt-lists/* \
+    && wget -O /usr/local/bin/php-fpm-healthcheck https://raw.githubusercontent.com/renatomefi/php-fpm-healthcheck/master/php-fpm-healthcheck \
+    && chmod +x /usr/local/bin/php-fpm-healthcheck
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
