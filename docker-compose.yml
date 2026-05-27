@@ -67,7 +67,7 @@ services:
     restart: always
     depends_on:
       - app
-    command: sh -c "until [ -f /var/www/html/public/index.php ]; do sleep 2; done; nginx -g 'daemon off;'"
+    command: sh -c "until [ -f /var/www/html/public/index.php ]; do sleep 2; done; exec nginx -g 'daemon off;'"    
     ports:
       - "8080:80"
     volumes:
@@ -89,7 +89,7 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
