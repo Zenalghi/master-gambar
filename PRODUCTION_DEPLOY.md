@@ -175,6 +175,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 ## 5. Setup Auto-Start & Backup
 
 ```bash
+cd ~/laravel/master-gambar
+
 # Jalankan script setup (butuh sudo, jalankan SEKALI saja)
 sudo bash docker/setup-autostart.sh
 ```
