@@ -4,6 +4,7 @@
 # Mengupdate aplikasi TANPA menghilangkan data MySQL dan storage
 #
 # Jalankan:
+#   cd ~/laravel/master-gambar
 #   bash docker/update-safe.sh
 # =====================================================================
 
@@ -25,6 +26,20 @@ echo ""
 if [ ! -f "docker-compose.yml" ]; then
     echo -e "${RED}ERROR: Jalankan script ini di direktori project master-gambar${NC}"
     exit 1
+fi
+
+# =====================================================================
+# Load secrets from centralized file
+# =====================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
+    source "${SCRIPT_DIR}/.env.secrets"
+    echo -e "${GREEN}  ✓ Loaded secrets from .env.secrets${NC}"
+else
+    echo -e "${YELLOW}  ⚠ .env.secrets not found, using environment variables${NC}"
+    echo -e "${YELLOW}    Create with: cp docker/.env.secrets.example docker/.env.secrets${NC}"
 fi
 
 # =====================================================================

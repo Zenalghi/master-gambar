@@ -3,9 +3,8 @@
 # Setup Auto-Start untuk Master Gambar
 # Jalankan script ini SEKALI di server untuk mengkonfigurasi:
 # 1. Docker auto-start saat boot
-# 2. Backup database cron job (jam 12 siang)
-# 3. Backup storage cron job (jam 12:30 siang)
-# 4. Log rotation
+# 2. Auto-backup database & storage ke ~/laravel/backups (jam 12 siang)
+# 3. Log rotation
 # =====================================================================
 
 set -e
@@ -31,11 +30,12 @@ fi
 # Get current user (non-root) for crontab
 CURRENT_USER="${SUDO_USER:-$USER}"
 PROJECT_DIR="$(pwd)"
+BACKUP_DIR="${HOME}/laravel/backups"
 
 # =====================================================================
 # 1. Enable Docker auto-start
 # =====================================================================
-echo -e "${BLUE}[1/5] Mengaktifkan Docker auto-start...${NC}"
+echo -e "${BLUE}[1/4] Mengaktifkan Docker auto-start...${NC}"
 if systemctl enable docker >/dev/null 2>&1; then
     echo -e "${GREEN}  ✓ Docker auto-start enabled${NC}"
 else
@@ -46,7 +46,7 @@ echo ""
 # =====================================================================
 # 2. Start Docker if not running
 # =====================================================================
-echo -e "${BLUE}[2/5] Memulai Docker service...${NC}"
+echo -e "${BLUE}[2/4] Memulai Docker service...${NC}"
 if systemctl start docker >/dev/null 2>&1; then
     echo -e "${GREEN}  ✓ Docker running${NC}"
 else
@@ -55,27 +55,114 @@ fi
 echo ""
 
 # =====================================================================
-# 3. Setup backup database cron job (jam 12:00 siang)
+# 3. Create autobackup script
 # =====================================================================
-echo -e "${BLUE}[3/5] Mengatur backup database (jam 12:00 siang)...${NC}"
-CRON_DB="0 12 * * * cd ${PROJECT_DIR} && docker exec master-gambar-mysql sh /backup.sh >> /var/log/master-gambar-db-backup.log 2>&1"
-(sudo -u "${CURRENT_USER}" crontab -l 2>/dev/null | grep -v "master-gambar-db-backup"; echo "$CRON_DB") | sudo -u "${CURRENT_USER}" crontab -
-echo -e "${GREEN}  ✓ Backup database: setiap jam 12:00 siang${NC}"
+echo -e "${BLUE}[3/4] Membuat script autobackup...${NC}"
+
+# Create backup directory
+mkdir -p "${BACKUP_DIR}"
+
+# Create autobackup script
+cat > "${PROJECT_DIR}/docker/autobackup.sh" << 'SCRIPT_EOF'
+#!/bin/bash
+# =====================================================================
+# Auto Backup Script untuk Master Gambar
+# Backup database dan storage ke ~/laravel/backups
+# =====================================================================
+
+set -e
+
+# Load secrets from centralized file
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
+    source "${SCRIPT_DIR}/.env.secrets"
+fi
+
+# Konfigurasi backup
+BACKUP_DIR="${BACKUP_DIR:-~/laravel/backups}"
+FOLDER_NAME="auto-backup-$(date +%F-%H%M)"
+FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
+
+echo "=========================================="
+echo "  Master Gambar - Auto Backup"
+echo "  $(date)"
+echo "=========================================="
+echo ""
+
+mkdir -p "${FOLDER_BACKUP}"
+
+# =====================================================================
+# Backup Database
+# =====================================================================
+echo "[1/2] Backup database MySQL..."
+
+if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
+    DB_BACKUP_FILE="mysql-backup-$(date +%F-%H%M%S).sql"
+    
+    echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    
+    docker exec master-gambar-mysql \
+        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
+        > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    
+    if [ $? -eq 0 ]; then
+        DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
+        echo "  ✓ Database backup selesai (${DB_SIZE})"
+    else
+        echo "  ✗ Database backup gagal!"
+    fi
+else
+    echo "  ⚠ MySQL container tidak running, skip backup"
+fi
+
 echo ""
 
 # =====================================================================
-# 4. Setup backup storage cron job (jam 12:30 siang)
+# Backup Storage
 # =====================================================================
-echo -e "${BLUE}[4/5] Mengatur backup storage (jam 12:30 siang)...${NC}"
-CRON_STORAGE="30 12 * * * cd ${PROJECT_DIR} && bash docker/backup-storage.sh >> /var/log/master-gambar-storage-backup.log 2>&1"
-(sudo -u "${CURRENT_USER}" crontab -l 2>/dev/null | grep -v "master-gambar-storage-backup"; echo "$CRON_STORAGE") | sudo -u "${CURRENT_USER}" crontab -
-echo -e "${GREEN}  ✓ Backup storage: setiap jam 12:30 siang${NC}"
+echo "[2/2] Backup storage (file PDF/PNG/ZIP)..."
+
+if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
+    echo "  Backup folder: ${FOLDER_BACKUP}"
+    
+    docker cp master-gambar-app:/var/www/html/storage/app "${FOLDER_BACKUP}"
+    
+    if [ $? -eq 0 ]; then
+        BACKUP_SIZE=$(du -sh "${FOLDER_BACKUP}" | cut -f1)
+        echo "  ✓ Storage backup selesai (${BACKUP_SIZE})"
+    else
+        echo "  ✗ Storage backup gagal!"
+    fi
+else
+    echo "  ⚠ App container tidak running, skip storage backup"
+fi
+
 echo ""
 
 # =====================================================================
-# 5. Setup log rotation for Docker
+# Cleanup old backups (keep last 7 days)
 # =====================================================================
-echo -e "${BLUE}[5/5] Mengatur log rotation...${NC}"
+echo "Cleanup backup lama (retention: ${RETENTION_DAYS:-7} days)..."
+find "${BACKUP_DIR}" -name "auto-backup-*" -type d -mtime +${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
+echo "  ✓ Cleanup selesai"
+
+echo ""
+echo "=========================================="
+echo "  Backup Selesai!"
+echo "  Lokasi: ${FOLDER_BACKUP}"
+echo "=========================================="
+SCRIPT_EOF
+
+chmod +x "${PROJECT_DIR}/docker/autobackup.sh"
+echo -e "${GREEN}  ✓ Script autobackup dibuat: docker/autobackup.sh${NC}"
+echo ""
+
+# =====================================================================
+# 4. Setup log rotation for Docker
+# =====================================================================
+echo -e "${BLUE}[4/4] Mengatur log rotation...${NC}"
 cat > /etc/logrotate.d/master-gambar << 'EOF'
 /var/lib/docker/containers/*/*.log {
     rotate 5
@@ -91,6 +178,19 @@ echo -e "${GREEN}  ✓ Log rotation configured${NC}"
 echo ""
 
 # =====================================================================
+# Setup cron job for autobackup (jam 12:00 siang)
+# =====================================================================
+echo -e "${BLUE}[*] Mengatur cron job autobackup...${NC}"
+CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && bash docker/autobackup.sh >> /var/log/master-gambar-autobackup.log 2>&1"
+(sudo -u "${CURRENT_USER}" crontab -l 2>/dev/null | grep -v "master-gambar-autobackup"; echo "$CRON_AUTOBACKUP") | sudo -u "${CURRENT_USER}" crontab -
+echo -e "${GREEN}  ✓ Auto-backup: setiap jam 12:00 siang${NC}"
+echo -e "${GREEN}  • Backup database: MySQL dump${NC}"
+echo -e "${GREEN}  • Backup storage:  File PDF/PNG/ZIP${NC}"
+echo -e "${GREEN}  • Lokasi:         ${BACKUP_DIR}${NC}"
+echo -e "${GREEN}  • Retention:      7 hari (otomatis cleanup)${NC}"
+echo ""
+
+# =====================================================================
 # Summary
 # =====================================================================
 echo "=========================================="
@@ -98,14 +198,18 @@ echo -e "${GREEN}  Setup Selesai!${NC}"
 echo "=========================================="
 echo ""
 echo "Cron jobs yang sudah diatur:"
-echo "  • Backup database:  setiap jam 12:00 siang"
-echo "  • Backup storage:   setiap jam 12:30 siang"
+echo "  • Auto-backup: setiap jam 12:00 siang"
+echo "    - Database backup (MySQL dump)"
+echo "    - Storage backup (file PDF/PNG/ZIP)"
+echo "    - Lokasi: ${BACKUP_DIR}"
+echo "    - Retention: 7 hari (otomatis cleanup)"
 echo ""
 echo "Verifikasi:"
 echo "  1. Docker auto-start: systemctl is-enabled docker"
 echo "  2. Docker status:     systemctl status docker"
 echo "  3. Cron jobs:         crontab -l"
 echo "  4. Log rotation:      cat /etc/logrotate.d/master-gambar"
+echo "  5. Autobackup script: cat docker/autobackup.sh"
 echo ""
 echo "Untuk menjalankan aplikasi:"
 echo "  docker compose up -d --build"
@@ -115,4 +219,14 @@ echo "  docker compose ps"
 echo "  bash docker/healthcheck.sh"
 echo ""
 echo "Untuk backup manual:"
-echo "  bash docker/backup-storage.sh"
+echo "  bash docker/autobackup.sh"
+echo ""
+echo -e "${YELLOW}Catatan Penting:${NC}"
+echo "  Pastikan file docker/.env.secrets sudah dikonfigurasi:"
+echo "    cp docker/.env.secrets.example docker/.env.secrets"
+echo "    nano docker/.env.secrets  # Edit password MySQL"
+echo ""
+echo "  Backup otomatis disimpan di:"
+echo "    ${BACKUP_DIR}/auto-backup-YYYY-MM-DD-HHMM/"
+echo "    ├── mysql-backup-YYYY-MM-DD-HHMMSS.sql"
+echo "    └── app/ (storage files)"

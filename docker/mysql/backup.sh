@@ -1,17 +1,19 @@
 #!/bin/bash
 # =====================================================================
-# MySQL Backup Script - TEMPLATE
-# =====================================================================
-#
-# CARA PAKAI:
-#   1. Copy file ini: cp docker/mysql/backup-example.sh docker/mysql/backup.sh
-#   2. Edit password di docker/mysql/backup.sh
-#   3. Jalankan: docker exec master-gambar-mysql sh /backup.sh
-#
-# File docker/mysql/backup.sh sudah di .gitignore
+# MySQL Backup Script
 # =====================================================================
 
 set -e
+
+# =====================================================================
+# Load secrets from centralized file
+# =====================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SECRETS_FILE="${SCRIPT_DIR}/../.env.secrets"
+
+if [ -f "${SECRETS_FILE}" ]; then
+    source "${SECRETS_FILE}"
+fi
 
 # =====================================================================
 # KONFIGURASI - SESUAIKAN DENGAN SERVER ANDA
@@ -25,12 +27,12 @@ MYSQL_HOST="localhost"
 MYSQL_PORT="3306"
 MYSQL_USER="root"
 
-# PASSWORD - GANTI DENGAN PASSWORD ANDA!
-MYSQL_PASSWORD="GANTI_PASSWORD_ROOT_DI_SINI"
+# Password loaded from .env.secrets (fallback to placeholder if not set)
+MYSQL_PASSWORD="${MYSQL_ROOT_PASSWORD:-GANTI_PASSWORD_ROOT_DI_SINI}"
 
 # Database settings
-DATABASE="db_master"
-RETENTION_DAYS=7
+DATABASE="${MYSQL_DATABASE:-db_master}"
+RETENTION_DAYS="${RETENTION_DAYS:-7}"
 
 # =====================================================================
 

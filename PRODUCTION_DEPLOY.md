@@ -57,10 +57,10 @@ cd ~/laravel/master-gambar
 ~/laravel/
 └── master-gambar/
     ├── docker/
+    │   ├── .env.secrets.example    # Template secrets (masuk Git)
+    │   ├── .env.secrets            # Production secrets (gitignore)
     │   ├── nginx/
     │   ├── mysql/
-    │   │   ├── backup-example.sh    # Template (masuk Git)
-    │   │   └── backup.sh            # Production (gitignore)
     │   └── php/
     ├── docker-compose.yml           # Template (masuk Git)
     ├── docker-compose.prod.yml      # Production (gitignore)
@@ -77,8 +77,8 @@ cd ~/laravel/master-gambar
 cd ~/laravel/master-gambar
 
 # Copy template ke file production
-cp docker/mysql/backup-example.sh docker/mysql/backup.sh
 cp docker-compose.yml docker-compose.prod.yml
+cp docker/.env.secrets.example docker/.env.secrets
 ```
 
 ### 3.2 Edit Password & APP_URL
@@ -87,16 +87,17 @@ cp docker-compose.yml docker-compose.prod.yml
 # Edit docker-compose.prod.yml
 nano docker-compose.prod.yml
 
-# Edit backup.sh
-nano docker/mysql/backup.sh
+# Edit .env.secrets (password terpusat untuk semua script)
+nano docker/.env.secrets
+
 ```
 
-**File 1: `docker-compose.prod.yml`**
+**File 2: `docker-compose.prod.yml`**
 
 | Baris | Placeholder | Ganti Dengan |
 |-------|-------------|--------------|
-| 16 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda |
-| 17 | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda |
+| 16 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda (sama dengan .env.secrets) |
+| 17 | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda (sama dengan .env.secrets) |
 | 35 | `http://GANTI_IP_SERVER:8080` | `http://192.168.100.17:8080` |
 
 **Contoh hasil edit:**
@@ -111,16 +112,27 @@ environment:
   APP_URL: http://192.168.100.17:8080
 ```
 
-**File 2: `docker/mysql/backup.sh`**
+**File 1: `docker/.env.secrets` (FILE UTAMA - Password Terpusat)**
 
-| Baris | Placeholder | Ganti Dengan |
-|-------|-------------|--------------|
-| 22 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda (sama dengan docker-compose.prod.yml) |
+| Variable | Placeholder | Ganti Dengan |
+|----------|-------------|--------------|
+| `MYSQL_ROOT_PASSWORD` | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda |
+| `MYSQL_APP_PASSWORD` | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda |
 
 **Contoh hasil edit:**
 ```bash
-# PASSWORD - GANTI DENGAN PASSWORD ANDA!
-MYSQL_PASSWORD="PasswordRootKuat123!"
+# MySQL Root Password (sama dengan root_password di docker-compose.prod.yml)
+MYSQL_ROOT_PASSWORD=PasswordRootKuat123!
+
+# MySQL App Password (sama dengan app_password di docker-compose.prod.yml)
+MYSQL_APP_PASSWORD=PasswordAppKuat456!
+
+# Database Name
+MYSQL_DATABASE=db_master
+
+# Backup Configuration
+BACKUP_DIR=~/laravel/backups
+RETENTION_DAYS=7
 ```
 
 **Simpan:** `Ctrl+O` → `Enter` → `Ctrl+X`
@@ -137,13 +149,33 @@ MYSQL_PASSWORD="PasswordRootKuat123!"
 │  - Placeholder password      - Password asli                    │
 │  - Masuk ke Git              - DI-IGNORE oleh Git               │
 │                                                                 │
-│  docker/mysql/backup-example.sh  docker/mysql/backup.sh         │
-│  - Placeholder password      - Password asli                    │
+│  docker/.env.secrets.example docker/.env.secrets                │
+│  - Placeholder password      - Password asli (TERPUSAT)         │
 │  - Masuk ke Git              - DI-IGNORE oleh Git               │
 │                                                                 │
 │  Setiap git pull:                                               │
 │  - Template berubah → OK                                        │
 │  - Production tetap → Password aman!                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 📌 Keuntungan Password Terpusat (.env.secrets)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  SEBELUM (Password di banyak file):                             │
+│  ──────────────────────────────────                             │
+│  docker-compose.prod.yml  → edit password                       │
+│  docker/mysql/backup.sh   → edit password                       │
+│  docker/update-safe.sh    → edit password                       │
+│                                                                 │
+│  SESUDAH (Password di satu file):                               │
+│  ────────────────────────────────                               │
+│  docker/.env.secrets      → edit password SEKALI saja!          │
+│                                                                 │
+│  Semua script otomatis membaca dari .env.secrets                │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -183,13 +215,27 @@ sudo bash docker/setup-autostart.sh
 
 **Script ini akan:**
 - ✅ Mengaktifkan Docker auto-start saat boot
-- ✅ Mengatur backup database otomatis jam 12:00 siang
-- ✅ Mengatur backup storage otomatis jam 12:30 siang
+- ✅ Membuat script `docker/autobackup.sh` untuk backup otomatis
+- ✅ Mengatur auto-backup jam 12:00 siang (database + storage)
+- ✅ Backup disimpan di `~/laravel/backups/`
+- ✅ Auto-cleanup backup lama (retention 7 hari)
 - ✅ Mengatur log rotation
 
 **Verifikasi cron jobs:**
 ```bash
 crontab -l
+```
+
+**Struktur backup:**
+```
+~/laravel/backups/
+└── auto-backup-2024-01-15-1200/
+    ├── mysql-backup-2024-01-15-120000.sql
+    └── app/
+        └── master/
+            ├── file1.pdf
+            ├── file2.png
+            └── ...
 ```
 
 ---
@@ -205,9 +251,9 @@ docker compose -f docker-compose.prod.yml ps
 **Output yang diharapkan:**
 ```
 NAME                    STATUS                   PORTS
-master-gambar-mysql     Up 2 minutes (healthy)   127.0.0.1:3307->3306/tcp
 master-gambar-app       Up 2 minutes (healthy)   9000/tcp
-master-gambar-nginx     Up 2 minutes (healthy)   0.0.0.0:8080->80/tcp
+master-gambar-mysql     Up 2 minutes (healthy)   33060/tcp, 127.0.0.1:3307->3306/tcp
+master-gambar-nginx     Up 2 minutes (healthy)   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
 ```
 
 ### 6.2 Test Aplikasi
@@ -248,6 +294,12 @@ cat ~/laravel/db_master.sql | docker exec -i master-gambar-mysql mysql -u root -
 # Masukkan password MySQL Anda saat diminta
 ```
 
+Atau Hunakan Heidisql dengan MariaDB or MySQSL sshtunnel
+
+![SSH Tunnel](storage\app\sshtunnel.png)
+
+setelah masuk execute sql ke database
+
 ### 7.3 Copy Storage dari Laragon ke Docker
 
 ```bash
@@ -276,38 +328,105 @@ curl -I http://localhost:8080
 
 ## 8. Update Aplikasi
 
-### ⚠️ Backup Sebelum Update (Opsional tapi Disarankan)
+### ✅ Cara Update Aman (Menggunakan Script Otomatis)
+
+Script `docker/update-safe.sh` akan melakukan backup otomatis database dan storage sebelum update, sehingga data Anda aman!
 
 ```bash
-# Backup database
 cd ~/laravel/master-gambar
 
-docker exec master-gambar-mysql sh /backup.sh
-
-# Backup storage
-bash docker/backup-storage.sh
+# Jalankan script update aman (backup + update + rebuild)
+bash docker/update-safe.sh
 ```
 
-### ✅ Cara Update (Password Aman!)
+**Apa yang dilakukan script ini:**
+
+1. **Backup Database** - Export semua database MySQL ke folder `~/laravel/backups/`
+2. **Backup Storage** - Copy semua file (PDF, PNG, ZIP) dari container ke host
+3. **Pull Latest Code** - Download update terbaru dari Git
+4. **Stop Containers** - Hentikan container (volume data TIDAK terhapus!)
+5. **Rebuild Images** - Build ulang Docker images
+6. **Start Containers** - Jalankan container kembali
+7. **Verifikasi** - Cek status container
+
+**Output yang diharapkan:**
+```
+==========================================
+  Master Gambar - Safe Update
+  2024-01-15 10:30:00
+==========================================
+
+[1/7] Backup database MySQL...
+  ✓ Database backup selesai (150M)
+
+[2/7] Backup storage (file PDF/PNG/ZIP)...
+  ✓ Storage backup selesai (2.3G)
+
+[3/7] Pull latest code dari Git...
+  ✓ Code updated
+
+[4/7] Stop containers...
+  ✓ Containers stopped
+
+[5/7] Rebuild Docker images...
+  ✓ Images rebuilt
+
+[6/7] Start containers...
+  ✓ Containers started
+
+[7/7] Verifikasi...
+  ✓ Semua container running
+
+==========================================
+  Update Selesai!
+==========================================
+```
+
+### 📌 Kenapa Aman?
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│  Data yang AMAN (tidak terhapus):                               │
+│  ────────────────────────────────                               │
+│  ✓ MySQL database (volume: mysql-data)                          │
+│  ✓ File storage (volume: storage-data)                          │
+│  ✓ Backup database (volume: mysql-backup)                       │
+│  ✓ Backup storage (folder: ~/laravel/backups/)                  │
+│  ✓ Shared code (volume: app-code)                               │
+│                                                                 │
+│  Yang BERUBAH saat update:                                      │
+│  ──────────────────────────                                     │
+│  → Docker images (dibuild ulang)                                │
+│  → Application code (git pull)                                  │
+│                                                                 │
+│  File production tetap AMAN:                                    │
+│  ──────────────────────────                                     │
+│  ✓ docker-compose.prod.yml (tidak berubah)                      │
+│  ✓ docker/.env.secrets (tidak berubah)                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### ⚠️ Catatan Penting
+
+- Script menggunakan `docker-compose.yml` (template), bukan `docker-compose.prod.yml`
+- Pastikan `docker/.env.secrets` sudah dibuat sebelum menjalankan script
+- Backup disimpan di folder `~/laravel/backups/` dengan format tanggal
+- Jika terjadi masalah, Anda bisa restore dari backup
+
+### 🔄 Verifikasi Setelah Update
 
 ```bash
-cd ~/laravel/master-gambar
-
-# 1. Pull update (template berubah, tapi production tetap aman)
-git pull
-
-# 2. Rebuild dan restart (gunakan file production)
-docker compose -f docker-compose.prod.yml up -d --build
-
-# 3. Verifikasi
+# Cek status container
 docker compose -f docker-compose.prod.yml ps
+
+# Cek logs jika ada masalah
+docker compose -f docker-compose.prod.yml logs -f
+
+# Test aplikasi
+curl -I http://localhost:8080
 ```
-
-**Kenapa aman?**
-- `git pull` update file template (`docker-compose.yml`, `backup-example.sh`)
-- File production (`docker-compose.prod.yml`, `backup.sh`) tidak berubah
-- Password tetap aman di file production!
-
 ---
 
 ## 9. Troubleshooting
@@ -317,8 +436,8 @@ docker compose -f docker-compose.prod.yml ps
 | Container tidak start | `docker compose -f docker-compose.prod.yml logs app` |
 | MySQL connection refused | Tunggu container mysql healthy |
 | Port 8080 dipakai | Ubah port di `docker-compose.prod.yml` |
-| Password salah | Edit `docker-compose.prod.yml` dan `backup.sh`, lalu restart |
-| Backup gagal | Cek password di `backup.sh` sama dengan `docker-compose.prod.yml` |
+| Password salah | Edit `docker/.env.secrets` dan `docker-compose.prod.yml`, lalu restart |
+| Backup gagal | Cek password di `docker/.env.secrets` sudah benar |
 | Storage permission error | Jalankan `chown -R www-data:www-data /var/www/html/storage/app/` |
 
 ---
@@ -329,17 +448,16 @@ docker compose -f docker-compose.prod.yml ps
 |------|------------|-----|
 | `docker-compose.yml` | Template dengan placeholder | ✅ Masuk |
 | `docker-compose.prod.yml` | Production dengan password asli | ❌ Ignore |
-| `docker/mysql/backup-example.sh` | Template dengan placeholder | ✅ Masuk |
-| `docker/mysql/backup.sh` | Production dengan password asli | ❌ Ignore |
-
+| `docker/.env.secrets.example` | Template secrets dengan placeholder | ✅ Masuk |
+| `docker/.env.secrets` | Production secrets dengan password asli | ❌ Ignore |
 ---
 
 ## 🔒 Security Checklist
 
+- [ ] `docker/.env.secrets` sudah dibuat dan password sudah diganti
 - [ ] `docker-compose.prod.yml` sudah dibuat dan password sudah diganti
-- [ ] `docker/mysql/backup.sh` sudah dibuat dan password sudah diganti
+- [ ] `docker/.env.secrets` ada di `.gitignore`
 - [ ] `docker-compose.prod.yml` ada di `.gitignore`
-- [ ] `docker/mysql/backup.sh` ada di `.gitignore`
 - [ ] `APP_DEBUG=false` di `.env.docker.example`
 - [ ] MySQL port hanya localhost (`127.0.0.1:3307`)
 - [ ] Docker auto-start sudah di-enable

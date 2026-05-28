@@ -212,11 +212,11 @@ docker network prune
 | File | Isi | Di-edit? |
 |------|-----|----------|
 | `docker-compose.yml` | Service definition, password, resource limits | Ya (password & APP_URL) |
-| `.env.docker.example` | Environment variables, password | Ya (password & APP_URL) |
+| `docker/.env.secrets` | **Password terpusat** untuk semua script | Ya (password MySQL) |
 | `docker/php/php.ini` | PHP configuration | Opsional |
 | `docker/mysql/custom.cnf` | MySQL configuration | Opsional |
 | `docker/nginx/default.conf` | Nginx configuration | Opsional |
-| `docker/mysql/backup.sh` | Database backup script | Tidak |
+| `docker/mysql/backup.sh` | Database backup script | Tidak (otomatis baca .env.secrets) |
 | `docker/backup-storage.sh` | Storage backup script | Tidak |
 | `docker/healthcheck.sh` | Healthcheck script | Tidak |
 | `docker/setup-autostart.sh` | Auto-start setup | Jalankan sekali |
@@ -227,10 +227,13 @@ docker network prune
 ## 🔒 Security Notes
 
 1. **Password MySQL** harus diganti dari default di:
-   - `docker-compose.yml` (baris 6-7)
+   - `docker/.env.secrets` - File terpusat untuk semua password
+   - `docker-compose.yml` (baris 6-7) - Harus sama dengan .env.secrets
 
-2. **MySQL port** hanya bisa diakses dari localhost (`127.0.0.1:3307`)
+2. **File .env.secrets** harus di-ignore oleh Git (sudah ada di .gitignore)
 
-3. **APP_DEBUG** harus `false` di production
+3. **MySQL port** hanya bisa diakses dari localhost (`127.0.0.1:3307`)
 
-4. **Log rotation** sudah dikonfigurasi untuk mencegah disk penuh
+4. **APP_DEBUG** harus `false` di production
+
+5. **Log rotation** sudah dikonfigurasi untuk mencegah disk penuh
