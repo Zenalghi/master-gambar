@@ -30,7 +30,10 @@ fi
 # Get current user (non-root) for crontab
 CURRENT_USER="${SUDO_USER:-$USER}"
 PROJECT_DIR="$(pwd)"
-BACKUP_DIR="${HOME}/laravel/backups"
+
+# Get home directory properly (works with sudo)
+HOME_DIR=$(eval echo "~${CURRENT_USER}")
+BACKUP_DIR="${HOME_DIR}/laravel/backups"
 
 # =====================================================================
 # 1. Enable Docker auto-start
@@ -62,8 +65,8 @@ echo -e "${BLUE}[3/4] Membuat script autobackup...${NC}"
 # Create backup directory
 mkdir -p "${BACKUP_DIR}"
 
-# Create autobackup script
-cat > "${PROJECT_DIR}/docker/autobackup.sh" << 'SCRIPT_EOF'
+# Create autobackup script with proper path handling
+cat > "${PROJECT_DIR}/docker/autobackup.sh" << SCRIPT_EOF
 #!/bin/bash
 # =====================================================================
 # Auto Backup Script untuk Master Gambar
@@ -73,25 +76,27 @@ cat > "${PROJECT_DIR}/docker/autobackup.sh" << 'SCRIPT_EOF'
 set -e
 
 # Load secrets from centralized file
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="\$(dirname "\$SCRIPT_DIR")"
 
-if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
-    source "${SCRIPT_DIR}/.env.secrets"
+if [ -f "\${SCRIPT_DIR}/.env.secrets" ]; then
+    source "\${SCRIPT_DIR}/.env.secrets"
 fi
 
-# Konfigurasi backup
-BACKUP_DIR="${BACKUP_DIR:-~/laravel/backups}"
-FOLDER_NAME="auto-backup-$(date +%F-%H%M)"
-FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
+# Konfigurasi backup - gunakan path absolut dari home directory
+# Resolve ~ ke path absolut untuk menghindari masalah di container
+HOME_DIR=\$(eval echo "~\\\${USER}")
+BACKUP_DIR="\${BACKUP_DIR:-\${HOME_DIR}/laravel/backups}"
+FOLDER_NAME="auto-backup-\$(date +%F-%H%M)"
+FOLDER_BACKUP="\${BACKUP_DIR}/\${FOLDER_NAME}"
 
 echo "=========================================="
 echo "  Master Gambar - Auto Backup"
-echo "  $(date)"
+echo "  \$(date)"
 echo "=========================================="
 echo ""
 
-mkdir -p "${FOLDER_BACKUP}"
+mkdir -p "\${FOLDER_BACKUP}"
 
 # =====================================================================
 # Backup Database
@@ -99,17 +104,17 @@ mkdir -p "${FOLDER_BACKUP}"
 echo "[1/2] Backup database MySQL..."
 
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
-    DB_BACKUP_FILE="mysql-backup-$(date +%F-%H%M%S).sql"
+    DB_BACKUP_FILE="mysql-backup-\$(date +%F-%H%M%S).sql"
     
-    echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    echo "  Backup database ke: \${FOLDER_BACKUP}/\${DB_BACKUP_FILE}"
     
-    docker exec master-gambar-mysql \
-        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
-        > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    docker exec master-gambar-mysql \\
+        mysqldump -u root -p"\${MYSQL_ROOT_PASSWORD}" --all-databases \\
+        > "\${FOLDER_BACKUP}/\${DB_BACKUP_FILE}"
     
-    if [ $? -eq 0 ]; then
-        DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
-        echo "  ✓ Database backup selesai (${DB_SIZE})"
+    if [ \$? -eq 0 ]; then
+        DB_SIZE=\$(du -sh "\${FOLDER_BACKUP}/\${DB_BACKUP_FILE}" | cut -f1)
+        echo "  ✓ Database backup selesai (\${DB_SIZE})"
     else
         echo "  ✗ Database backup gagal!"
     fi
@@ -125,13 +130,13 @@ echo ""
 echo "[2/2] Backup storage (file PDF/PNG/ZIP)..."
 
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
-    echo "  Backup folder: ${FOLDER_BACKUP}"
+    echo "  Backup folder: \${FOLDER_BACKUP}"
     
-    docker cp master-gambar-app:/var/www/html/storage/app "${FOLDER_BACKUP}"
+    docker cp master-gambar-app:/var/www/html/storage/app "\${FOLDER_BACKUP}"
     
-    if [ $? -eq 0 ]; then
-        BACKUP_SIZE=$(du -sh "${FOLDER_BACKUP}" | cut -f1)
-        echo "  ✓ Storage backup selesai (${BACKUP_SIZE})"
+    if [ \$? -eq 0 ]; then
+        BACKUP_SIZE=\$(du -sh "\${FOLDER_BACKUP}" | cut -f1)
+        echo "  ✓ Storage backup selesai (\${BACKUP_SIZE})"
     else
         echo "  ✗ Storage backup gagal!"
     fi
@@ -144,14 +149,14 @@ echo ""
 # =====================================================================
 # Cleanup old backups (keep last 7 days)
 # =====================================================================
-echo "Cleanup backup lama (retention: ${RETENTION_DAYS:-7} days)..."
-find "${BACKUP_DIR}" -name "auto-backup-*" -type d -mtime +${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
+echo "Cleanup backup lama (retention: \${RETENTION_DAYS:-7} days)..."
+find "\${BACKUP_DIR}" -name "auto-backup-*" -type d -mtime +\${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
 echo "  ✓ Cleanup selesai"
 
 echo ""
 echo "=========================================="
 echo "  Backup Selesai!"
-echo "  Lokasi: ${FOLDER_BACKUP}"
+echo "  Lokasi: \${FOLDER_BACKUP}"
 echo "=========================================="
 SCRIPT_EOF
 

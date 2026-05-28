@@ -17,9 +17,12 @@ set -e
 # KONFIGURASI - SESUAIKAN DENGAN SERVER ANDA
 # =====================================================================
 
+# Resolve ~ ke path absolut untuk menghindari masalah path
+HOME_DIR=$(eval echo "~${USER}")
+
 # Folder backup di host (di luar container)
 # Default: ~/laravel/backups/ (ubah sesuai kebutuhan)
-BACKUP_DIR="${BACKUP_DIR:-~/laravel/backups}"
+BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
 
 # Nama folder backup dengan format: master-YYYY-MM-DD-HHMM
 FOLDER_NAME="master-$(date +%F-%H%M)"

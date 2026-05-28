@@ -439,6 +439,26 @@ curl -I http://localhost:8080
 | Password salah | Edit `docker/.env.secrets` dan `docker-compose.prod.yml`, lalu restart |
 | Backup gagal | Cek password di `docker/.env.secrets` sudah benar |
 | Storage permission error | Jalankan `chown -R www-data:www-data /var/www/html/storage/app/` |
+| Backup path salah | Pastikan `BACKUP_DIR` menggunakan path absolut, bukan `~` |
+
+### 📌 Best Practice: Path Handling
+
+**Masalah Umum dengan `~` (Tilde):**
+- `~` di shell akan di-expand ke home directory user yang menjalankan script
+- Tapi jika di-set sebagai variabel (misal `BACKUP_DIR=~/path`), `~` tidak akan di-expand
+- Di dalam container, `~` merujuk ke home directory container, bukan host
+
+**Solusi yang Digunakan:**
+```bash
+# Gunakan eval untuk resolve ~ ke path absolut
+HOME_DIR=$(eval echo "~${USER}")
+BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
+```
+
+**Semua script backup sudah menggunakan best practice ini:**
+- `docker/autobackup.sh` - Auto-backup script
+- `docker/update-safe.sh` - Safe update script
+- `docker/backup-storage.sh` - Storage backup script
 
 ---
 

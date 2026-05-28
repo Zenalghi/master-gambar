@@ -30,3 +30,6 @@ docker-compose.prod.yml
 
 # Secrets file (contains real passwords)
 docker/.env.secrets
+
+# Backup folder (generated backups - not for Git)
+/backups

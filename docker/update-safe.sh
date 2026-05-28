@@ -47,8 +47,9 @@ fi
 # =====================================================================
 echo -e "${BLUE}[1/7] Backup database MySQL...${NC}"
 
-# Konfigurasi backup folder
-BACKUP_DIR="${BACKUP_DIR:-~/laravel/backups}"
+# Konfigurasi backup folder - resolve ~ ke path absolut
+HOME_DIR=$(eval echo "~${USER}")
+BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
 FOLDER_NAME="master-$(date +%F-%H%M)"
 FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
 
