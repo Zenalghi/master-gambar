@@ -34,3 +34,6 @@ docker/.env.secrets
 # Backup folder (generated backups - not for Git)
 /backups
 docker/autobackup.sh
+
+# Development secrets (create from docker/.env.dev.example)
+docker/.env.dev

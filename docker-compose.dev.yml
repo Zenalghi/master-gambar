@@ -6,11 +6,14 @@
 # Production tetap menggunakan docker-compose.prod.yml
 #
 # Cara jalankan:
-#   docker compose -f docker-compose.dev.yml up -d --build
+#   1. Copy template env:  cp docker/.env.dev.example docker/.env.dev
+#   2. Edit password:      nano docker/.env.dev
+#   3. Jalankan:           docker compose -f docker-compose.dev.yml up -d --build
 #
 # Akses:
 #   - App: http://192.168.100.173:8081
 #   - MySQL: 127.0.0.1:3308
+#   - phpMyAdmin: http://192.168.100.173:8082
 # =====================================================================
 
 services:
@@ -35,7 +38,7 @@ services:
       DB_PORT: 3306
       DB_DATABASE: db_master_dev
       DB_USERNAME: dev
-      DB_PASSWORD: devpassword123
+      # DB_PASSWORD dibaca dari docker/.env.dev
       # Xdebug configuration
       XDEBUG_MODE: develop,debug,coverage
       XDEBUG_CONFIG: client_host=192.168.100.173 client_port=9003
@@ -101,9 +104,11 @@ services:
     image: mysql:9.7.0
     container_name: master-gambar-mysql-dev
     restart: unless-stopped
+    env_file:
+      - docker/.env.dev
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword123
-      MYSQL_PASSWORD: devpassword123
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
       MYSQL_USER: dev
       MYSQL_DATABASE: db_master_dev
     ports:
@@ -134,7 +139,6 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  # Optional: phpMyAdmin untuk development
   phpmyadmin-dev:
     image: phpmyadmin:5.2
     container_name: master-gambar-phpmyadmin-dev
@@ -145,7 +149,7 @@ services:
       PMA_HOST: mysql-dev
       PMA_PORT: 3306
       PMA_USER: root
-      PMA_PASSWORD: rootpassword123
+      PMA_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
     ports:
       - "8082:80"
     networks:

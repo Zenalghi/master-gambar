@@ -86,331 +86,30 @@ sudo systemctl status sshd
 
 ## 3. File yang Perlu Dibuat
 
-### 3.1 `docker-compose.dev.yml`
+HANYA SATU file yang perlu kamu buat sendiri:
 
-Buat file `docker-compose.dev.yml` di root project:
+| File | Cara Buat | Keterangan |
+|------|-----------|------------|
+| `docker/.env.dev` | `cp docker/.env.dev.example docker/.env.dev` | Password & konfigurasi lokal |
 
-```yaml
-# =====================================================================
-# DOCKER COMPOSE DEVELOPMENT - MASTER GAMBAR
-# =====================================================================
-#
-# File ini untuk development environment di VM Server
-# Production tetap menggunakan docker-compose.prod.yml
-#
-# Cara jalankan:
-#   docker compose -f docker-compose.dev.yml up -d --build
-#
-# Akses:
-#   - App: http://192.168.100.173:8081
-#   - MySQL: 127.0.0.1:3308
-#   - phpMyAdmin: http://192.168.100.173:8082
-# =====================================================================
+File-file berikut SUDAH ADA di repo (tinggal pull, tidak perlu buat):
 
-services:
-  app-dev:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile.dev
-    image: master-gambar:development
-    container_name: master-gambar-app-dev
-    restart: unless-stopped
-    working_dir: /var/www/html
-    depends_on:
-      mysql-dev:
-        condition: service_healthy
-    env_file:
-      - docker/.env.dev
-    environment:
-      APP_ENV: local
-      APP_DEBUG: "true"
-      APP_URL: http://192.168.100.173:8081
-      DB_HOST: mysql-dev
-      DB_PORT: 3306
-      DB_DATABASE: db_master_dev
-      DB_USERNAME: dev
-      DB_PASSWORD: devpassword123
-      # Xdebug configuration
-      XDEBUG_MODE: develop,debug,coverage
-      XDEBUG_CONFIG: client_host=192.168.100.173 client_port=9003
-      PHP_IDE_CONFIG: serverName=master-gambar-dev
-    volumes:
-      - .:/var/www/html
-      - storage-data-dev:/var/www/html/storage/app
-    networks:
-      - master-gambar-dev-network
-    ports:
-      - "9003:9003"  # Xdebug port
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '2.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD-SHELL", "SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+- `docker-compose.dev.yml` — Docker compose untuk development
+- `docker/php/Dockerfile.dev` — Dockerfile dengan Xdebug
+- `docker/php/docker-entrypoint.dev.sh` — Entrypoint otomatis
+- `docker/.env.dev.example` — Template env (referensi)
 
-  nginx-dev:
-    image: nginx:1.27-alpine
-    container_name: master-gambar-nginx-dev
-    restart: unless-stopped
-    depends_on:
-      - app-dev
-    ports:
-      - "8081:80"
-    volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - .:/var/www/html:ro
-    networks:
-      - master-gambar-dev-network
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.25'
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  mysql-dev:
-    image: mysql:9.7.0
-    container_name: master-gambar-mysql-dev
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword123
-      MYSQL_PASSWORD: devpassword123
-      MYSQL_USER: dev
-      MYSQL_DATABASE: db_master_dev
-    ports:
-      - "127.0.0.1:3308:3306"
-    volumes:
-      - mysql-data-dev:/var/lib/mysql
-      - ./docker/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
-      - ./docker/mysql/healthcheck.sh:/healthcheck.sh:ro
-    healthcheck:
-      test: ["CMD", "sh", "/healthcheck.sh"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
-    networks:
-      - master-gambar-dev-network
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # Optional: phpMyAdmin untuk development
-  phpmyadmin-dev:
-    image: phpmyadmin:5.2
-    container_name: master-gambar-phpmyadmin-dev
-    restart: unless-stopped
-    depends_on:
-      - mysql-dev
-    environment:
-      PMA_HOST: mysql-dev
-      PMA_PORT: 3306
-      PMA_USER: root
-      PMA_PASSWORD: rootpassword123
-    ports:
-      - "8082:80"
-    networks:
-      - master-gambar-dev-network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.25'
-
-volumes:
-  mysql-data-dev:
-  storage-data-dev:
-
-networks:
-  master-gambar-dev-network:
-    driver: bridge
-```
-
-### 3.2 `docker/.env.dev`
-
-Buat file `docker/.env.dev`:
-
+Cukup jalankan:
 ```bash
-# =====================================================================
-# DEVELOPMENT ENVIRONMENT VARIABLES
-# =====================================================================
-
-APP_NAME="Master Gambar Dev"
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://192.168.100.173:8081
-
-APP_LOCALE=en
-APP_FALLBACK_LOCALE=en
-APP_FAKER_LOCALE=en_US
-
-APP_MAINTENANCE_DRIVER=file
-PHP_CLI_SERVER_WORKERS=4
-
-BCRYPT_ROUNDS=4  # Lebih cepat untuk development
-
-LOG_CHANNEL=stack
-LOG_STACK=single
-LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
-
-DB_CONNECTION=mysql
-DB_HOST=mysql-dev
-DB_PORT=3306
-DB_DATABASE=db_master_dev
-DB_USERNAME=dev
-DB_PASSWORD=devpassword123
-
-MYSQL_ROOT_PASSWORD=rootpassword123
-MYSQL_PASSWORD=devpassword123
-MYSQL_USER=dev
-MYSQL_DATABASE=db_master_dev
-
-# Session & Cache (file-based untuk development)
-SESSION_DRIVER=file
-CACHE_STORE=file
-QUEUE_CONNECTION=sync
-
-# Mail (log untuk development)
-MAIL_MAILER=log
-MAIL_FROM_ADDRESS="dev@master-gambar.local"
-MAIL_FROM_NAME="${APP_NAME}"
-```
-
-### 3.3 `docker/php/Dockerfile.dev`
-
-Buat file `docker/php/Dockerfile.dev`:
-
-```dockerfile
-# syntax=docker/dockerfile:1
-
-FROM node:22-alpine AS frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY resources/ resources/
-COPY vite.config.js ./
-RUN npm run build
-
-FROM composer:2 AS composer
-
-FROM php:8.3.16-fpm-bookworm
-
-WORKDIR /var/www/html
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        git \
-        unzip \
-        libpng-dev \
-        libjpeg-dev \
-        libfreetype6-dev \
-        libicu-dev \
-        libxml2-dev \
-        libcurl4-openssl-dev \
-        libonig-dev \
-        libzip-dev \
-        locales \
-        ghostscript \
-        wget \
-        libfcgi-bin \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-        pdo_mysql \
-        zip \
-        mbstring \
-        xml \
-        curl \
-        bcmath \
-        gd \
-        exif \
-        intl \
-    && apt-get clean \
-    && rm -rf /var/lib/apt-lists/* \
-    && wget -O /usr/local/bin/php-fpm-healthcheck https://raw.githubusercontent.com/renatomefi/php-fpm-healthcheck/master/php-fpm-healthcheck \
-    && chmod +x /usr/local/bin/php-fpm-healthcheck
-
-# Install Xdebug for development
-RUN pecl install xdebug \
-    && docker-php-ext-enable xdebug
-
-# Configure Xdebug
-RUN echo "xdebug.mode=develop,debug,coverage" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.start_with_request=yes" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.idekey=VSCODE" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-
-COPY --from=composer /usr/bin/composer /usr/bin/composer
-COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
-COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-COPY docker/php/generate_env.php /tmp/generate_env.php
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
-
-COPY composer.json composer.lock ./
-COPY . /var/www/html
-COPY --from=frontend /app/public/build /var/www/html/public/build
-
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader \
-    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chown -R www-data:www-data /var/www/html
-
-RUN mkdir -p /app-shared && chown -R www-data:www-data /app-shared
-
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["php-fpm"]
-```
-
-### 3.4 Update `.gitignore`
-
-Pastikan file-file berikut ada di `.gitignore`:
-
-```gitignore
-# Development
-docker/.env.dev
-docker-compose.dev.yml
+cp docker/.env.dev.example docker/.env.dev
+nano docker/.env.dev   # edit password saja
 ```
 
 ---
 
 ## 4. Setup Development
 
-### 4.1 Clone Repository (jika belum)
+### 4.1 Clone Repository
 
 ```bash
 cd ~/laravel
@@ -418,9 +117,14 @@ git clone https://github.com/Zenalghi/master-gambar.git master-gambar-dev
 cd master-gambar-dev
 ```
 
-### 4.2 Buat File-file Development
+### 4.2 Buat File Development
 
-Buat file-file yang dijelaskan di bagian [File yang Perlu Dibuat](#3-file-yang-perlu-dibuat).
+Hanya satu langkah — copy template env dan edit password:
+
+```bash
+cp docker/.env.dev.example docker/.env.dev
+nano docker/.env.dev    # Ganti CHANGE_ME_* dengan password pilihanmu
+```
 
 ### 4.3 Build & Jalankan
 
@@ -431,28 +135,13 @@ cd ~/laravel/master-gambar-dev
 docker compose -f docker-compose.dev.yml up -d --build
 ```
 
-### 4.4 Generate APP_KEY
+**Selesai.** Entrypoint otomatis akan:
+- Generate `APP_KEY` jika belum ada
+- Menunggu MySQL siap
+- Menjalankan `migrate --force`
+- Clear cache untuk development
 
-```bash
-# Generate APP_KEY
-docker exec master-gambar-app-dev php artisan key:generate
-
-# Clear cache
-docker exec master-gambar-app-dev php artisan config:clear
-docker exec master-gambar-app-dev php artisan cache:clear
-```
-
-### 4.5 Migrasi Database
-
-```bash
-# Jalankan migration
-docker exec master-gambar-app-dev php artisan migrate
-
-# Jalankan seeder (jika ada)
-docker exec master-gambar-app-dev php artisan db:seed
-```
-
-### 4.6 Verifikasi
+### 4.4 Verifikasi
 
 ```bash
 # Cek status container
@@ -463,6 +152,11 @@ curl -I http://localhost:8081
 
 # Akses di browser
 # http://192.168.100.173:8081
+```
+
+Jika container `app-dev` restart terus, cek logs:
+```bash
+docker compose -f docker-compose.dev.yml logs app-dev
 ```
 
 ---
@@ -590,14 +284,13 @@ curl -I http://localhost:8081
 ### 7.1 Daily Workflow
 
 ```bash
-# Start development environment
+# Start development environment (auto: APP_KEY + migrate + cache clear)
 docker compose -f docker-compose.dev.yml up -d
 
 # Lihat logs
 docker compose -f docker-compose.dev.yml logs -f app-dev
 
 # Run artisan commands
-docker exec master-gambar-app-dev php artisan migrate
 docker exec master-gambar-app-dev php artisan make:controller MyController
 
 # Run composer
@@ -630,22 +323,16 @@ git merge feature/my-feature
 git push origin main
 ```
 
-### 7.3 Update dari Production
+**Catatan:** Entrypoint otomatis menjalankan `migrate --force` setiap container start. Jadi migration otomatis terdeteksi saat `docker compose up -d`.
 
+Jika kamu pull code baru dan ada migration baru, cukup restart:
 ```bash
-# Pull latest code
-git pull origin main
-
-# Rebuild container (jika ada perubahan Dockerfile)
 docker compose -f docker-compose.dev.yml up -d --build
+```
 
-# Run migration
-docker exec master-gambar-app-dev php artisan migrate
-
-# Clear cache
-docker exec master-gambar-app-dev php artisan config:clear
-docker exec master-gambar-app-dev php artisan cache:clear
-docker exec master-gambar-app-dev php artisan view:clear
+Atau untuk restart cepat (tanpa rebuild):
+```bash
+docker compose -f docker-compose.dev.yml restart app-dev
 ```
 
 ### 7.4 Backup Development Database
@@ -730,11 +417,13 @@ docker compose -f docker-compose.dev.yml up -d --build
 │   ├── docker-compose.prod.yml
 │   └── ...
 ├── master-gambar-dev/          # Development (Port 8081)
-│   ├── docker-compose.dev.yml
+│   ├── docker-compose.dev.yml      # SUDAH ADA di repo
 │   ├── docker/
-│   │   ├── .env.dev
+│   │   ├── .env.dev.example        # SUDAH ADA (template)
+│   │   ├── .env.dev                # BUAT SENDIRI (gitignore)
 │   │   └── php/
-│   │       └── Dockerfile.dev
+│   │       ├── Dockerfile.dev      # SUDAH ADA di repo
+│   │       └── docker-entrypoint.dev.sh  # SUDAH ADA di repo
 │   └── ...
 └── backups/                    # Backup folder
     ├── dev-backup-xxx.sql
@@ -748,7 +437,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 - Development environment hanya bisa diakses dari network internal
 - Password development berbeda dengan production
 - `APP_DEBUG=true` hanya untuk development
-- Jangan pernah push `docker-compose.dev.yml` atau `docker/.env.dev` ke Git
+- Jangan pernah push `docker/.env.dev` ke Git (file lain sudah aman)
 
 ---
 
