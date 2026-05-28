@@ -29,11 +29,26 @@ if [ ! -f "docker-compose.yml" ]; then
 fi
 
 # =====================================================================
-# Load secrets from centralized file
+# Detect docker-compose file (prefer production if exists)
 # =====================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
+# Gunakan docker-compose.prod.yml jika ada, jika tidak gunakan docker-compose.yml
+if [ -f "${PROJECT_DIR}/docker-compose.prod.yml" ]; then
+    COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
+    echo -e "${GREEN}  ✓ Using production config: docker-compose.prod.yml${NC}"
+else
+    COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
+    echo -e "${YELLOW}  ⚠ Production config not found, using template: docker-compose.yml${NC}"
+fi
+
+# Docker compose command with correct file
+COMPOSE_CMD="docker compose -f ${COMPOSE_FILE}"
+
+# =====================================================================
+# Load secrets from centralized file
+# =====================================================================
 if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
     source "${SCRIPT_DIR}/.env.secrets"
     echo -e "${GREEN}  ✓ Loaded secrets from .env.secrets${NC}"
@@ -116,7 +131,7 @@ echo ""
 # =====================================================================
 echo -e "${BLUE}[4/7] Stop containers...${NC}"
 echo -e "${YELLOW}  Note: Volume data (mysql-data, storage-data) TIDAK akan terhapus${NC}"
-docker compose stop
+${COMPOSE_CMD} stop
 echo -e "${GREEN}  ✓ Containers stopped${NC}"
 echo ""
 
@@ -124,7 +139,7 @@ echo ""
 # STEP 5: Rebuild images
 # =====================================================================
 echo -e "${BLUE}[5/7] Rebuild Docker images...${NC}"
-docker compose build --no-cache
+${COMPOSE_CMD} build --no-cache
 echo -e "${GREEN}  ✓ Images rebuilt${NC}"
 echo ""
 
@@ -132,7 +147,7 @@ echo ""
 # STEP 6: Start containers
 # =====================================================================
 echo -e "${BLUE}[6/7] Start containers...${NC}"
-docker compose up -d
+${COMPOSE_CMD} up -d
 echo -e "${GREEN}  ✓ Containers started${NC}"
 echo ""
 
@@ -141,7 +156,7 @@ echo ""
 # =====================================================================
 echo -e "${BLUE}[7/7] Verifikasi...${NC}"
 sleep 5
-docker compose ps
+${COMPOSE_CMD} ps
 
 echo ""
 echo "=========================================="
@@ -149,7 +164,7 @@ echo -e "${GREEN}  Update Selesai!${NC}"
 echo "=========================================="
 echo ""
 echo "Verifikasi tambahan:"
-echo "  - Cek logs: docker compose logs -f"
+echo "  - Cek logs: ${COMPOSE_CMD} logs -f"
 echo "  - Cek health: bash docker/healthcheck.sh"
 echo "  - Test aplikasi: curl -I http://localhost:8080"
 echo ""
