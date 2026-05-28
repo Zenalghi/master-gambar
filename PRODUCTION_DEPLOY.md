@@ -296,7 +296,7 @@ cat ~/laravel/db_master.sql | docker exec -i master-gambar-mysql mysql -u root -
 
 Atau Hunakan Heidisql dengan MariaDB or MySQSL sshtunnel
 
-![SSH Tunnel](storage\app\sshtunnel.png)
+![SSH Tunnel](public\sshtunnel.png)
 
 setelah masuk execute sql ke database
 
