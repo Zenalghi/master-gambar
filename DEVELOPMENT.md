@@ -119,11 +119,20 @@ cd master-gambar-dev
 
 ### 4.2 Buat File Development
 
-Hanya satu langkah — copy template env dan edit password:
+Hanya satu langkah — jalankan script setup:
 
 ```bash
-cp docker/.env.dev.example docker/.env.dev
-nano docker/.env.dev    # Ganti CHANGE_ME_* dengan password pilihanmu
+bash docker/setup-dev.sh
+```
+
+Script ini otomatis:
+- Copy `docker/.env.dev.example` → `docker/.env.dev` (kalau belum ada)
+- Generate random password untuk `DB_PASSWORD` dan `MYSQL_ROOT_PASSWORD`
+- Copy `.env.docker.example` → `.env` (kalau belum ada)
+
+Kalau mau edit password manual:
+```bash
+nano docker/.env.dev
 ```
 
 ### 4.3 Build & Jalankan
@@ -157,6 +166,22 @@ curl -I http://localhost:8081
 Jika container `app-dev` restart terus, cek logs:
 ```bash
 docker compose -f docker-compose.dev.yml logs app-dev
+```
+
+### Common Errors
+
+**`MYSQL_ROOT_PASSWORD variable is not set`**
+→ `docker/.env.dev` belum dibuat. Jalankan:
+```bash
+bash docker/setup-dev.sh
+```
+
+**`container master-gambar-mysql-dev is unhealthy`**
+→ MySQL gagal start, biasanya karena password kosong atau volume lama korup:
+```bash
+# Reset total (data hilang!)
+docker compose -f docker-compose.dev.yml down -v
+docker compose -f docker-compose.dev.yml up -d --build
 ```
 
 ---

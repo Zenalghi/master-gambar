@@ -52,6 +52,7 @@ RUN echo "xdebug.mode=develop,debug,coverage" >> /usr/local/etc/php/conf.d/docke
 COPY --from=composer /usr/bin/composer /usr/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
 COPY docker/php/docker-entrypoint.dev.sh /usr/local/bin/docker-entrypoint.dev.sh
+COPY docker/php/generate_env.php /tmp/generate_env.php
 RUN chmod +x /usr/local/bin/docker-entrypoint.dev.sh
 
 COPY composer.json composer.lock ./

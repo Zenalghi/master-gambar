@@ -5,38 +5,55 @@ echo "=== Master Gambar - Development Entrypoint ==="
 
 cd /var/www/html
 
-# ---- AUTO-GENERATE APP_KEY ----
-# Check if .env exists and has a valid APP_KEY
-if [ -f .env ]; then
-    if ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
-        echo "-> APP_KEY not set, generating..."
-        php artisan key:generate --force 2>/dev/null || true
-    fi
-else
-    echo "-> No .env found, running key:generate..."
-    # Create minimal .env first
-    touch .env
-    php artisan key:generate --force 2>/dev/null || true
+# ---- 1. GENERATE .ENV FROM ENVIRONMENT VARIABLES ----
+echo "-> Generating .env from environment variables..."
+php /tmp/generate_env.php 2>/dev/null || true
+
+# Fallback: ensure minimal .env exists
+if [ ! -f .env ] || [ ! -s .env ]; then
+    echo "APP_NAME=Master Gambar Dev
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://192.168.100.173:8081
+DB_CONNECTION=mysql
+DB_HOST=mysql-dev
+DB_PORT=3306
+DB_DATABASE=db_master_dev
+DB_USERNAME=dev
+DB_PASSWORD=devpassword
+SESSION_DRIVER=file
+CACHE_STORE=file
+QUEUE_CONNECTION=sync
+LOG_CHANNEL=stack
+LOG_LEVEL=debug
+" > .env
 fi
 
-# Ensure APP_KEY is exported to PHP-FPM
-if [ -f .env ]; then
-    APP_KEY_VALUE=$(grep "^APP_KEY=" .env 2>/dev/null | cut -d= -f2-)
-    if [ -n "$APP_KEY_VALUE" ]; then
-        echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/www.conf
-    fi
+# ---- 2. ENSURE APP_KEY LINE EXISTS + AUTO-GENERATE ----
+# Ensure APP_KEY line exists in .env (required for key:generate)
+if ! grep -q "^APP_KEY=" .env 2>/dev/null; then
+    echo "APP_KEY=" >> .env
+fi
+if ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
+    echo "-> APP_KEY not set, generating..."
+    php artisan key:generate --force
+fi
+
+# Export APP_KEY to PHP-FPM
+APP_KEY_VALUE=$(grep "^APP_KEY=" .env 2>/dev/null | cut -d= -f2-)
+if [ -n "$APP_KEY_VALUE" ]; then
+    echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/www.conf
 fi
 
 echo "ping.path = /ping" >> /usr/local/etc/php-fpm.d/www.conf
 echo "pm.status_path = /status" >> /usr/local/etc/php-fpm.d/www.conf
 
-# ---- WAIT FOR MYSQL ----
+# ---- 3. WAIT FOR MYSQL ----
 echo "-> Waiting for MySQL..."
-DB_HOST_VAL="${DB_HOST:-mysql-dev}"
-MYSQL_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-changeme_root_password_here}"
 cat > /tmp/wait_mysql.php << 'PHPEOF'
 <?php
-$pass = getenv('MYSQL_ROOT_PASSWORD') ?: 'changeme_root_password_here';
+$pass = getenv('MYSQL_ROOT_PASSWORD') ?: getenv('DB_PASSWORD') ?: 'devpassword';
 $host = getenv('DB_HOST') ?: 'mysql-dev';
 for ($i = 0; $i < 30; $i++) {
     try {
@@ -59,11 +76,11 @@ PHPEOF
 php /tmp/wait_mysql.php
 echo "  MySQL ready!"
 
-# ---- AUTO-MIGRATE DATABASE ----
+# ---- 4. AUTO-MIGRATE DATABASE ----
 echo "-> Running database migrations..."
 php artisan migrate --force 2>/dev/null || echo "  (no migrations to run)"
 
-# ---- DEVELOPMENT: CLEAR INSTEAD OF CACHE ----
+# ---- 5. DEVELOPMENT: CLEAR INSTEAD OF CACHE ----
 echo "-> Clearing caches for development..."
 php artisan config:clear 2>/dev/null || true
 php artisan cache:clear 2>/dev/null || true
