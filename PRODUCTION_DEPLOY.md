@@ -134,16 +134,16 @@ MYSQL_PASSWORD="PasswordRootKuat123!"
 │  ─────────────               ──────────────────────             │
 │                                                                 │
 │  docker-compose.yml          docker-compose.prod.yml            │
-│  - Placeholder password      - Password asli                   │
-│  - Masuk ke Git              - DI-IGNORE oleh Git              │
+│  - Placeholder password      - Password asli                    │
+│  - Masuk ke Git              - DI-IGNORE oleh Git               │
 │                                                                 │
 │  docker/mysql/backup-example.sh  docker/mysql/backup.sh         │
-│  - Placeholder password      - Password asli                   │
-│  - Masuk ke Git              - DI-IGNORE oleh Git              │
+│  - Placeholder password      - Password asli                    │
+│  - Masuk ke Git              - DI-IGNORE oleh Git               │
 │                                                                 │
 │  Setiap git pull:                                               │
-│  - Template berubah → OK                                       │
-│  - Production tetap → Password aman!                           │
+│  - Template berubah → OK                                        │
+│  - Production tetap → Password aman!                            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
