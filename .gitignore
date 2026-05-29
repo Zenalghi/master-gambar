@@ -35,5 +35,5 @@ docker/.env.secrets
 /backups
 docker/autobackup.sh
 
-# Development secrets (create from docker/.env.dev.example)
-docker/.env.dev
+# Development secrets (create from docker/.env.dev.secrets.example)
+docker/.env.dev.secrets

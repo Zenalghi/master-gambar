@@ -5,42 +5,33 @@ echo "=== Master Gambar - Development Entrypoint ==="
 
 cd /var/www/html
 
-# ---- 1. GENERATE .ENV FROM ENVIRONMENT VARIABLES ----
+# Sync shared volume on first run (Untuk membagi file ke Nginx)
+if [ -d /app-shared ] && [ ! -f /app-shared/public/index.php ]; then
+    cp -a /var/www/html/. /app-shared/
+    chown -R www-data:www-data /app-shared
+fi
+
+# 1. Jalankan script PHP untuk membuat .env dari environment variable
 echo "-> Generating .env from environment variables..."
 php /tmp/generate_env.php 2>/dev/null || true
 
-# Fallback: ensure minimal .env exists
-if [ ! -f .env ] || [ ! -s .env ]; then
-    echo "APP_NAME=Master Gambar Dev
-APP_ENV=local
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://192.168.100.173:8081
-DB_CONNECTION=mysql
-DB_HOST=mysql-dev
-DB_PORT=3306
-DB_DATABASE=db_master_dev
-DB_USERNAME=dev
-DB_PASSWORD=devpassword
-SESSION_DRIVER=file
-CACHE_STORE=file
-QUEUE_CONNECTION=sync
-LOG_CHANNEL=stack
-LOG_LEVEL=debug
-" > .env
+# 2. SEBAGAI FALLBACK: Jika .env masih belum ada, copy langsung dari example
+if [ ! -f .env ]; then
+    cp /var/www/html/.env.docker.example /var/www/html/.env 2>/dev/null || true
 fi
 
-# ---- 2. ENSURE APP_KEY LINE EXISTS + AUTO-GENERATE ----
-# Ensure APP_KEY line exists in .env (required for key:generate)
-if ! grep -q "^APP_KEY=" .env 2>/dev/null; then
+# 3. Pastikan baris APP_KEY= selalu ada di dalam file .env yang baru dirakit
+if ! grep -q "^APP_KEY=" .env; then
     echo "APP_KEY=" >> .env
 fi
-if ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
-    echo "-> APP_KEY not set, generating..."
+
+# 4. Generate APP_KEY if empty
+if grep -q "^APP_KEY=$" .env 2>/dev/null || grep -q "^APP_KEY=base64:$" .env 2>/dev/null || ! grep -q "^APP_KEY=base64:" .env 2>/dev/null; then
+    echo "-> Generating APP_KEY..."
     php artisan key:generate --force
 fi
 
-# Export APP_KEY to PHP-FPM
+# Export APP_KEY ke lingkungan PHP-FPM
 APP_KEY_VALUE=$(grep "^APP_KEY=" .env 2>/dev/null | cut -d= -f2-)
 if [ -n "$APP_KEY_VALUE" ]; then
     echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/www.conf
@@ -49,11 +40,11 @@ fi
 echo "ping.path = /ping" >> /usr/local/etc/php-fpm.d/www.conf
 echo "pm.status_path = /status" >> /usr/local/etc/php-fpm.d/www.conf
 
-# ---- 3. WAIT FOR MYSQL ----
+# Wait for MySQL
 echo "-> Waiting for MySQL..."
 cat > /tmp/wait_mysql.php << 'PHPEOF'
 <?php
-$pass = getenv('MYSQL_ROOT_PASSWORD') ?: getenv('DB_PASSWORD') ?: 'devpassword';
+$pass = getenv('MYSQL_ROOT_PASSWORD') ?: 'root_anti_ini';
 $host = getenv('DB_HOST') ?: 'mysql-dev';
 for ($i = 0; $i < 30; $i++) {
     try {
@@ -66,8 +57,8 @@ for ($i = 0; $i < 30; $i++) {
         echo "MySQL connected!\n";
         exit(0);
     } catch (Exception $e) {
-        echo "  MySQL not ready (" . ($i + 1) . "/30)...\n";
-        sleep(2);
+        echo "  MySQL not ready (" . ($i + 1) . "/30), retrying...\n";
+        sleep(3);
     }
 }
 echo "ERROR: MySQL not ready after 30 retries\n";
@@ -76,15 +67,15 @@ PHPEOF
 php /tmp/wait_mysql.php
 echo "  MySQL ready!"
 
-# ---- 4. AUTO-MIGRATE DATABASE ----
-echo "-> Running database migrations..."
-php artisan migrate --force 2>/dev/null || echo "  (no migrations to run)"
+# Run artisan commands
+echo "-> Migrating database..."
+php artisan migrate --force
 
-# ---- 5. DEVELOPMENT: CLEAR INSTEAD OF CACHE ----
-echo "-> Clearing caches for development..."
-php artisan config:clear 2>/dev/null || true
-php artisan cache:clear 2>/dev/null || true
-php artisan view:clear 2>/dev/null || true
+echo "-> Caching config..."
+php artisan config:cache
+
+echo "-> Caching views..."
+php artisan view:cache
 
 echo "-> Storage link..."
 php artisan storage:link 2>/dev/null || true
