@@ -2,7 +2,7 @@
 # DOCKER COMPOSE DEVELOPMENT - MASTER GAMBAR
 # =====================================================================
 # Cara pakai:
-#   1. Copy secrets:    cp docker/.env.secrets docker/.env.dev.secrets
+#   1. Copy secrets:    cp docker/.env.dev.secrets.example docker/.env.dev.secrets
 #   2. Edit password:   nano docker/.env.dev.secrets
 #   3. Jalankan:        docker compose -f docker-compose.dev.yml up -d --build
 # =====================================================================

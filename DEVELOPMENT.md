@@ -30,9 +30,7 @@ VM SERVER (192.168.100.173)
 
 ## Cara Setup Development
 
-### Step 1: File yang Perlu Dibuat
-
-**HANYA SATU file** — secrets_development:
+### Step 1: Buat File Secrets
 
 ```bash
 cd ~/laravel/master-gambar
@@ -40,11 +38,13 @@ cp docker/.env.dev.secrets.example docker/.env.dev.secrets
 nano docker/.env.dev.secrets
 ```
 
-Edit bagian ini:
+Ganti semua `GANTI_PASSWORD_ROOT_DI_SINI` dan `GANTI_PASSWORD_DEV_DI_SINI` dengan password pilihan Anda. Simpan.
+
+Atau, jalankan script auto-setup:
+```bash
+bash docker/setup-dev.sh
 ```
-MYSQL_ROOT_PASSWORD=GANTI_PASSWORD_ROOT_DI_SINI
-```
-Ganti dengan password pilihan Anda. Simpan.
+Script akan generate random password otomatis.
 
 ### Step 2: Build & Jalankan
 
@@ -135,7 +135,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 ```
 ~/laravel/master-gambar/
 ├── docker/
-│   ├── .env.dev.secrets          ← BUAT SENDIRI (gitignore)
+│   ├── .env.dev.secrets          ← BUAT SENDIRI dari .env.dev.secrets.example (gitignore)
 │   ├── .env.dev.secrets.example  ← Template (ada di git)
 │   ├── .env.secrets              ← Production secrets (gitignore)
 │   ├── .env.secrets.example      ← Production template (ada di git)
@@ -147,7 +147,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 │       ├── Dockerfile.dev        ← Development Dockerfile (+ Xdebug)
 │       ├── docker-entrypoint.sh  ← Production entrypoint
 │       ├── docker-entrypoint.dev.sh ← Development entrypoint
-│       └── generate_env.php      ← Generat .env dari env vars
+│       └── generate_env.php      ← Generate .env dari env vars
 ├── docker-compose.dev.yml        ← Development compose
 └── docker-compose.prod.yml       ← Production compose
 ```
