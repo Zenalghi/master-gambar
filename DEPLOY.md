@@ -23,7 +23,7 @@ Dokumentasi teknis untuk maintenance dan troubleshooting aplikasi Master Gambar.
                     ┌─────────────────────────────────────┐
                     │           Server 192.168.100.17     │
                     │                                     │
-   Browser ──────►  │  :8080  ┌─────────┐  :9000          │
+   Browser ──────►  │  :80  ┌─────────┐  :9000            │
                     │ ──────► │  nginx  │ ──────►         │
                     │         └─────────┘                 │
                     │                        ┌─────────┐  │
@@ -44,7 +44,7 @@ Dokumentasi teknis untuk maintenance dan troubleshooting aplikasi Master Gambar.
 
 | Service | Image | Port | Container Name |
 |---------|-------|------|----------------|
-| nginx | nginx:1.27-alpine | 8080 | master-gambar-nginx |
+| nginx | nginx:1.27-alpine | 80 | master-gambar-nginx |
 | app | master-gambar:production | 9000 | master-gambar-app |
 | mysql | mysql:9.7.0 | 3307 (localhost only) | master-gambar-mysql |
 
@@ -195,7 +195,7 @@ docker network prune
 |---------|--------|
 | Container restart loop | `docker compose logs app` |
 | MySQL connection refused | Tunggu container mysql healthy dulu |
-| Port 8080 dipakai | Ubah ports di docker-compose.yml |
+| Port 80 dipakai | Ubah ports di docker-compose.yml |
 | Permission denied | `sudo usermod -aG docker $USER` lalu reconnect |
 | Container tidak start setelah reboot | `sudo systemctl enable docker` |
 | Healthcheck gagal | `docker inspect master-gambar-app` |

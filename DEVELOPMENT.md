@@ -6,7 +6,7 @@ Panduan setup development environment menggunakan Docker di VM Server.
 
 ```
 VM SERVER (192.168.100.173)
-├── PRODUCTION (Port 8080)  ← Docker (docker-compose.prod.yml)
+├── PRODUCTION (Port 80)  ← Docker (docker-compose.prod.yml)
 │   ├── master-gambar-app
 │   ├── master-gambar-mysql
 │   └── master-gambar-nginx
