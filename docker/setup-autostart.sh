@@ -3,7 +3,7 @@
 # Setup Auto-Start untuk Master Gambar
 # Jalankan script ini SEKALI di server untuk mengkonfigurasi:
 # 1. Docker auto-start saat boot
-# 2. Auto-backup database & storage ke ~/laravel/backups (jam 12 siang)
+# 2. Auto-backup database & storage ke /mnt/data/backups (jam 12 siang)
 # 3. Log rotation
 # =====================================================================
 
@@ -31,9 +31,8 @@ fi
 CURRENT_USER="${SUDO_USER:-$USER}"
 PROJECT_DIR="$(pwd)"
 
-# Get home directory properly (works with sudo)
-HOME_DIR=$(eval echo "~${CURRENT_USER}")
-BACKUP_DIR="${HOME_DIR}/laravel/backups"
+# Get backup directory properly
+BACKUP_DIR="/mnt/data/backups"
 
 # =====================================================================
 # 1. Enable Docker auto-start
@@ -70,7 +69,7 @@ cat > "${PROJECT_DIR}/docker/autobackup.sh" << SCRIPT_EOF
 #!/bin/bash
 # =====================================================================
 # Auto Backup Script untuk Master Gambar
-# Backup database dan storage ke ~/laravel/backups
+# Backup database dan storage ke /mnt/data/backups
 # =====================================================================
 
 set -e
@@ -83,11 +82,9 @@ if [ -f "\${SCRIPT_DIR}/.env.secrets" ]; then
     source "\${SCRIPT_DIR}/.env.secrets"
 fi
 
-# Konfigurasi backup - gunakan path absolut dari home directory
-# Resolve ~ ke path absolut untuk menghindari masalah di container
-HOME_DIR=\$(eval echo "~\\\${USER}")
-BACKUP_DIR="\${BACKUP_DIR:-\${HOME_DIR}/laravel/backups}"
-FOLDER_NAME="auto-backup-\$(date +%F-%H%M)"
+# Konfigurasi backup lokasi
+BACKUP_DIR="\${BACKUP_DIR:-/mnt/data/backups}"
+FOLDER_NAME="\$(date +%Y-%m-%d-%H:%M)-master-autobackup"
 FOLDER_BACKUP="\${BACKUP_DIR}/\${FOLDER_NAME}"
 
 echo "=========================================="
@@ -150,7 +147,7 @@ echo ""
 # Cleanup old backups (keep last 7 days)
 # =====================================================================
 echo "Cleanup backup lama (retention: \${RETENTION_DAYS:-7} days)..."
-find "\${BACKUP_DIR}" -name "auto-backup-*" -type d -mtime +\${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
+find "\${BACKUP_DIR}" -name "*-master-*" -type d -mtime +\${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
 echo "  ✓ Cleanup selesai"
 
 echo ""
@@ -232,6 +229,6 @@ echo "    cp docker/.env.secrets.example docker/.env.secrets"
 echo "    nano docker/.env.secrets  # Edit password MySQL"
 echo ""
 echo "  Backup otomatis disimpan di:"
-echo "    ${BACKUP_DIR}/auto-backup-YYYY-MM-DD-HHMM/"
+echo "    ${BACKUP_DIR}/YYYY-MM-DD-HH:MM-master-autobackup/"
 echo "    ├── mysql-backup-YYYY-MM-DD-HHMMSS.sql"
 echo "    └── app/ (storage files)"

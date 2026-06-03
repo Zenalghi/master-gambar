@@ -60,12 +60,11 @@ fi
 # =====================================================================
 # STEP 1: Backup Database
 # =====================================================================
-echo -e "${BLUE}[1/7] Backup database MySQL...${NC}"
+echo -e "${BLUE}[1/8] Backup database MySQL...${NC}"
 
-# Konfigurasi backup folder - resolve ~ ke path absolut
-HOME_DIR=$(eval echo "~${USER}")
-BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
-FOLDER_NAME="master-$(date +%F-%H%M)"
+# Konfigurasi backup folder
+BACKUP_DIR="${BACKUP_DIR:-/mnt/data/backups}"
+FOLDER_NAME="$(date +%Y-%m-%d-%H:%M)-master-backup"
 FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
 
 mkdir -p "${FOLDER_BACKUP}"
@@ -97,7 +96,7 @@ echo ""
 # =====================================================================
 # STEP 2: Backup Storage (file PDF, PNG, ZIP)
 # =====================================================================
-echo -e "${BLUE}[2/7] Backup storage (file PDF/PNG/ZIP)...${NC}"
+echo -e "${BLUE}[2/8] Backup storage (file PDF/PNG/ZIP)...${NC}"
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
 
     echo "  Backup folder: ${FOLDER_BACKUP}"
@@ -121,7 +120,7 @@ echo ""
 # =====================================================================
 # STEP 3: Pull latest code
 # =====================================================================
-echo -e "${BLUE}[3/7] Pull latest code dari Git...${NC}"
+echo -e "${BLUE}[3/8] Pull latest code dari Git...${NC}"
 git pull
 echo -e "${GREEN}  ✓ Code updated${NC}"
 echo ""
@@ -129,7 +128,7 @@ echo ""
 # =====================================================================
 # STEP 4: Stop containers (DATA TIDAK HILANG!)
 # =====================================================================
-echo -e "${BLUE}[4/7] Stop containers...${NC}"
+echo -e "${BLUE}[4/8] Stop containers...${NC}"
 echo -e "${YELLOW}  Note: Volume data (mysql-data, storage-data) TIDAK akan terhapus${NC}"
 ${COMPOSE_CMD} stop
 echo -e "${GREEN}  ✓ Containers stopped${NC}"
@@ -138,7 +137,7 @@ echo ""
 # =====================================================================
 # STEP 5: Rebuild images
 # =====================================================================
-echo -e "${BLUE}[5/7] Rebuild Docker images...${NC}"
+echo -e "${BLUE}[5/8] Rebuild Docker images...${NC}"
 ${COMPOSE_CMD} build --no-cache
 echo -e "${GREEN}  ✓ Images rebuilt${NC}"
 echo ""
@@ -146,15 +145,46 @@ echo ""
 # =====================================================================
 # STEP 6: Start containers
 # =====================================================================
-echo -e "${BLUE}[6/7] Start containers...${NC}"
+echo -e "${BLUE}[6/8] Start containers...${NC}"
 ${COMPOSE_CMD} up -d
 echo -e "${GREEN}  ✓ Containers started${NC}"
 echo ""
 
 # =====================================================================
-# STEP 7: Verify
+# STEP 7: Backup Database (Setelah Update)
 # =====================================================================
-echo -e "${BLUE}[7/7] Verifikasi...${NC}"
+echo -e "${BLUE}[7/8] Backup database MySQL (Setelah Update)...${NC}"
+
+if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
+    echo "  Tunggu MySQL siap..."
+    sleep 10
+    
+    DB_BACKUP_UPDATED_FILE="mysql-backup-updated-$(date +%Y-%m-%d-%H%M%S).sql"
+    
+    echo "  Backup database (updated) ke: ${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
+    
+    # Export database dari container langsung ke host
+    docker exec master-gambar-mysql \
+        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
+        > "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
+
+    if [ $? -eq 0 ]; then
+        DB_UPDATED_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}" | cut -f1)
+        echo -e "${GREEN}  ✓ Database backup (updated) selesai (${DB_UPDATED_SIZE})${NC}"
+    else
+        echo -e "${RED}  ✗ Database backup (updated) gagal!${NC}"
+    fi
+
+else
+    echo -e "${YELLOW}  ⚠ MySQL container tidak running, skip backup updated${NC}"
+fi
+
+echo ""
+
+# =====================================================================
+# STEP 8: Verifikasi
+# =====================================================================
+echo -e "${BLUE}[8/8] Verifikasi...${NC}"
 sleep 5
 ${COMPOSE_CMD} ps
 
@@ -172,5 +202,5 @@ echo -e "${YELLOW}Data yang AMAN (tidak terhapus):${NC}"
 echo "  ✓ MySQL database (volume: mysql-data)"
 echo "  ✓ File storage (volume: storage-data)"
 echo "  ✓ Backup database (volume: mysql-backup)"
-echo "  ✓ Backup storage (folder: ~/laravel/backups/)"
+echo "  ✓ Backup storage (folder: /mnt/data/backups/)"
 echo "  ✓ Shared code (volume: app-code)"

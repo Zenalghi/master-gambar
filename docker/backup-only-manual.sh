@@ -1,14 +1,10 @@
 #!/bin/bash
 # =====================================================================
-# Storage Backup Script untuk Master Gambar
-# Backup folder storage/app (file PDF, PNG, ZIP) ke host
+# Backup Manual Script untuk Master Gambar
+# Backup database MySQL dan folder storage/app ke host (tanpa update kode)
 #
 # Jalankan manual:
-#   bash docker/backup-storage.sh
-#
-# Jalankan via cron (setiap jam 3 pagi):
-#   crontab -e
-#   0 3 * * * cd /path/to/master-gambar && bash docker/backup-storage.sh
+#   bash docker/backup-only-manual.sh
 # =====================================================================
 
 set -e
@@ -17,15 +13,19 @@ set -e
 # KONFIGURASI - SESUAIKAN DENGAN SERVER ANDA
 # =====================================================================
 
-# Resolve ~ ke path absolut untuk menghindari masalah path
-HOME_DIR=$(eval echo "~${USER}")
-
 # Folder backup di host (di luar container)
-# Default: ~/laravel/backups/ (ubah sesuai kebutuhan)
-BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
+BACKUP_DIR="${BACKUP_DIR:-/mnt/data/backups}"
 
-# Nama folder backup dengan format: master-YYYY-MM-DD-HHMM
-FOLDER_NAME="master-$(date +%F-%H%M)"
+# Nama folder backup sesuai format yang diminta
+FOLDER_NAME="$(date +%Y-%m-%d-%H:%M)-master-backup-manual"
+
+# Load secrets for MySQL Password
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
+    source "${SCRIPT_DIR}/.env.secrets"
+else
+    echo -e "\033[1;33mPeringatan: file .env.secrets tidak ditemukan, password database mungkin kosong.\033[0m"
+fi
 
 # Path folder storage di dalam container
 CONTAINER_STORAGE_PATH="/var/www/html/storage/app"
@@ -67,8 +67,29 @@ mkdir -p "${FOLDER_BACKUP}"
 echo "  Backup folder: ${FOLDER_BACKUP}"
 echo ""
 
-# Step 3: Copy storage dari container ke host
-echo -e "${BLUE}[3/5] Copy storage dari container...${NC}"
+# Step 3: Backup database MySQL
+echo -e "${BLUE}[3/6] Backup database MySQL...${NC}"
+if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
+    DB_BACKUP_FILE="mysql-backup-manual-$(date +%Y-%m-%d-%H%M%S).sql"
+    echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    
+    docker exec master-gambar-mysql \
+        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
+        > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+        
+    if [ $? -eq 0 ]; then
+        DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
+        echo -e "${GREEN}  ✓ Database backup selesai (${DB_SIZE})${NC}"
+    else
+        echo -e "${RED}  ✗ Database backup gagal! Pastikan MYSQL_ROOT_PASSWORD di .env.secrets sudah benar.${NC}"
+    fi
+else
+    echo -e "${YELLOW}  ⚠ MySQL container tidak running, skip backup database${NC}"
+fi
+echo ""
+
+# Step 4: Copy storage dari container ke host
+echo -e "${BLUE}[4/6] Copy storage dari container...${NC}"
 echo "  Source: ${CONTAINER_NAME}:${CONTAINER_STORAGE_PATH}"
 echo "  Destination: ${FOLDER_BACKUP}"
 
@@ -89,16 +110,16 @@ else
 fi
 echo ""
 
-# Step 4: Tampilkan info backup
-echo -e "${BLUE}[4/5] Info backup...${NC}"
+# Step 5: Tampilkan info backup
+echo -e "${BLUE}[5/6] Info backup...${NC}"
 BACKUP_SIZE=$(du -sh "${FOLDER_BACKUP}" | cut -f1)
 FILE_COUNT=$(find "${FOLDER_BACKUP}" -type f | wc -l)
 echo "  Ukuran backup: ${BACKUP_SIZE}"
 echo "  Jumlah file: ${FILE_COUNT}"
 echo ""
 
-# Step 5: Cleanup backup lama
-echo -e "${BLUE}[5/5] Cleanup backup lama (${RETENTION_DAYS} hari)...${NC}"
+# Step 6: Cleanup backup lama
+echo -e "${BLUE}[6/6] Cleanup backup lama (${RETENTION_DAYS} hari)...${NC}"
 DELETED=$(find "${BACKUP_DIR}" -maxdepth 1 -name "master-*" -type d -mtime +${RETENTION_DAYS} | wc -l)
 find "${BACKUP_DIR}" -maxdepth 1 -name "master-*" -type d -mtime +${RETENTION_DAYS} -exec rm -rf {} \;
 echo "  Backup dihapus: ${DELETED} folder"
@@ -106,7 +127,7 @@ echo ""
 
 # Summary
 echo "=========================================="
-echo -e "${GREEN}  Storage Backup Selesai!${NC}"
+echo -e "${GREEN}  Backup Database & Storage Selesai!${NC}"
 echo "=========================================="
 echo ""
 echo "  Lokasi: ${FOLDER_BACKUP}"

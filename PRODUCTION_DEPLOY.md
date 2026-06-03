@@ -131,7 +131,7 @@ MYSQL_APP_PASSWORD=PasswordAppKuat456!
 MYSQL_DATABASE=db_master
 
 # Backup Configuration
-BACKUP_DIR=~/laravel/backups
+BACKUP_DIR=/mnt/data/backups
 RETENTION_DAYS=7
 ```
 
@@ -217,7 +217,7 @@ sudo bash docker/setup-autostart.sh
 - ✅ Mengaktifkan Docker auto-start saat boot
 - ✅ Membuat script `docker/autobackup.sh` untuk backup otomatis
 - ✅ Mengatur auto-backup jam 12:00 siang (database + storage)
-- ✅ Backup disimpan di `~/laravel/backups/`
+- ✅ Backup disimpan di `/mnt/data/backups/`
 - ✅ Auto-cleanup backup lama (retention 7 hari)
 - ✅ Mengatur log rotation
 
@@ -228,8 +228,8 @@ crontab -l
 
 **Struktur backup:**
 ```
-~/laravel/backups/
-└── auto-backup-2024-01-15-1200/
+/mnt/data/backups/
+└── 2024-01-15-12:00-master-autobackup/
     ├── mysql-backup-2024-01-15-120000.sql
     └── app/
         └── master/
@@ -342,7 +342,7 @@ bash docker/update-safe.sh
 
 **Apa yang dilakukan script ini:**
 
-1. **Backup Database** - Export semua database MySQL ke folder `~/laravel/backups/`
+1. **Backup Database** - Export semua database MySQL ke folder `/mnt/data/backups/`
 2. **Backup Storage** - Copy semua file (PDF, PNG, ZIP) dari container ke host
 3. **Pull Latest Code** - Download update terbaru dari Git
 4. **Stop Containers** - Hentikan container (volume data TIDAK terhapus!)
@@ -357,25 +357,28 @@ bash docker/update-safe.sh
   2024-01-15 10:30:00
 ==========================================
 
-[1/7] Backup database MySQL...
+[1/8] Backup database MySQL...
   ✓ Database backup selesai (150M)
 
-[2/7] Backup storage (file PDF/PNG/ZIP)...
+[2/8] Backup storage (file PDF/PNG/ZIP)...
   ✓ Storage backup selesai (2.3G)
 
-[3/7] Pull latest code dari Git...
+[3/8] Pull latest code dari Git...
   ✓ Code updated
 
-[4/7] Stop containers...
+[4/8] Stop containers...
   ✓ Containers stopped
 
-[5/7] Rebuild Docker images...
+[5/8] Rebuild Docker images...
   ✓ Images rebuilt
 
-[6/7] Start containers...
+[6/8] Start containers...
   ✓ Containers started
 
-[7/7] Verifikasi...
+[7/8] Backup database MySQL (Setelah Update)...
+  ✓ Database backup (updated) selesai (150M)
+
+[8/8] Verifikasi...
   ✓ Semua container running
 
 ==========================================
@@ -393,7 +396,7 @@ bash docker/update-safe.sh
 │  ✓ MySQL database (volume: mysql-data)                          │
 │  ✓ File storage (volume: storage-data)                          │
 │  ✓ Backup database (volume: mysql-backup)                       │
-│  ✓ Backup storage (folder: ~/laravel/backups/)                  │
+│  ✓ Backup storage (folder: /mnt/data/backups/)                  │
 │  ✓ Shared code (volume: app-code)                               │
 │                                                                 │
 │  Yang BERUBAH saat update:                                      │
@@ -413,7 +416,7 @@ bash docker/update-safe.sh
 
 - Script menggunakan `docker-compose.yml` (template), bukan `docker-compose.prod.yml`
 - Pastikan `docker/.env.secrets` sudah dibuat sebelum menjalankan script
-- Backup disimpan di folder `~/laravel/backups/` dengan format tanggal
+- Backup disimpan di folder `/mnt/data/backups/` dengan format tanggal
 - Jika terjadi masalah, Anda bisa restore dari backup
 
 ### 🔄 Verifikasi Setelah Update
@@ -459,7 +462,7 @@ BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
 **Semua script backup sudah menggunakan best practice ini:**
 - `docker/autobackup.sh` - Auto-backup script
 - `docker/update-safe.sh` - Safe update script
-- `docker/backup-storage.sh` - Storage backup script
+- `docker/backup-only-manual.sh` - Backup manual database dan storage script
 
 ---
 
