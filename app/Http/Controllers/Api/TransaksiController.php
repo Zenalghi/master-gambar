@@ -20,7 +20,7 @@ class TransaksiController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Validasi (Tetap Sama)
+        // 1. Validasi
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
@@ -54,15 +54,20 @@ class TransaksiController extends Controller
             ->leftJoin('z_transaksi_details', 'z_transaksi.id', '=', 'z_transaksi_details.transaksi_id')
             ->select([
                 'z_transaksi.*',
-                // Jika ada detail (sudah pernah save draft/proses), pakai updated_at milik detail.
-                // Jika belum ada detail (baru dibuat), pakai created_at milik transaksi.
-                // update pada tabel z_transaksi (master data/customer berubah) TIDAK akan mengubah ini.
                 \Illuminate\Support\Facades\DB::raw('
                     COALESCE(z_transaksi_details.updated_at, z_transaksi.created_at) as latest_activity_at
                 ')
             ]);
 
-        // 3. Eager Load (Tetap Sama)
+        // --- FITUR BARU: PEMBATASAN HAK AKSES BERDASARKAN ROLE  ---
+        $user = Auth::user();
+
+        // Jika user bukan admin, maka paksa query hanya menampilkan transaksi miliknya sendiri
+        if ($user && $user->role->name !== 'admin') {
+            $query->where('z_transaksi.user_id', $user->id);
+        }
+
+        // 3. Eager Load
         $query->with([
             'user:id,name',
             'customer:id,nama_pt',
@@ -74,7 +79,7 @@ class TransaksiController extends Controller
             'detail'
         ]);
 
-        // 4. Filter Map (Tetap Sama)
+        // 4. Filter Map
         $filterMap = [
             'customer' => 'customers.nama_pt',
             'type_engine' => 'a_type_engines.type_engine',
@@ -91,7 +96,7 @@ class TransaksiController extends Controller
             }
         }
 
-        // 5. Global Search (Tetap Sama)
+        // 5. Global Search
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('z_transaksi.id', 'like', "%{$search}%")
@@ -120,8 +125,7 @@ class TransaksiController extends Controller
             'user' => 'users.name',
             'created_at' => 'z_transaksi.created_at',
             'updated_at' => 'latest_activity_at',
-
-            default => 'latest_activity_at', // Default sort juga pakai tanggal aktivitas terbaru
+            default => 'latest_activity_at',
         };
         $query->orderBy($sortColumn, $sortDirection);
 
@@ -143,6 +147,7 @@ class TransaksiController extends Controller
 
         return $paginator;
     }
+
     /**
      * Menyimpan transaksi baru.
      */
@@ -154,7 +159,7 @@ class TransaksiController extends Controller
             'master_data_id' => $validated['master_data_id'],
             'customer_id'    => $validated['customer_id'],
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
-            'user_id'        => Auth::id(),
+            'user_id'        => Auth::id(), // Transaksi diikat dengan ID user yang sedang login
         ]);
 
         // Load relasi untuk respon JSON
@@ -190,7 +195,6 @@ class TransaksiController extends Controller
         $this->authorize('update', $transaksi);
         $validated = $request->validated();
 
-        // FIX: Update langsung menggunakan ID yang dikirim
         $transaksi->update([
             'master_data_id' => $validated['master_data_id'],
             'customer_id'    => $validated['customer_id'],
