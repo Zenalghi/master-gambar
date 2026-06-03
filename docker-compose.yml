@@ -36,6 +36,7 @@ services:
       DB_HOST: mysql
       DB_PASSWORD: *app_pass
       MYSQL_ROOT_PASSWORD: *root_pass
+      TZ: Asia/Jakarta
     volumes:
       - app-code:/app-shared
       - storage-data:/var/www/html/storage/app
@@ -67,6 +68,8 @@ services:
     restart: always
     depends_on:
       - app
+    environment:
+      TZ: Asia/Jakarta
     command: sh -c "until [ -f /var/www/html/public/index.php ]; do sleep 2; done; exec nginx -g 'daemon off;'"    
     ports:
       - "8080:80"
@@ -105,6 +108,7 @@ services:
       MYSQL_ROOT_PASSWORD: *root_pass
       MYSQL_PASSWORD: *app_pass
       MYSQL_DATABASE: db_master
+      TZ: Asia/Jakarta
     ports:
       - "127.0.0.1:3307:3306"
     volumes:
