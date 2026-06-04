@@ -29,7 +29,8 @@ fi
 
 # Get current user (non-root) for crontab
 CURRENT_USER="${SUDO_USER:-$USER}"
-PROJECT_DIR="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Get backup directory properly
 BACKUP_DIR="/mnt/data/backups"
@@ -74,6 +75,7 @@ cat > "${PROJECT_DIR}/docker/autobackup.sh" << SCRIPT_EOF
 
 set -e
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # Load secrets from centralized file
 SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="\$(dirname "\$SCRIPT_DIR")"
@@ -178,13 +180,23 @@ cat > /etc/logrotate.d/master-gambar << 'EOF'
 EOF
 echo -e "${GREEN}  ✓ Log rotation configured${NC}"
 echo ""
+echo -e "${BLUE}[*] Mengaktifkan cron service...${NC}"
 
+systemctl enable cron >/dev/null 2>&1
+systemctl start cron >/dev/null 2>&1
+
+echo -e "${GREEN}  ✓ Cron service aktif${NC}"
+echo ""
 # =====================================================================
 # Setup cron job for autobackup (jam 12:00 siang)
 # =====================================================================
 echo -e "${BLUE}[*] Mengatur cron job autobackup...${NC}"
-CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && bash docker/autobackup.sh >> /var/log/master-gambar-autobackup.log 2>&1"
-(sudo -u "${CURRENT_USER}" crontab -l 2>/dev/null | grep -v "master-gambar-autobackup"; echo "$CRON_AUTOBACKUP") | sudo -u "${CURRENT_USER}" crontab -
+CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && /bin/bash ${PROJECT_DIR}/docker/autobackup.sh >> /var/log/master-gambar-autobackup.log 2>&1"
+TEMP_CRON=$(mktemp)
+crontab -u "${CURRENT_USER}" -l 2>/dev/null | grep -v "master-gambar-autobackup" > "$TEMP_CRON" || true
+echo "$CRON_AUTOBACKUP" >> "$TEMP_CRON"
+crontab -u "${CURRENT_USER}" "$TEMP_CRON"
+rm -f "$TEMP_CRON"
 echo -e "${GREEN}  ✓ Auto-backup: setiap jam 12:00 siang${NC}"
 echo -e "${GREEN}  • Backup database: MySQL dump${NC}"
 echo -e "${GREEN}  • Backup storage:  File PDF/PNG/ZIP${NC}"
