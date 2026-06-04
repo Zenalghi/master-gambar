@@ -24,22 +24,19 @@ class M_MasterVarianController extends Controller
         ]);
 
         $perPage = $validated['perPage'] ?? 50;
-        $sortBy = $validated['sortBy'] ?? 'updated_at';
-        $sortDirection = $validated['sortDirection'] ?? 'desc';
+        $sortBy = $validated['sortBy'] ?? 'jenis_kendaraan'; // Default ubah ke jenis_kendaraan
+        $sortDirection = $validated['sortDirection'] ?? 'asc'; // Default ubah ke asc
         $search = $validated['search'] ?? '';
 
-        // Query join agar bisa nge-sort/search berdasarkan nama jenis kendaraan
         $query = MMasterVarian::query()
             ->join('d_jenis_kendaraan', 'm_master_varians.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
             ->select('m_master_varians.*')
             ->with('jenisKendaraan');
 
-        // Filter Dropdown Master (Jika Dibutuhkan)
         if ($request->filled('d_jenis_kendaraan_id')) {
             $query->where('m_master_varians.d_jenis_kendaraan_id', $request->d_jenis_kendaraan_id);
         }
 
-        // Fitur Search
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('m_master_varians.nama_varian', 'like', "%{$search}%")
@@ -48,17 +45,23 @@ class M_MasterVarianController extends Controller
             });
         }
 
-        // Sorting
+        // --- LOGIKA MULTI-SORTING (BEST PRACTICE) ---
         $sortColumn = match ($sortBy) {
             'id' => 'm_master_varians.id',
             'nama_varian' => 'm_master_varians.nama_varian',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'm_master_varians.created_at',
             'updated_at' => 'm_master_varians.updated_at',
-            default => 'm_master_varians.updated_at',
+            default => 'd_jenis_kendaraan.jenis_kendaraan',
         };
 
-        $query->orderBy($sortColumn, $sortDirection);
+        if ($sortColumn === 'd_jenis_kendaraan.jenis_kendaraan') {
+            // Jika sort berdasarkan jenis kendaraan, sort keduanya berurutan
+            $query->orderBy('d_jenis_kendaraan.jenis_kendaraan', $sortDirection)
+                ->orderBy('m_master_varians.nama_varian', 'asc');
+        } else {
+            $query->orderBy($sortColumn, $sortDirection);
+        }
 
         return $query->paginate($perPage);
     }
@@ -145,7 +148,26 @@ class M_MasterVarianController extends Controller
         if (!empty($search)) {
             $query->where('nama_varian', 'like', "%{$search}%");
         }
-        return $query->orderBy('deleted_at', 'desc')->get();
+        // Sama dengan tabel utama, kita sort abjad
+        return $query->orderBy('nama_varian', 'asc')->get();
+    }
+
+    // FITUR BARU: Empty Trash
+    public function emptyTrash()
+    {
+        $trashedItems = MMasterVarian::onlyTrashed()->get();
+        $deletedCount = 0;
+
+        foreach ($trashedItems as $item) {
+            $item->forceDelete();
+            $deletedCount++;
+        }
+
+        return response()->json([
+            'message' => "Berhasil menghapus permanen $deletedCount data varian.",
+            'deleted' => $deletedCount,
+            'skipped' => 0
+        ]);
     }
 
     public function restore($id)

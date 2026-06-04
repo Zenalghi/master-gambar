@@ -178,11 +178,11 @@ Route::middleware('auth.api')->group(
             // --- MASTER VARIAN ---
             Route::apiResource('master-varian', App\Http\Controllers\Api\M_MasterVarianController::class);
 
-            // Recycle bin Master Varian
+            // Recycle bin Master Varian (Tambahkan empty trash di BARIS PALING ATAS agar tidak bentrok dengan {id})
+            Route::delete('master-varian-trash/empty', [App\Http\Controllers\Api\M_MasterVarianController::class, 'emptyTrash']);
             Route::get('master-varian-trash', [App\Http\Controllers\Api\M_MasterVarianController::class, 'trash']);
             Route::post('master-varian-trash/{id}/restore', [App\Http\Controllers\Api\M_MasterVarianController::class, 'restore']);
             Route::delete('master-varian-trash/{id}/force-delete', [App\Http\Controllers\Api\M_MasterVarianController::class, 'forceDelete']);
-            
             // Endpoint khusus untuk Checkbox Option Flutter
             Route::get('options/master-varian/{jenisKendaraanId}', [App\Http\Controllers\Api\M_MasterVarianController::class, 'getOptionsByJenisKendaraan']);
 
