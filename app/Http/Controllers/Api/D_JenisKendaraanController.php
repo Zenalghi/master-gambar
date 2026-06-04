@@ -27,7 +27,7 @@ class D_JenisKendaraanController extends Controller
         ]);
 
         $perPage = $validated['perPage'] ?? 50;
-        $sortBy = $validated['sortBy'] ?? 'id'; // Default sort
+        $sortBy = $validated['sortBy'] ?? 'jenis_kendaraan'; // Default sort diubah
         $sortDirection = $validated['sortDirection'] ?? 'asc'; // Default direction
         $search = $validated['search'] ?? '';
         // 2. Query utama (HANYA ke tabel d_jenis_kendaraan)
