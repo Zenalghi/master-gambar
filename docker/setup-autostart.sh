@@ -191,7 +191,7 @@ echo ""
 # Setup cron job for autobackup (jam 12:00 siang)
 # =====================================================================
 echo -e "${BLUE}[*] Mengatur cron job autobackup...${NC}"
-CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && /bin/bash ${PROJECT_DIR}/docker/autobackup.sh >> /var/log/master-gambar-autobackup.log 2>&1"
+CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && /bin/bash ${PROJECT_DIR}/docker/autobackup.sh >> $(dirname "${PROJECT_DIR}")/autobackup.log 2>&1"
 TEMP_CRON=$(mktemp)
 crontab -u "${CURRENT_USER}" -l 2>/dev/null | grep -v "master-gambar-autobackup" > "$TEMP_CRON" || true
 echo "$CRON_AUTOBACKUP" >> "$TEMP_CRON"
