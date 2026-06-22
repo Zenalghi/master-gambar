@@ -107,8 +107,8 @@ if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
     
     echo "  Backup database ke: \${FOLDER_BACKUP}/\${DB_BACKUP_FILE}"
     
-    docker exec master-gambar-mysql \\
-        mysqldump -u root -p"\${MYSQL_ROOT_PASSWORD}" --all-databases \\
+    docker exec -e MYSQL_PWD="\${MYSQL_ROOT_PASSWORD}" master-gambar-mysql \\
+        mysqldump -u root --set-gtid-purged=OFF --single-transaction --all-databases \\
         > "\${FOLDER_BACKUP}/\${DB_BACKUP_FILE}"
     
     if [ \$? -eq 0 ]; then
