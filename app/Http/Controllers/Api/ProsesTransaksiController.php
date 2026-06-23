@@ -359,13 +359,16 @@ class ProsesTransaksiController extends Controller
             $parafDigambarPath = $customer->signature_drafter ? Storage::disk('customer_paraf')->path($customer->signature_drafter) : null;
             $parafDiperiksaPath = $customer->signature_pemeriksa ? Storage::disk('customer_paraf')->path($customer->signature_pemeriksa) : null;
         }
-
+        $tanggalPdf = now();
+        if (($transaksi->pdf_date_type ?? 'today') === 'created_at') {
+            $tanggalPdf = $transaksi->created_at ?? now();
+        }
         return [
             'type' => $job['type'] ?? 'standard',
             'digambar' => (string) $namaDigambar,
             'diperiksa' => (string) $namaDiperiksa,
             'disetujui' => (string) ($transaksi->customer->pj ?? ''),
-            'tanggal' => now()->format('d.m.y'),
+            'tanggal' => $tanggalPdf->format('d.m.y'),
             'judul_gambar' => $job['title'] ?? '',
             'catatan' => $job['varian'] ?? '',
             'jenis_kendaraan' => $job['jenis_kendaraan'] ?? '',
