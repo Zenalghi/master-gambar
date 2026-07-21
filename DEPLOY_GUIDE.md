@@ -414,7 +414,7 @@ bash docker/update-safe.sh
 
 ### ⚠️ Catatan Penting
 
-- Script menggunakan `docker-compose.yml` (template), bukan `docker-compose.prod.yml`
+- Script akan otomatis mendeteksi dan menggunakan `docker-compose.prod.yml` jika tersedia. Jika tidak ada, script akan fallback ke `docker-compose.yml`.
 - Pastikan `docker/.env.secrets` sudah dibuat sebelum menjalankan script
 - Backup disimpan di folder `/mnt/data/backups/` dengan format tanggal
 - Jika terjadi masalah, Anda bisa restore dari backup

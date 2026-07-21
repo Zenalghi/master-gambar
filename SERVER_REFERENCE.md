@@ -2,7 +2,7 @@
 
 Dokumentasi teknis untuk maintenance dan troubleshooting aplikasi Master Gambar.
 
-> **Untuk panduan deploy production, lihat:** [`PRODUCTION_DEPLOY.md`](./PRODUCTION_DEPLOY.md)
+> **Untuk panduan deploy production, lihat:** [`DEPLOY_GUIDE.md`](./DEPLOY_GUIDE.md)
 
 ---
 
