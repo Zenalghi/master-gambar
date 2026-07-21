@@ -199,7 +199,13 @@ class TransaksiController extends Controller
             'master_data_id' => $validated['master_data_id'],
             'customer_id'    => $validated['customer_id'],
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
+            'pdf_date_type'  => $validated['pdf_date_type'] ?? 'today',
         ]);
+
+        if ($request->filled('created_at') && Auth::user()->role->name === 'admin') {
+            $transaksi->created_at = $request->input('created_at');
+            $transaksi->save();
+        }
 
         $transaksi->fresh()->load([
             'user',

@@ -25,6 +25,8 @@ class UpdateTransaksiRequest extends FormRequest
             // Ganti 4 field terpisah dengan 1 field master_data_id
             'master_data_id' => 'required|integer|exists:master_data,id',
             'f_pengajuan_id' => 'required|integer|exists:f_pengajuan,id',
+            'pdf_date_type' => 'nullable|string|in:today,created_at',
+            'created_at' => 'nullable|date',
         ];
     }
 }

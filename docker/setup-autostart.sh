@@ -66,7 +66,7 @@ echo -e "${BLUE}[3/4] Membuat script autobackup...${NC}"
 mkdir -p "${BACKUP_DIR}"
 
 # Create autobackup script with proper path handling
-cat > "${PROJECT_DIR}/docker/autobackup.sh" << SCRIPT_EOF
+cat > "${PROJECT_DIR}/docker/autobackup.sh" << 'SCRIPT_EOF'
 #!/bin/bash
 # =====================================================================
 # Auto Backup Script untuk Master Gambar
@@ -77,25 +77,25 @@ set -e
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # Load secrets from centralized file
-SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="\$(dirname "\$SCRIPT_DIR")"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-if [ -f "\${SCRIPT_DIR}/.env.secrets" ]; then
-    source "\${SCRIPT_DIR}/.env.secrets"
+if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
+    source "${SCRIPT_DIR}/.env.secrets"
 fi
 
 # Konfigurasi backup lokasi
-BACKUP_DIR="\${BACKUP_DIR:-/mnt/data/backups}"
-FOLDER_NAME="\$(date +%Y-%m-%d-%H:%M)-master-autobackup"
-FOLDER_BACKUP="\${BACKUP_DIR}/\${FOLDER_NAME}"
+BACKUP_DIR="${BACKUP_DIR:-/mnt/data/backups}"
+FOLDER_NAME="$(date +%Y-%m-%d-%H:%M)-master-autobackup"
+FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
 
 echo "=========================================="
 echo "  Master Gambar - Auto Backup"
-echo "  \$(date)"
+echo "  $(date)"
 echo "=========================================="
 echo ""
 
-mkdir -p "\${FOLDER_BACKUP}"
+mkdir -p "${FOLDER_BACKUP}"
 
 # =====================================================================
 # Backup Database
@@ -103,17 +103,17 @@ mkdir -p "\${FOLDER_BACKUP}"
 echo "[1/2] Backup database MySQL..."
 
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
-    DB_BACKUP_FILE="mysql-backup-\$(date +%F-%H%M%S).sql"
+    DB_BACKUP_FILE="mysql-backup-$(date +%F-%H%M%S).sql"
     
-    echo "  Backup database ke: \${FOLDER_BACKUP}/\${DB_BACKUP_FILE}"
+    echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
     
-    docker exec master-gambar-mysql \\
-        mysqldump -u root -p"\${MYSQL_ROOT_PASSWORD}" --all-databases \\
-        > "\${FOLDER_BACKUP}/\${DB_BACKUP_FILE}"
+    docker exec -e MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" master-gambar-mysql \
+        mysqldump -u root --set-gtid-purged=OFF --single-transaction --all-databases \
+        > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
     
-    if [ \$? -eq 0 ]; then
-        DB_SIZE=\$(du -sh "\${FOLDER_BACKUP}/\${DB_BACKUP_FILE}" | cut -f1)
-        echo "  ✓ Database backup selesai (\${DB_SIZE})"
+    if [ $? -eq 0 ]; then
+        DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
+        echo "  ✓ Database backup selesai (${DB_SIZE})"
     else
         echo "  ✗ Database backup gagal!"
     fi
@@ -129,13 +129,13 @@ echo ""
 echo "[2/2] Backup storage (file PDF/PNG/ZIP)..."
 
 if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
-    echo "  Backup folder: \${FOLDER_BACKUP}"
+    echo "  Backup folder: ${FOLDER_BACKUP}"
     
-    docker cp master-gambar-app:/var/www/html/storage/app "\${FOLDER_BACKUP}"
+    docker cp master-gambar-app:/var/www/html/storage/app "${FOLDER_BACKUP}"
     
-    if [ \$? -eq 0 ]; then
-        BACKUP_SIZE=\$(du -sh "\${FOLDER_BACKUP}" | cut -f1)
-        echo "  ✓ Storage backup selesai (\${BACKUP_SIZE})"
+    if [ $? -eq 0 ]; then
+        BACKUP_SIZE=$(du -sh "${FOLDER_BACKUP}" | cut -f1)
+        echo "  ✓ Storage backup selesai (${BACKUP_SIZE})"
     else
         echo "  ✗ Storage backup gagal!"
     fi
@@ -148,14 +148,14 @@ echo ""
 # =====================================================================
 # Cleanup old backups (keep last 7 days)
 # =====================================================================
-echo "Cleanup backup lama (retention: \${RETENTION_DAYS:-7} days)..."
-find "\${BACKUP_DIR}" -name "*-master-*" -type d -mtime +\${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
+echo "Cleanup backup lama (retention: ${RETENTION_DAYS:-7} days)..."
+find "${BACKUP_DIR}" -name "*-master-*" -type d -mtime +${RETENTION_DAYS:-7} -exec rm -rf {} + 2>/dev/null || true
 echo "  ✓ Cleanup selesai"
 
 echo ""
 echo "=========================================="
 echo "  Backup Selesai!"
-echo "  Lokasi: \${FOLDER_BACKUP}"
+echo "  Lokasi: ${FOLDER_BACKUP}"
 echo "=========================================="
 SCRIPT_EOF
 
@@ -191,7 +191,7 @@ echo ""
 # Setup cron job for autobackup (jam 12:00 siang)
 # =====================================================================
 echo -e "${BLUE}[*] Mengatur cron job autobackup...${NC}"
-CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && /bin/bash ${PROJECT_DIR}/docker/autobackup.sh >> /var/log/master-gambar-autobackup.log 2>&1"
+CRON_AUTOBACKUP="0 12 * * * cd ${PROJECT_DIR} && /bin/bash ${PROJECT_DIR}/docker/autobackup.sh >> $(dirname "${PROJECT_DIR}")/autobackup.log 2>&1"
 TEMP_CRON=$(mktemp)
 crontab -u "${CURRENT_USER}" -l 2>/dev/null | grep -v "master-gambar-autobackup" > "$TEMP_CRON" || true
 echo "$CRON_AUTOBACKUP" >> "$TEMP_CRON"

@@ -22,6 +22,7 @@ class Transaksi extends Model
         'f_pengajuan_id',
         'customer_id',
         'user_id',
+        'pdf_date_type',
     ];
 
     /**
