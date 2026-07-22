@@ -21,10 +21,11 @@ FOLDER_NAME="$(date +%Y-%m-%d-%H:%M)-master-backup-manual"
 
 # Load secrets for MySQL Password
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
-    source "${SCRIPT_DIR}/.env.secrets"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+if [ -f "${PROJECT_DIR}/.env.production" ]; then
+    source "${PROJECT_DIR}/.env.production"
 else
-    echo -e "\033[1;33mPeringatan: file .env.secrets tidak ditemukan, password database mungkin kosong.\033[0m"
+    echo -e "\033[1;33mPeringatan: file .env.production tidak ditemukan, password database mungkin kosong.\033[0m"
 fi
 
 # Path folder storage di dalam container
@@ -81,7 +82,7 @@ if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
         DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
         echo -e "${GREEN}  ✓ Database backup selesai (${DB_SIZE})${NC}"
     else
-        echo -e "${RED}  ✗ Database backup gagal! Pastikan MYSQL_ROOT_PASSWORD di .env.secrets sudah benar.${NC}"
+        echo -e "${RED}  ✗ Database backup gagal! Pastikan MYSQL_ROOT_PASSWORD di .env.production sudah benar.${NC}"
     fi
 else
     echo -e "${YELLOW}  ⚠ MySQL container tidak running, skip backup database${NC}"

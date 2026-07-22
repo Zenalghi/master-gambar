@@ -9,7 +9,7 @@ set -e
 # Load secrets from centralized file
 # =====================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SECRETS_FILE="${SCRIPT_DIR}/../.env.secrets"
+SECRETS_FILE="${SCRIPT_DIR}/../../.env.production"
 
 if [ -f "${SECRETS_FILE}" ]; then
     source "${SECRETS_FILE}"
@@ -27,7 +27,7 @@ MYSQL_HOST="localhost"
 MYSQL_PORT="3306"
 MYSQL_USER="root"
 
-# Password loaded from .env.secrets (fallback to placeholder if not set)
+# Password loaded from .env.production (fallback to placeholder if not set)
 MYSQL_PASSWORD="${MYSQL_ROOT_PASSWORD:-GANTI_PASSWORD_ROOT_DI_SINI}"
 
 # Database settings

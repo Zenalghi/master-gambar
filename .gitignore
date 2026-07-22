@@ -25,15 +25,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-# Docker Compose Production (contains real passwords)
-docker-compose.prod.yml
-
-# Secrets file (contains real passwords)
-docker/.env.secrets
-
 # Backup folder (generated backups - not for Git)
 /backups
 docker/autobackup.sh
-
-# Development secrets (create from docker/.env.dev.secrets.example)
-docker/.env.dev.secrets

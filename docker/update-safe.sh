@@ -49,12 +49,12 @@ COMPOSE_CMD="docker compose -f ${COMPOSE_FILE}"
 # =====================================================================
 # Load secrets from centralized file
 # =====================================================================
-if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
-    source "${SCRIPT_DIR}/.env.secrets"
-    echo -e "${GREEN}  ✓ Loaded secrets from .env.secrets${NC}"
+if [ -f "${PROJECT_DIR}/.env.production" ]; then
+    source "${PROJECT_DIR}/.env.production"
+    echo -e "${GREEN}  ✓ Loaded secrets from .env.production${NC}"
 else
-    echo -e "${YELLOW}  ⚠ .env.secrets not found, using environment variables${NC}"
-    echo -e "${YELLOW}    Create with: cp docker/.env.secrets.example docker/.env.secrets${NC}"
+    echo -e "${YELLOW}  ⚠ .env.production not found, using environment variables${NC}"
+    echo -e "${YELLOW}    Create with: cp .env.example .env.production${NC}"
 fi
 
 # =====================================================================

@@ -71,64 +71,53 @@ cd ~/laravel/master-gambar
 
 ## 3. Konfigurasi Production
 
-### 3.1 Buat File Production
+### 3.1 Buat File Production (.env.production)
 
 ```bash
 cd ~/laravel/master-gambar
 
-# Copy template ke file production
-cp docker-compose.yml docker-compose.prod.yml
-cp docker/.env.secrets.example docker/.env.secrets
+# Copy template env
+cp .env.example .env.production
 ```
 
-### 3.2 Edit Password & APP_URL
+### 3.2 Edit Password & Konfigurasi
+
+Anda **tidak perlu** mengedit `docker-compose.prod.yml`. Seluruh konfigurasi akan dibaca secara otomatis dari `.env.production`.
 
 ```bash
-# Edit docker-compose.prod.yml
-nano docker-compose.prod.yml
-
-# Edit .env.secrets (password terpusat untuk semua script)
-nano docker/.env.secrets
-
+nano .env.production
 ```
 
-**File 2: `docker-compose.prod.yml`**
+**Variabel Penting yang Wajib Diubah:**
 
-| Baris | Placeholder | Ganti Dengan |
-|-------|-------------|--------------|
-| 16 | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda (sama dengan .env.secrets) |
-| 17 | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda (sama dengan .env.secrets) |
-| 35 | `http://GANTI_IP_SERVER:8080` | `http://192.168.100.17:8080` |
+> [!CAUTION]
+> **Peringatan Password:** Ini adalah environment PRODUCTION yang berisiko terkena serangan siber. Anda **WAJIB** menggunakan kombinasi password yang sangat kuat dan unik (gunakan huruf besar, kecil, angka, dan simbol) untuk database. Jangan pernah menggunakan password yang sama dengan environment development!
 
-**Contoh hasil edit:**
-```yaml
-x-passwords:
-  root_password: &root_pass PasswordRootKuat123!
-  app_password: &app_pass PasswordAppKuat456!
-
-# ...
-
-environment:
-  APP_URL: http://192.168.100.17:8080
-```
-
-**File 1: `docker/.env.secrets` (FILE UTAMA - Password Terpusat)**
-
-| Variable | Placeholder | Ganti Dengan |
-|----------|-------------|--------------|
-| `MYSQL_ROOT_PASSWORD` | `GANTI_PASSWORD_ROOT_DI_SINI` | Password root MySQL Anda |
-| `MYSQL_APP_PASSWORD` | `GANTI_PASSWORD_APP_DI_SINI` | Password app MySQL Anda |
+| Variable | Keterangan |
+|----------|------------|
+| `APP_URL` | Ubah ke IP Server, contoh: `http://192.168.100.17:8080` |
+| `DB_PASSWORD` | Password untuk App Laravel konek ke MySQL |
+| `MYSQL_ROOT_PASSWORD` | Password root MySQL (Wajib diganti!) |
+| `MYSQL_PASSWORD` | Sama dengan `DB_PASSWORD` |
 
 **Contoh hasil edit:**
 ```bash
-# MySQL Root Password (sama dengan root_password di docker-compose.prod.yml)
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=http://192.168.100.17:8080
+
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=db_master
+DB_USERNAME=app_user
+DB_PASSWORD=PasswordAppKuat456!
+
+# Docker MySQL Initialization
 MYSQL_ROOT_PASSWORD=PasswordRootKuat123!
-
-# MySQL App Password (sama dengan app_password di docker-compose.prod.yml)
-MYSQL_APP_PASSWORD=PasswordAppKuat456!
-
-# Database Name
 MYSQL_DATABASE=db_master
+MYSQL_USER=app_user
+MYSQL_PASSWORD=PasswordAppKuat456!
 
 # Backup Configuration
 BACKUP_DIR=/mnt/data/backups
@@ -137,45 +126,23 @@ RETENTION_DAYS=7
 
 **Simpan:** `Ctrl+O` → `Enter` → `Ctrl+X`
 
-### 📌 Mengapa Harus Copy?
+### 📌 Mengapa Menggunakan .env.production?
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│  Template (Git)              Production (Gitignore)             │
-│  ─────────────               ──────────────────────             │
+│  SEBELUMNYA:                                                    │
+│  ───────────                                                    │
+│  Konfigurasi password tersebar di berbagai file dan folder      │
+│  docker/.env.secrets dan docker-compose.prod.yml terpisah       │
 │                                                                 │
-│  docker-compose.yml          docker-compose.prod.yml            │
-│  - Placeholder password      - Password asli                    │
-│  - Masuk ke Git              - DI-IGNORE oleh Git               │
-│                                                                 │
-│  docker/.env.secrets.example docker/.env.secrets                │
-│  - Placeholder password      - Password asli (TERPUSAT)         │
-│  - Masuk ke Git              - DI-IGNORE oleh Git               │
-│                                                                 │
-│  Setiap git pull:                                               │
-│  - Template berubah → OK                                        │
-│  - Production tetap → Password aman!                            │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 📌 Keuntungan Password Terpusat (.env.secrets)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  SEBELUM (Password di banyak file):                             │
+│  SEKARANG (Lebih Rapih & Terpusat):                             │
 │  ──────────────────────────────────                             │
-│  docker-compose.prod.yml  → edit password                       │
-│  docker/mysql/backup.sh   → edit password                       │
-│  docker/update-safe.sh    → edit password                       │
+│  File `.env.production` menjadi satu-satunya sumber             │
+│  kebenaran (Single Source of Truth) untuk password dan setting. │
 │                                                                 │
-│  SESUDAH (Password di satu file):                               │
-│  ────────────────────────────────                               │
-│  docker/.env.secrets      → edit password SEKALI saja!          │
-│                                                                 │
-│  Semua script otomatis membaca dari .env.secrets                │
+│  Semua script backup, update, dan docker-compose.prod.yml       │
+│  otomatis membaca dari file `.env.production` di root folder.   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```

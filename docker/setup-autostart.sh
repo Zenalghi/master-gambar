@@ -80,8 +80,8 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-if [ -f "${SCRIPT_DIR}/.env.secrets" ]; then
-    source "${SCRIPT_DIR}/.env.secrets"
+if [ -f "${PROJECT_DIR}/.env.production" ]; then
+    source "${PROJECT_DIR}/.env.production"
 fi
 
 # Konfigurasi backup lokasi
@@ -236,9 +236,9 @@ echo "Untuk backup manual:"
 echo "  bash docker/autobackup.sh"
 echo ""
 echo -e "${YELLOW}Catatan Penting:${NC}"
-echo "  Pastikan file docker/.env.secrets sudah dikonfigurasi:"
-echo "    cp docker/.env.secrets.example docker/.env.secrets"
-echo "    nano docker/.env.secrets  # Edit password MySQL"
+echo "  Pastikan file .env.production sudah dikonfigurasi:"
+echo "    cp .env.example .env.production"
+echo "    nano .env.production  # Edit password MySQL"
 echo ""
 echo "  Backup otomatis disimpan di:"
 echo "    ${BACKUP_DIR}/YYYY-MM-DD-HH:MM-master-autobackup/"

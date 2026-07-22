@@ -7,6 +7,15 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## 📚 Panduan & Dokumentasi Proyek
+
+Untuk mempermudah pengembangan dan deployment, silakan merujuk pada panduan berikut:
+- 💻 **[Panduan Setup Development (README_DEV.md)](./README_DEV.md)**: Panduan untuk menjalankan aplikasi di komputer lokal menggunakan Laragon atau Docker.
+- 🚀 **[Panduan Deployment Production (README_PROD.md)](./README_PROD.md)**: Langkah-langkah deploy aplikasi ke server menggunakan Docker.
+- ⚙️ **[Referensi & Arsitektur Server (SERVER_MAINTENANCE.md)](./SERVER_MAINTENANCE.md)**: Informasi detail mengenai limitasi memori, troubleshooting, dan konfigurasi server.
+
+---
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "=== Master Gambar - Laravel Docker Entrypoint ==="
+echo "=== Master Gambar - Development Entrypoint ==="
 
 cd /var/www/html
 
@@ -45,10 +45,11 @@ echo "-> Waiting for MySQL..."
 cat > /tmp/wait_mysql.php << 'PHPEOF'
 <?php
 $pass = getenv('MYSQL_ROOT_PASSWORD') ?: 'root_anti_ini';
+$host = getenv('DB_HOST') ?: 'mysql-dev';
 for ($i = 0; $i < 30; $i++) {
     try {
         $pdo = new PDO(
-            'mysql:host=mysql;port=3306',
+            "mysql:host=$host;port=3306",
             'root',
             $pass,
             [PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false]
@@ -79,5 +80,5 @@ php artisan view:cache
 echo "-> Storage link..."
 php artisan storage:link 2>/dev/null || true
 
-echo "-> Laravel ready!"
+echo "-> Laravel development environment ready!"
 exec php-fpm
