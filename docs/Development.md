@@ -7,8 +7,7 @@ Panduan setup development environment menggunakan Docker (dan bisa juga digunaka
 ```
 SERVER LOKAL / LAPTOP DEVELOPMENT
 ├── PORT 8081 (Nginx App)  ← Docker (docker-compose.yml)
-├── PORT 3308 (MySQL)      ← Docker
-└── PORT 8082 (phpMyAdmin) ← Docker
+└── PORT 3308 (MySQL)      ← Docker
 ```
 
 Jika menggunakan Laragon:
@@ -33,15 +32,16 @@ cp .env.example .env
 nano .env
 ```
 
-Pastikan password dan setting database sudah sesuai keinginan Anda. Tidak perlu pusing soal host jika memakai Docker, karena otomatis diurus `docker-compose.yml`.
+Buka file `.env` dengan editor teks (misal: `nano .env`) dan pastikan konfigurasi berikut sudah Anda isi:
+
+- `DB_USERNAME=master_gambar_user` (Untuk koneksi dari aplikasi Laravel)
+- `DB_PASSWORD=...` (Password aplikasi)
+- `MYSQL_ROOT_PASSWORD=...` (Password root, gunakan jika ingin login via HeidiSQL)
+
+Tidak perlu mengubah `DB_HOST` jika memakai Docker, karena otomatis dialihkan oleh `docker-compose.yml`.
 
 > [!TIP]
-> **Saran Password:** Karena ini adalah environment development (lokal), gunakan saja password yang simpel dan mudah diingat (contoh: `root`, `rahasia`, dll) agar Anda tidak repot saat testing!
-
-Atau, jalankan script auto-setup:
-```bash
-bash docker/setup-dev.sh
-```
+> **Saran Password:** Karena ini adalah environment development (lokal), gunakan saja password yang simpel dan mudah diingat (contoh: `root`, `1234`, dll) agar Anda tidak repot saat testing!
 
 ### Step 2: Build & Jalankan Docker
 
@@ -63,8 +63,7 @@ docker compose ps
 
 Akses:
 - App: http://localhost:8081
-- phpMyAdmin: http://localhost:8082 (Gunakan username root & password dari `.env`)
-- MySQL Port (Eksternal): `127.0.0.1:3308`
+- MySQL Port (Eksternal): `127.0.0.1:3308` (Gunakan HeidiSQL dengan user `root`)
 
 ## Database Development
 

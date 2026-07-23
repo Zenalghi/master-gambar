@@ -69,14 +69,14 @@ FOLDER_BACKUP="${BACKUP_DIR}/${FOLDER_NAME}"
 
 mkdir -p "${FOLDER_BACKUP}"
 
-if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
+if docker ps --format '{{.Names}}' | grep -q "infra-mysql"; then
 
     DB_BACKUP_FILE="mysql-backup-$(date +%F-%H%M%S).sql"
 
     echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
 
     # Export database dari container langsung ke host
-    docker exec master-gambar-mysql \
+    docker exec infra-mysql \
         mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
         > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
 
@@ -155,7 +155,7 @@ echo ""
 # =====================================================================
 echo -e "${BLUE}[7/8] Backup database MySQL (Setelah Update)...${NC}"
 
-if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
+if docker ps --format '{{.Names}}' | grep -q "infra-mysql"; then
     echo "  Tunggu MySQL siap..."
     sleep 10
     
@@ -164,7 +164,7 @@ if docker ps --format '{{.Names}}' | grep -q "master-gambar-mysql"; then
     echo "  Backup database (updated) ke: ${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
     
     # Export database dari container langsung ke host
-    docker exec master-gambar-mysql \
+    docker exec infra-mysql \
         mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
         > "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
 
@@ -199,8 +199,7 @@ echo "  - Cek health: bash docker/healthcheck.sh"
 echo "  - Test aplikasi: curl -I http://localhost:8080"
 echo ""
 echo -e "${YELLOW}Data yang AMAN (tidak terhapus):${NC}"
-echo "  ✓ MySQL database (volume: mysql-data)"
+echo "  ✓ MySQL database (volume: mysql-data, di infra)"
 echo "  ✓ File storage (volume: storage-data)"
-echo "  ✓ Backup database (volume: mysql-backup)"
-echo "  ✓ Backup storage (folder: /mnt/data/backups/)"
+echo "  ✓ Backup (folder: /mnt/data/backups/)"
 echo "  ✓ Shared code (volume: app-code)"

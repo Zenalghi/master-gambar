@@ -17,7 +17,7 @@ php /tmp/generate_env.php 2>/dev/null || true
 
 # 2. SEBAGAI FALLBACK: Jika .env masih belum ada, copy langsung dari example
 if [ ! -f .env ]; then
-    cp /var/www/html/.env.docker.example /var/www/html/.env 2>/dev/null || true
+    cp /var/www/html/.env.example /var/www/html/.env 2>/dev/null || true
 fi
 
 # 3. Pastikan baris APP_KEY= selalu ada di dalam file .env yang baru dirakit

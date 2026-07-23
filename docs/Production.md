@@ -108,14 +108,16 @@ APP_URL=http://192.168.100.17:8080
 DB_CONNECTION=mysql
 DB_HOST=mysql
 DB_PORT=3306
-DB_DATABASE=db_master
-DB_USERNAME=app_user
+DB_DATABASE=master_gambar_db
+DB_USERNAME=master_gambar_user
 DB_PASSWORD=PasswordAppKuat456!
 
-# Docker MySQL Initialization
-MYSQL_ROOT_PASSWORD=PasswordRootKuat123!
-MYSQL_DATABASE=db_master
-MYSQL_USER=app_user
+# Docker MySQL Initialization (Hanya untuk development lokal)
+# Di production, MySQL dikelola oleh repository infra.
+# Variabel ini boleh dikosongkan jika MySQL sudah berjalan di infra.
+MYSQL_ROOT_PASSWORD=
+MYSQL_DATABASE=master_gambar_db
+MYSQL_USER=master_gambar_user
 MYSQL_PASSWORD=PasswordAppKuat456!
 
 # Backup Configuration
@@ -163,7 +165,6 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```
 [+] Building 120.0s (15/15) FINISHED
 [+] Running 3/3
- ✔ Container master-gambar-mysql  Healthy
  ✔ Container master-gambar-app    Started
  ✔ Container master-gambar-nginx  Started
 ```
@@ -172,36 +173,56 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## 5. Setup Auto-Start & Backup
 
-```bash
-cd ~/laravel/master-gambar
+### 5.1 Auto-Start Saat Boot (di repository `infra`)
 
-# Jalankan script setup (butuh sudo, jalankan SEKALI saja)
-sudo bash docker/setup-autostart.sh
+Script autostart berlokasi di repository **infra**, karena menyalakan infra + semua aplikasi sekaligus:
+
+```bash
+cd ~/infra
+sudo bash setup-autostart.sh
 ```
 
-**Script ini akan:**
-- ✅ Mengaktifkan Docker auto-start saat boot
-- ✅ Membuat script `docker/autobackup.sh` untuk backup otomatis
-- ✅ Mengatur auto-backup jam 12:00 siang (database + storage)
-- ✅ Backup disimpan di `/mnt/data/backups/`
-- ✅ Auto-cleanup backup lama (retention 7 hari)
-- ✅ Mengatur log rotation
+Script ini akan:
+- ✅ Mengaktifkan Docker service agar otomatis berjalan saat PC dinyalakan (`systemctl enable docker`).
+- Karena semua container di aplikasi ini memiliki konfigurasi `restart: always` di file docker-compose, maka **secara otomatis seluruh infrastruktur dan aplikasi akan ikut menyala** begitu service Docker hidup.
+
+**Verifikasi:**
+```bash
+sudo systemctl status docker
+```
+
+### 5.2 Backup Otomatis
+
+Ada **2 jenis backup** yang berjalan secara independen:
+
+#### a. Backup Infrastruktur (di repository `infra`)
+Membackup **seluruh database MySQL** + konfigurasi NPM + SSL.
+
+```bash
+# Setup cron: Jalankan setiap hari jam 12:00 siang
+(crontab -l 2>/dev/null; echo "0 12 * * * cd ~/infra && bash backup/autobackup.sh >> /var/log/infra-backup.log 2>&1") | crontab -
+```
+
+#### b. Backup Aplikasi (di repository `master-gambar`)
+Membackup **1 database (`master_gambar_db`)** + folder **storage** aplikasi.
+
+```bash
+# Setup cron: Jalankan setiap hari jam 12:15 siang (15 menit setelah infra)
+(crontab -l 2>/dev/null; echo "15 12 * * * cd ~/laravel/master-gambar && bash docker/autobackup.sh >> /var/log/master-gambar-backup.log 2>&1") | crontab -
+```
 
 **Verifikasi cron jobs:**
 ```bash
 crontab -l
 ```
 
-**Struktur backup:**
+**Struktur backup per-aplikasi:**
 ```
 /mnt/data/backups/
-└── 2024-01-15-12:00-master-autobackup/
-    ├── mysql-backup-2024-01-15-120000.sql
+└── 2024-01-15-1200-master-autobackup/
+    ├── master_gambar_db-2024-01-15-120000.sql
     └── app/
         └── master/
-            ├── file1.pdf
-            ├── file2.png
-            └── ...
 ```
 
 ---
@@ -218,21 +239,32 @@ docker compose -f docker-compose.prod.yml ps
 ```
 NAME                    STATUS                   PORTS
 master-gambar-app       Up 2 minutes (healthy)   9000/tcp
-master-gambar-mysql     Up 2 minutes (healthy)   33060/tcp, 127.0.0.1:3307->3306/tcp
-master-gambar-nginx     Up 2 minutes (healthy)   0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+master-gambar-nginx     Up 2 minutes (healthy)   80/tcp
 ```
 
 ### 6.2 Test Aplikasi
 
 ```bash
-curl -I http://localhost:8080
+# Dari dalam server (langsung ke container nginx)
+curl -I http://master-gambar-nginx
 ```
 
-### 6.3 Test dari Browser
+### 6.3 Test dari Browser (Via Nginx Proxy Manager)
 
+Pastikan Anda sudah mendaftarkan domain/IP di panel NPM (`http://<IP-SERVER>:81`).
+Setelah itu, akses via browser:
 ```
-http://192.168.100.17:8080
+http://192.168.100.17
 ```
+
+### 6.4 Test API (untuk Flutter)
+
+Jika aplikasi ini menyediakan API yang dikonsumsi oleh aplikasi Flutter, pastikan endpoint API dapat diakses:
+```bash
+curl -I http://192.168.100.17/api
+```
+
+Pastikan response status adalah `200 OK` atau sesuai dengan routing API Anda.
 
 ---
 
@@ -260,9 +292,9 @@ cat ~/laravel/db_master.sql | docker exec -i master-gambar-mysql mysql -u root -
 # Masukkan password MySQL Anda saat diminta
 ```
 
-Atau Hunakan Heidisql dengan MariaDB or MySQSL sshtunnel
+Atau Gunakan Heidisql dengan MariaDB or MySQSL sshtunnel
 
-![SSH Tunnel](public/sshtunnel.png)
+![SSH Tunnel](../public/sshtunnel.png)
 
 setelah masuk execute sql ke database
 
@@ -373,7 +405,7 @@ bash docker/update-safe.sh
 │  File production tetap AMAN:                                    │
 │  ──────────────────────────                                     │
 │  ✓ docker-compose.prod.yml (tidak berubah)                      │
-│  ✓ docker/.env.secrets (tidak berubah)                          │
+│  ✓ .env.production (tidak berubah)                              │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -381,7 +413,7 @@ bash docker/update-safe.sh
 ### ⚠️ Catatan Penting
 
 - Script akan otomatis mendeteksi dan menggunakan `docker-compose.prod.yml` jika tersedia. Jika tidak ada, script akan fallback ke `docker-compose.yml`.
-- Pastikan `docker/.env.secrets` sudah dibuat sebelum menjalankan script
+- Pastikan `.env.production` sudah dibuat sebelum menjalankan script
 - Backup disimpan di folder `/mnt/data/backups/` dengan format tanggal
 - Jika terjadi masalah, Anda bisa restore dari backup
 
@@ -406,8 +438,8 @@ curl -I http://localhost:8080
 | Container tidak start | `docker compose -f docker-compose.prod.yml logs app` |
 | MySQL connection refused | Tunggu container mysql healthy |
 | Port 8080 dipakai | Ubah port di `docker-compose.prod.yml` |
-| Password salah | Edit `docker/.env.secrets` dan `docker-compose.prod.yml`, lalu restart |
-| Backup gagal | Cek password di `docker/.env.secrets` sudah benar |
+| Password salah | Edit `.env.production`, lalu restart |
+| Backup gagal | Cek konfigurasi backup di repository `infra` |
 | Storage permission error | Jalankan `chown -R www-data:www-data /var/www/html/storage/app/` |
 | Backup path salah | Pastikan `BACKUP_DIR` menggunakan path absolut, bukan `~` |
 
@@ -436,22 +468,21 @@ BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
 
 | File | Keterangan | Git |
 |------|------------|-----|
-| `docker-compose.yml` | Template dengan placeholder | ✅ Masuk |
-| `docker-compose.prod.yml` | Production dengan password asli | ❌ Ignore |
-| `docker/.env.secrets.example` | Template secrets dengan placeholder | ✅ Masuk |
-| `docker/.env.secrets` | Production secrets dengan password asli | ❌ Ignore |
+| `docker-compose.yml` | Development compose (self-contained) | ✅ Masuk |
+| `docker-compose.prod.yml` | Production compose (tanpa MySQL, pakai infra) | ✅ Masuk |
+| `.env.example` | Template env untuk development | ✅ Masuk |
+| `.env.production` | Production secrets | ❌ Ignore |
 ---
 
 ## 🔒 Security Checklist
 
-- [ ] `docker/.env.secrets` sudah dibuat dan password sudah diganti
-- [ ] `docker-compose.prod.yml` sudah dibuat dan password sudah diganti
-- [ ] `docker/.env.secrets` ada di `.gitignore`
-- [ ] `docker-compose.prod.yml` ada di `.gitignore`
-- [ ] `APP_DEBUG=false` di `.env.docker.example`
-- [ ] MySQL port hanya localhost (`127.0.0.1:3307`)
-- [ ] Docker auto-start sudah di-enable
-- [ ] Backup otomatis sudah di-setup
+- [ ] `.env.production` sudah dibuat dan password sudah diganti
+- [ ] `.env.production` ada di `.gitignore`
+- [ ] `APP_DEBUG=false` di `.env.production`
+- [ ] Repository `infra` sudah berjalan di server
+- [ ] Aplikasi terhubung ke `rekayasa-network`
+- [ ] Docker auto-start sudah di-enable (via `infra`)
+- [ ] Backup otomatis sudah di-setup (via `infra`)
 
 ---
 

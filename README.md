@@ -7,12 +7,14 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
-## 📚 Panduan & Dokumentasi Proyek
+## 📚 Dokumentasi Panduan
 
-Untuk mempermudah pengembangan dan deployment, silakan merujuk pada panduan berikut:
-- 💻 **[Panduan Setup Development (README_DEV.md)](./README_DEV.md)**: Panduan untuk menjalankan aplikasi di komputer lokal menggunakan Laragon atau Docker.
-- 🚀 **[Panduan Deployment Production (README_PROD.md)](./README_PROD.md)**: Langkah-langkah deploy aplikasi ke server menggunakan Docker.
-- ⚙️ **[Referensi & Arsitektur Server (SERVER_MAINTENANCE.md)](./SERVER_MAINTENANCE.md)**: Informasi detail mengenai limitasi memori, troubleshooting, dan konfigurasi server.
+Silakan merujuk pada dokumen berikut sesuai dengan kebutuhan Anda:
+
+- **[Panduan Development (Lokal)](docs/Development.md)** - Cara menjalankan project secara lokal.
+- **[Panduan Production (Server)](docs/Production.md)** - Cara setup dan deploy di server.
+- **[Panduan Arsitektur Multi-App](docs/Architecture.md)** - Penjelasan arsitektur shared infra.
+- **[Panduan Maintenance Server](docs/Server.md)** - Perintah maintenance sehari-hari.
 
 ---
 
