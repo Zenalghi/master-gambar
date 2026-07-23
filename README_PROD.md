@@ -57,13 +57,12 @@ cd ~/laravel/master-gambar
 ~/laravel/
 └── master-gambar/
     ├── docker/
-    │   ├── .env.secrets.example    # Template secrets (masuk Git)
-    │   ├── .env.secrets            # Production secrets (gitignore)
     │   ├── nginx/
     │   ├── mysql/
     │   └── php/
-    ├── docker-compose.yml           # Template (masuk Git)
-    ├── docker-compose.prod.yml      # Production (gitignore)
+    ├── docker-compose.yml           # Development compose (Git)
+    ├── docker-compose.prod.yml      # Production compose (Git)
+    ├── .env.example                 # Template env (Git)
     └── ...
 ```
 

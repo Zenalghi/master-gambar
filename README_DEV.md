@@ -133,5 +133,5 @@ docker compose up -d --build
 │       ├── docker-entrypoint.prod.sh ← Production entrypoint
 │       └── docker-entrypoint.sh  ← Development entrypoint
 ├── docker-compose.yml            ← Development compose
-└── docker-compose.prod.yml       ← Production compose (Di-ignore dari git)
+└── docker-compose.prod.yml       ← Production compose
 ```

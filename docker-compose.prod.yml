@@ -5,7 +5,8 @@
 # Konfigurasi password, nama database, dll akan dibaca otomatis 
 # dari file `.env.production` di root directory.
 #
-# JANGAN sertakan file ini atau `.env.production` ke dalam Git!
+# File ini SEKARANG AMAN disertakan ke dalam Git karena sudah
+# tidak mengandung password. Semua password disimpan di `.env.production`.
 # =====================================================================
 
 services:
