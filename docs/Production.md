@@ -41,20 +41,19 @@ Docker Compose version v2.x.x
 ## 2. Clone Repository
 
 ```bash
-# Buat folder untuk aplikasi Laravel
-mkdir -p ~/laravel
-cd ~/laravel
+# Pastikan Anda berada di dalam folder apps pada workspace
+cd /srv/workspace/apps
 
 # Clone repository
 git clone https://github.com/Zenalghi/master-gambar.git
 
 # Masuk ke folder project
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 ```
 
 **Struktur folder:**
 ```
-~/laravel/
+/srv/workspace/apps/
 └── master-gambar/
     ├── docker/
     │   ├── nginx/
@@ -73,7 +72,7 @@ cd ~/laravel/master-gambar
 ### 3.1 Buat File Production (.env.production)
 
 ```bash
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 
 # Copy template env
 cp .env.example .env.production
@@ -153,7 +152,7 @@ RETENTION_DAYS=7
 ## 4. Build & Jalankan
 
 ```bash
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 
 # Build dan jalankan dengan file production
 docker compose -f docker-compose.prod.yml up -d --build
@@ -173,47 +172,25 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ## 5. Setup Auto-Start & Backup
 
-### 5.1 Auto-Start Saat Boot (di repository `infra`)
+### 5.1 Auto-Start Saat Boot
 
-Script autostart berlokasi di repository **infra**, karena menyalakan infra + semua aplikasi sekaligus:
-
-```bash
-cd ~/infra
-sudo bash setup-autostart.sh
-```
-
-Script ini akan:
-- ✅ Mengaktifkan Docker service agar otomatis berjalan saat PC dinyalakan (`systemctl enable docker`).
-- Karena semua container di aplikasi ini memiliki konfigurasi `restart: always` di file docker-compose, maka **secara otomatis seluruh infrastruktur dan aplikasi akan ikut menyala** begitu service Docker hidup.
-
-**Verifikasi:**
-```bash
-sudo systemctl status docker
-```
+Karena menggunakan konfigurasi `restart: always` di file docker-compose, **secara otomatis container aplikasi ini akan menyala** saat service Docker dijalankan pada saat booting server (dikonfigurasi oleh repositori `infra`). Anda tidak perlu melakukan pengaturan khusus untuk autostart aplikasi ini.
 
 ### 5.2 Backup Otomatis
 
-Ada **2 jenis backup** yang berjalan secara independen:
+Backup otomatis (termasuk penyimpanan log nya) kini telah disederhanakan dan dikelola langsung melalui file `setup-app-autostart.sh` yang ada di aplikasi ini.
 
-#### a. Backup Infrastruktur (di repository `infra`)
-Membackup **seluruh database MySQL** + konfigurasi NPM + SSL.
-
+Jalankan perintah berikut:
 ```bash
-# Setup cron: Jalankan setiap hari jam 12:00 siang
-(crontab -l 2>/dev/null; echo "0 12 * * * cd ~/infra && bash backup/autobackup.sh >> /var/log/infra-backup.log 2>&1") | crontab -
+cd /srv/workspace/apps/master-gambar
+sudo bash setup-app-autostart.sh
 ```
 
-#### b. Backup Aplikasi (di repository `master-gambar`)
-Membackup **1 database (`master_gambar_db`)** + folder **storage** aplikasi.
+Script tersebut akan mendaftarkan cron job agar `autobackup.sh` berjalan setiap jam **12:15 siang** (15 menit setelah backup infrastruktur) dan membuang output log-nya ke `/srv/workspace/logs/master-gambar.log`.
 
+**Verifikasi cron jobs (karena dijalankan dengan sudo, periksa di root):**
 ```bash
-# Setup cron: Jalankan setiap hari jam 12:15 siang (15 menit setelah infra)
-(crontab -l 2>/dev/null; echo "15 12 * * * cd ~/laravel/master-gambar && bash docker/autobackup.sh >> /var/log/master-gambar-backup.log 2>&1") | crontab -
-```
-
-**Verifikasi cron jobs:**
-```bash
-crontab -l
+sudo crontab -l
 ```
 
 **Struktur backup per-aplikasi:**
@@ -332,7 +309,7 @@ curl -I http://localhost:8080
 Script `docker/update-safe.sh` akan melakukan backup otomatis database dan storage sebelum update, sehingga data Anda aman!
 
 ```bash
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 
 # Jalankan script update aman (backup + update + rebuild)
 bash docker/update-safe.sh
