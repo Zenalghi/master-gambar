@@ -105,7 +105,7 @@ APP_DEBUG=false
 APP_URL=http://192.168.100.17:8080
 
 DB_CONNECTION=mysql
-DB_HOST=mysql
+DB_HOST=infra-mysql
 DB_PORT=3306
 DB_DATABASE=master_gambar_db
 DB_USERNAME=master_gambar_user
@@ -254,19 +254,19 @@ Jika Anda sebelumnya menggunakan Laragon dan ingin memindahkan data ke Docker.
 ```
 Di HeidiSQL:
 1. Connect ke Laragon MySQL (127.0.0.1:3306, user: root)
-2. Pilih database db_master
+2. Pilih database master_gambar_db
 3. Klik kanan → Export database as SQL
 4. Pilih: Structure + Data
-5. Simpan sebagai db_master.sql di ~/laravel/
+5. Simpan sebagai master_gambar_db.sql di ~/laravel/
 ```
 
 ### 7.2 Restore Database ke Docker
 
 ```bash
 # Restore dari file SQL
-cat ~/laravel/db_master.sql | docker exec -i master-gambar-mysql mysql -u root -p db_master
+cat ~/laravel/master_gambar_db.sql | docker exec -i infra-mysql mysql -u root -p master_gambar_db
 
-# Masukkan password MySQL Anda saat diminta
+# Masukkan password root MySQL Anda saat diminta
 ```
 
 Atau Gunakan Heidisql dengan MariaDB or MySQSL sshtunnel
@@ -290,7 +290,7 @@ docker exec -u root master-gambar-app chmod -R 775 /var/www/html/storage/app/mas
 
 ```bash
 # Cek database
-docker exec -it master-gambar-mysql mysql -u root -p -e "SHOW TABLES;" db_master
+docker exec -it infra-mysql mysql -u root -p -e "SHOW TABLES;" master_gambar_db
 
 # Cek storage
 docker exec master-gambar-app ls -lh /var/www/html/storage/app/
@@ -463,15 +463,14 @@ BACKUP_DIR="${BACKUP_DIR:-${HOME_DIR}/laravel/backups}"
 
 ---
 
-## 📊 Resource Usage
+## 📊 Resource Usage (Hanya Aplikasi)
 
 | Container | Memory Limit | CPU Limit |
 |-----------|-------------|-----------|
 | app (PHP-FPM) | 3 GB | 3.0 cores |
 | nginx | 256 MB | 0.5 cores |
-| mysql | 3 GB | 2.0 cores |
 
-**Total:** ~6.25 GB RAM, ~5.5 cores
+**Total:** ~3.25 GB RAM, ~3.5 cores
 
 **Spesifikasi Server:**
 - Intel i5 Gen 12 ✅
