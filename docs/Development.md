@@ -56,8 +56,14 @@ Tidak perlu mengubah `DB_HOST` jika memakai Docker, karena otomatis dialihkan ol
 
 ### Step 2: Build & Jalankan Docker
 
+Build untuk pertama kali:
 ```bash
 docker compose up -d --build
+```
+
+Setelah itu, jika sudah ada image:
+```bash
+docker compose up -d
 ```
 
 Otomatis:
@@ -116,17 +122,18 @@ docker exec master-gambar-app-dev php artisan db:seed --force
 
 ## Troubleshooting
 
-### Container restart loop
-Jika terjadi crash data:
+### Container restart loop (MySQL not ready / Nginx 502 Bad Gateway)
+Jika aplikasi gagal connect ke MySQL (error "Access denied", "MySQL not ready", atau Nginx 502 Bad Gateway):
+
+**Penyebab:**
+Password di `.env` berubah/terhapus, sementara volume database (yang menyimpan password lama) masih tersimpan.
+
+**Solusi:**
+1. Pastikan file `.env` Anda sudah lengkap (khususnya variabel `MYSQL_...`) seperti di `.env.example`.
+2. Jalankan perintah ini di root project (`/home/grace/laravel/master-gambar`) untuk menghapus sisa volume yang error dan menjalankan ulang:
 ```bash
 docker compose down -v
-docker compose up -d --build
-```
-
-### Update Kode dari Production
-```bash
-git pull origin main
-docker compose up -d --build
+docker compose up -d
 ```
 
 ## Struktur File (Folder Docker)

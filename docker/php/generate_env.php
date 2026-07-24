@@ -54,6 +54,10 @@ $keys = [
     'AWS_BUCKET',
     'AWS_USE_PATH_STYLE_ENDPOINT',
     'VITE_APP_NAME',
+    'MYSQL_ROOT_PASSWORD',
+    'MYSQL_DATABASE',
+    'MYSQL_USER',
+    'MYSQL_PASSWORD',
 ];
 
 $lines = [];
