@@ -44,13 +44,14 @@ echo "pm.status_path = /status" >> /usr/local/etc/php-fpm.d/www.conf
 echo "-> Waiting for MySQL..."
 cat > /tmp/wait_mysql.php << 'PHPEOF'
 <?php
-$pass = getenv('MYSQL_ROOT_PASSWORD') ?: 'root_anti_ini';
-$host = getenv('DB_HOST') ?: 'mysql-dev';
+$user = getenv('DB_USERNAME');
+$pass = getenv('DB_PASSWORD');
+$host = getenv('DB_HOST') ?: 'mysql';
 for ($i = 0; $i < 30; $i++) {
     try {
         $pdo = new PDO(
             "mysql:host=$host;port=3306",
-            'root',
+            $user,
             $pass,
             [PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false]
         );
