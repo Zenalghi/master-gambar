@@ -107,9 +107,9 @@ User `root` hanya digunakan oleh admin untuk manajemen via HeidiSQL (SSH Tunnel)
 
 ## Keamanan
 
-1. **Port MySQL tidak di-expose ke host.** Akses HeidiSQL via SSH Tunnel.
+1. **Port MySQL hanya di-expose ke localhost (127.0.0.1).** Tidak terbuka untuk LAN/Internet. Akses HeidiSQL via SSH Tunnel.
 2. **Credential terpisah:**
-   - `infra/.env.production` → `MYSQL_ROOT_PASSWORD` (hanya admin)
+   - `infra/.env` → `MYSQL_ROOT_PASSWORD` (hanya admin)
    - `master-gambar/.env.production` → `DB_USERNAME=master_gambar_user` (hanya app)
 3. **Tidak ada phpMyAdmin** di dev maupun prod. Gunakan HeidiSQL/DBeaver.
 4. `.env.production` di-ignore dari Git.

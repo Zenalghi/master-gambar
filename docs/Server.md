@@ -181,13 +181,13 @@ docker network prune
 | `docker/nginx/default.prod.conf` | Aplikasi | Konfigurasi Nginx web server |
 | `infra/mysql/custom.cnf` | Infra | Konfigurasi MySQL server |
 | `.env.production` | Aplikasi | Credential database aplikasi |
-| `infra/.env.production` | Infra | Credential root MySQL |
+| `infra/.env` | Infra | Credential root MySQL |
 
 ---
 
 ## Security Notes
 
-1. **MySQL port tidak di-expose ke publik.** Gunakan SSH Tunnel untuk akses HeidiSQL.
+1. **MySQL port hanya di-expose ke localhost (127.0.0.1).** Tidak terbuka untuk publik/LAN. Gunakan SSH Tunnel untuk akses HeidiSQL.
 2. **`.env.production`** harus di-ignore oleh Git (sudah ada di `.gitignore`).
 3. **`APP_DEBUG`** harus `false` di production.
 4. **Log rotation** sudah dikonfigurasi di docker-compose untuk mencegah disk penuh.
