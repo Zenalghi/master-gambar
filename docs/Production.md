@@ -186,7 +186,7 @@ cd /srv/workspace/apps/master-gambar
 sudo bash setup-app-autostart.sh
 ```
 
-Script tersebut akan mendaftarkan cron job agar `autobackup.sh` berjalan setiap jam **12:15 siang** (15 menit setelah backup infrastruktur) dan membuang output log-nya ke `/srv/workspace/logs/master-gambar.log`.
+Script tersebut akan mendaftarkan cron job agar `autobackup.sh` berjalan setiap jam **12:15 siang** (15 menit setelah backup infrastruktur) dan membuang output log-nya ke `/srv/workspace/logs/2-cron-master-gambar.log`.
 
 **Verifikasi cron jobs (karena dijalankan dengan sudo, periksa di root):**
 ```bash

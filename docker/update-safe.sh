@@ -72,14 +72,17 @@ mkdir -p "${FOLDER_BACKUP}"
 
 if docker ps --format '{{.Names}}' | grep -q "infra-mysql"; then
 
-    DB_BACKUP_FILE="mysql-backup-$(date +%F-%H%M%S).sql"
+    DB_NAME="${DB_DATABASE:-master_gambar_db}"
+    DB_USER="${DB_USERNAME:-master_gambar_user}"
+    DB_PASS="${DB_PASSWORD:-${MYSQL_PASSWORD}}"
+    DB_BACKUP_FILE="${DB_NAME}-before-update-$(date +%F-%H%M%S).sql"
 
-    echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    echo "  Backup database (${DB_NAME}) ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
 
-    # Export database dari container langsung ke host
-    docker exec infra-mysql \
-        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
-        > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
+    # Export khusus database aplikasi (tanpa warning password di CLI & tanpa butuh root)
+    docker exec -e MYSQL_PWD="${DB_PASS}" infra-mysql \
+        mysqldump -u "${DB_USER}" --set-gtid-purged=OFF --single-transaction --routines --events \
+        "${DB_NAME}" > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
 
     if [ $? -eq 0 ]; then
         DB_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_FILE}" | cut -f1)
@@ -160,14 +163,17 @@ if docker ps --format '{{.Names}}' | grep -q "infra-mysql"; then
     echo "  Tunggu MySQL siap..."
     sleep 10
     
-    DB_BACKUP_UPDATED_FILE="mysql-backup-updated-$(date +%Y-%m-%d-%H%M%S).sql"
+    DB_NAME="${DB_DATABASE:-master_gambar_db}"
+    DB_USER="${DB_USERNAME:-master_gambar_user}"
+    DB_PASS="${DB_PASSWORD:-${MYSQL_PASSWORD}}"
+    DB_BACKUP_UPDATED_FILE="${DB_NAME}-after-update-$(date +%F-%H%M%S).sql"
     
-    echo "  Backup database (updated) ke: ${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
+    echo "  Backup database updated (${DB_NAME}) ke: ${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
     
-    # Export database dari container langsung ke host
-    docker exec infra-mysql \
-        mysqldump -u root -p"${MYSQL_ROOT_PASSWORD}" --all-databases \
-        > "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
+    # Export database setelah update
+    docker exec -e MYSQL_PWD="${DB_PASS}" infra-mysql \
+        mysqldump -u "${DB_USER}" --set-gtid-purged=OFF --single-transaction --routines --events \
+        "${DB_NAME}" > "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
 
     if [ $? -eq 0 ]; then
         DB_UPDATED_SIZE=$(du -sh "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}" | cut -f1)
