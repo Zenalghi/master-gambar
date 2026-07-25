@@ -27,7 +27,7 @@ mkdir -p /srv/workspace/logs
 # =====================================================================
 echo -e "${BLUE}[1/1] Mengatur Cron Backup harian (12:15 Siang)...${NC}"
 if ! crontab -l 2>/dev/null | grep -q "master-gambar/docker/autobackup.sh"; then
-    (crontab -l 2>/dev/null; echo "15 12 * * * cd /srv/workspace/apps/master-gambar && bash docker/autobackup.sh >> /srv/workspace/logs/2-cron-master-gambar.log 2>&1") | crontab -
+    (crontab -l 2>/dev/null || true; echo "15 12 * * * cd /srv/workspace/apps/master-gambar && bash docker/autobackup.sh >> /srv/workspace/logs/2-cron-master-gambar.log 2>&1") | crontab -
     echo -e "${GREEN}  ✓ Cron backup master-gambar berhasil ditambahkan${NC}"
     echo -e "${GREEN}  ✓ Log akan disimpan di: /srv/workspace/logs/2-cron-master-gambar.log${NC}"
 else
