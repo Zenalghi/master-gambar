@@ -66,10 +66,10 @@ monitoring, resource usage, troubleshooting, dan perintah-perintah yang sering d
 docker ps
 
 # Hanya infra
-cd ~/infra && docker compose ps
+cd /srv/workspace/infra && docker compose ps
 
 # Hanya master-gambar
-cd ~/laravel/master-gambar && docker compose -f docker-compose.prod.yml ps
+cd /srv/workspace/apps/master-gambar && docker compose -f docker-compose.prod.yml ps
 ```
 
 ### Resource Usage
@@ -82,11 +82,11 @@ docker stats
 
 ```bash
 # Logs aplikasi
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 docker compose -f docker-compose.prod.yml logs -f
 
 # Logs MySQL (infra)
-cd ~/infra
+cd /srv/workspace/infra
 docker compose logs -f mysql
 
 # Logs NPM (infra)
@@ -108,18 +108,18 @@ docker inspect --format='{{json .State.Health.Status}}' infra-mysql
 
 ```bash
 # Restart aplikasi saja
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 docker compose -f docker-compose.prod.yml restart
 
 # Restart infra (HATI-HATI: akan memengaruhi semua app!)
-cd ~/infra
+cd /srv/workspace/infra
 docker compose restart mysql
 ```
 
 ### Rebuild & Redeploy Aplikasi
 
 ```bash
-cd ~/laravel/master-gambar
+cd /srv/workspace/apps/master-gambar
 bash docker/update-safe.sh
 ```
 
@@ -127,10 +127,10 @@ bash docker/update-safe.sh
 
 ```bash
 # Backup infra (all databases + NPM + SSL)
-cd ~/infra && bash backup/autobackup.sh
+cd /srv/workspace/infra && bash backup/autobackup.sh
 
 # Backup aplikasi (1 database + storage)
-cd ~/laravel/master-gambar && bash docker/autobackup.sh
+cd /srv/workspace/apps/master-gambar && bash docker/autobackup.sh
 ```
 
 ### Restore Database

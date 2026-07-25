@@ -3,7 +3,7 @@
 Panduan lengkap deploy aplikasi Master Gambar ke server production.
 
 **Server:** `192.168.100.17`  
-**Aplikasi:** `~/laravel/master-gambar`
+**Aplikasi:** `/srv/workspace/apps/master-gambar`
 
 ---
 
@@ -257,14 +257,14 @@ Di HeidiSQL:
 2. Pilih database master_gambar_db
 3. Klik kanan → Export database as SQL
 4. Pilih: Structure + Data
-5. Simpan sebagai master_gambar_db.sql di ~/laravel/
+5. Simpan sebagai master_gambar_db.sql di komputer Anda, lalu upload ke `/srv/workspace/` di server.
 ```
 
 ### 7.2 Restore Database ke Docker
 
 ```bash
 # Restore dari file SQL
-cat ~/laravel/master_gambar_db.sql | docker exec -i infra-mysql mysql -u root -p master_gambar_db
+cat /srv/workspace/master_gambar_db.sql | docker exec -i infra-mysql mysql -u root -p master_gambar_db
 
 # Masukkan password root MySQL Anda saat diminta
 ```
@@ -277,9 +277,21 @@ setelah masuk execute sql ke database
 
 ### 7.3 Copy Storage dari Laragon ke Docker
 
+Jika lokasi storage di  ~/laravel/master-gambar
+
 ```bash
 # Copy folder storage dari host ke container
 docker cp ~/laravel/master-gambar/storage/app/master master-gambar-app:/var/www/html/storage/app/
+
+# Kritis: Ubah permission agar Laravel bisa baca/tulis
+docker exec -u root master-gambar-app chown -R www-data:www-data /var/www/html/storage/app/master
+docker exec -u root master-gambar-app chmod -R 775 /var/www/html/storage/app/master
+```
+
+Jika lokasi storage di /srv/workspace/apps/master-gambar
+```bash
+# Copy folder storage dari host ke container
+docker cp /srv/workspace/apps/master-gambar/storage/app/master master-gambar-app:/var/www/html/storage/app/
 
 # Kritis: Ubah permission agar Laravel bisa baca/tulis
 docker exec -u root master-gambar-app chown -R www-data:www-data /var/www/html/storage/app/master

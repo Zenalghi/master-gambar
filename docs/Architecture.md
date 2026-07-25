@@ -14,9 +14,11 @@ dan bagaimana sistem dibangun agar siap menampung banyak aplikasi di masa depan.
 Server ini memisahkan antara **layer Infrastruktur** dengan **layer Aplikasi**.
 
 ```
-workspace/
+/srv/workspace/
 ├── infra/              ← Shared Infrastructure (MySQL, NPM, Backup)
-└── master-gambar/      ← Application Service (PHP-FPM, Nginx internal)
+├── apps/
+│   └── master-gambar/  ← Application Service (PHP-FPM, Nginx internal)
+└── logs/               ← Log output dari berbagai cron backup aplikasi
 ```
 
 ### Mengapa Dipisahkan?

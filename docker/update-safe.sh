@@ -34,13 +34,14 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Gunakan docker-compose.prod.yml jika ada, jika tidak gunakan docker-compose.yml
+# Wajib menggunakan docker-compose.prod.yml di production
 if [ -f "${PROJECT_DIR}/docker-compose.prod.yml" ]; then
     COMPOSE_FILE="${PROJECT_DIR}/docker-compose.prod.yml"
     echo -e "${GREEN}  ✓ Using production config: docker-compose.prod.yml${NC}"
 else
-    COMPOSE_FILE="${PROJECT_DIR}/docker-compose.yml"
-    echo -e "${YELLOW}  ⚠ Production config not found, using template: docker-compose.yml${NC}"
+    echo -e "${RED}  ERROR: Production config (docker-compose.prod.yml) tidak ditemukan!${NC}"
+    echo -e "${RED}  JANGAN gunakan docker-compose.yml karena itu khusus untuk Development.${NC}"
+    exit 1
 fi
 
 # Docker compose command with correct file
