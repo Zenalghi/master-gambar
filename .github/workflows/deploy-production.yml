@@ -1,0 +1,59 @@
+name: 🚀 Safe Deploy Master Gambar (SOHO Production)
+
+on:
+  # 1. TRIGGER MANUAL (workflow_dispatch)
+  #    Memungkinkan Anda mengetuk tombol "Run workflow" langsung dari Web GitHub 
+  #    atau aplikasi GitHub Mobile di HP (tanpa perlu repot buka SSH/VS Code!).
+  #    Cocok dengan alur kerja Anda: minta izin ke client -> client setuju -> klik tombol ini!
+  workflow_dispatch:
+    inputs:
+      catatan_deploy:
+        description: 'Alasan atau catatan pembaruan versi'
+        required: false
+        default: 'Update rutin versi backend Master Gambar'
+
+  # 2. TRIGGER PUSH & ATURAN BLOKIR DOKUMEN (paths-ignore)
+  #    Sengaja dinonaktifkan (di-comment dengan #) demi keamanan alur kerja Anda agar 
+  #    saat Anda "ngasal push" kode yang belum sync dengan Flutter, server TIDAK terupdate 
+  #    secara prematur. Jika kelak Anda ingin mode otomatis tatkala push ke branch 'main', 
+  #    cukup hilangkan tanda pager (#) di bawah ini:
+  #
+  # push:
+  #   branches:
+  #     - main
+  #   paths-ignore:
+  #     - '**.md'          # Blokir/abaikan jika yang berubah hanya file markdown (.md)
+  #     - 'docs/**'        # Blokir/abaikan seluruh perubahan di dalam folder dokumentasi
+  #     - 'README.md'
+  #     - '.env.example'
+  #     - '.gitignore'
+
+jobs:
+  deploy-soho:
+    name: 🛡️ Eksekusi Safe Update di SOHO
+    # Mengabaikan trigger jika ada Pull Request eksternal (mengamankan repo publik Anda)
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: self-hosted
+
+    steps:
+      - name: 📋 Info Eksekusi CI/CD
+        run: |
+          echo "================================================="
+          echo "  🚀 Mulai Eksekusi CI/CD Master Gambar"
+          echo "  👤 Aktor   : ${{ github.actor }}"
+          echo "  🎯 Pemicu  : ${{ github.event_name }}"
+          echo "  📝 Catatan : ${{ github.event.inputs.catatan_deploy || 'Automated Deploy' }}"
+          echo "================================================="
+
+      - name: 🔒 Eksekusi Safe Update Script (Backup DB & Storage + Rebuild)
+        # Bekerja langsung di folder production di VM/Homeserver SOHO
+        run: |
+          cd /srv/workspace/apps/master-gambar
+          bash docker/update-safe.sh
+
+      - name: 🩺 Verifikasi Status Kontainer & Healthcheck
+        run: |
+          cd /srv/workspace/apps/master-gambar
+          docker compose -f docker-compose.prod.yml ps
+          echo ""
+          echo "🎉 Proses Deploy Master Gambar ke Homeserver SOHO Berhasil!"

@@ -316,8 +316,9 @@ curl -I http://localhost:8080
 
 ## 8. Update Aplikasi
 
-### ✅ Cara Update Aman (Menggunakan Script Otomatis)
+Terdapat dua metode untuk memperbarui aplikasi di server SOHO Anda saat ada versi baru:
 
+### Opsi A: Update Manual via Terminal SSH
 Script `docker/update-safe.sh` akan melakukan backup otomatis database dan storage sebelum update, sehingga data Anda aman!
 
 ```bash
@@ -326,6 +327,19 @@ cd /srv/workspace/apps/master-gambar
 # Jalankan script update aman (backup + update + rebuild)
 bash docker/update-safe.sh
 ```
+
+### Opsi B: Update Otomatis via CI/CD (GitHub Actions) ⭐ Rekomendasi SOHO
+Aplikasi ini sudah dipasangi workflow CI/CD berstandar industri di `.github/workflows/deploy-production.yml` menggunakan metode **Self-Hosted Runner**:
+- **Zero-Touch SSH (Tanpa Buka Terminal / VS Code)**: Selesai Anda membagikan file installer Flutter Desktop ke Client dan mendapatkan izin update dari mereka, Anda dapat mengeksekusi proses update langsung lewat layar Smartphone atau Browser!
+- **Anti-Error & Tanpa Secret Variables**: Karena runner berjalan langsung secara lokal di dalam SOHO/VM, Anda **TIDAK PERLU** mengkonfigurasi IP, SSH Key, atau Password Database sama sekali di halaman rahasia (GitHub Secrets). Aliran data 100% lokal dari `.env.production` di server.
+- **Lalai Dokumen Anti-Rebuild (`paths-ignore`)**: Struktur workflow sudah dipasangkan perlindungan agar jika suatu hari mode auto-push dihidupkan, perubahan dokumentasi (`.md`) tidak akan membuang-buang memori server untuk rebuild kontainer.
+
+**Cara Mengeksekusi Update via CI/CD:**
+1. Buka aplikasi **GitHub Mobile** di HP atau kunjungi repositori di Web Browser.
+2. Masuk ke tab **Actions** → Pilih workflow **Safe Deploy Master Gambar (SOHO Production)**.
+3. Tekan tombol hijau **Run workflow**. 
+4. *(Opsional / Sunnah)*: Anda dapat mengubah atau membiarkan catatan default di kolom keterangan (misal: `"Update v1.5 sinkron dengan Flutter"`).
+5. Dalam hitungan detik, robot GitHub Runner di SOHO akan memanggil `update-safe.sh`, merestorasi backup database, me-rebuild Docker, dan memverifikasi kelangsungan kontainer Anda!
 
 **Apa yang dilakukan script ini:**
 
