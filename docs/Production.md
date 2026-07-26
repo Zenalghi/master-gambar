@@ -94,16 +94,19 @@ nano .env.production
 | Variable | Keterangan |
 |----------|------------|
 | `APP_URL` | Ubah ke IP/domain Server, contoh: `http://192.168.100.17` (via Nginx Proxy Manager) |
-| `DB_PASSWORD` | Password untuk App Laravel konek ke MySQL |
-| `MYSQL_ROOT_PASSWORD` | Password root MySQL (Wajib diganti!) |
-| `MYSQL_PASSWORD` | Sama dengan `DB_PASSWORD` |
+| `DB_DATABASE` | Nama database yang sudah Anda siapkan di server MySQL Infra |
+| `DB_USERNAME` | Nama user database khusus untuk aplikasi ini |
+| `DB_PASSWORD` | Password untuk user database aplikasi ini di MySQL Infra |
 
-**Contoh hasil edit:**
+> ℹ️ **Catatan tentang Password Root MySQL:** Anda **TIDAK PERLU** mengisi atau mendefinisikan `MYSQL_ROOT_PASSWORD` ataupun `MYSQL_*` pada `.env.production` ini. Pada lingkungan Production SOHO, database MySQL dijalankan secara terpusat di repositori `infra-mysql`. Aplikasi ini hanya terhubung sebagai user khusus (`DB_*`) yang ter-isolasi dan tidak berwenang mengotak-atik akun root MySQL!
+
+**Contoh hasil edit `.env.production`:**
 ```bash
 APP_ENV=production
 APP_DEBUG=false
 APP_URL=http://192.168.100.17
 
+# Koneksi Database mengarah ke Server Infra
 DB_CONNECTION=mysql
 DB_HOST=infra-mysql
 DB_PORT=3306
@@ -111,18 +114,11 @@ DB_DATABASE=master_gambar_db
 DB_USERNAME=master_gambar_user
 DB_PASSWORD=PasswordAppKuat456!
 
-# Docker MySQL Initialization (Hanya untuk development lokal)
-# Di production, MySQL dikelola oleh repository infra.
-# Variabel ini boleh dikosongkan jika MySQL sudah berjalan di infra.
-MYSQL_ROOT_PASSWORD=
-MYSQL_DATABASE=master_gambar_db
-MYSQL_USER=master_gambar_user
-MYSQL_PASSWORD=PasswordAppKuat456!
-
 # Backup Configuration
 BACKUP_DIR=/mnt/data/backups
 RETENTION_DAYS=7
 ```
+*(Tips: Untuk membuat user dan database `master_gambar_user` dengan cepat di server Infra, Anda dapat memanfaatkan fitur **User Manager** pada **HeidiSQL** tanpa perlu mengetikan perintah SQL manual!)*
 
 **Simpan:** `Ctrl+O` → `Enter` → `Ctrl+X`
 
