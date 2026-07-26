@@ -334,7 +334,25 @@ Aplikasi ini sudah dipasangi workflow CI/CD berstandar industri di `.github/work
 - **Anti-Error & Tanpa Secret Variables**: Karena runner berjalan langsung secara lokal di dalam SOHO/VM, Anda **TIDAK PERLU** mengkonfigurasi IP, SSH Key, atau Password Database sama sekali di halaman rahasia (GitHub Secrets). Aliran data 100% lokal dari `.env.production` di server.
 - **Lalai Dokumen Anti-Rebuild (`paths-ignore`)**: Struktur workflow sudah dipasangkan perlindungan agar jika suatu hari mode auto-push dihidupkan, perubahan dokumentasi (`.md`) tidak akan membuang-buang memori server untuk rebuild kontainer.
 
-**Cara Mengeksekusi Update via CI/CD:**
+**🔧 Persiapan Sekali Pakai: Mendaftarkan VM / Homeserver sebagai Runner (Cuma 5 Menit):**
+1. Buka repositori `master-gambar` di Browser komputer Anda → Klik menu **Settings** → **Actions** → **Runners**.
+2. Klik tombol hijau **New self-hosted runner** → Pilih OS **Linux** (Arsitektur x64).
+3. **Di mana harus paste perintahnya? (Anti-Bentrok & Pemisahan Runner):**  
+   **JANGAN** di dalam folder `/srv/workspace`! Buka terminal SSH Anda, berdiri di **Home Directory (`~`)**, dan buat folder khusus dengan nama `runner-master-gambar` (berbeda dari folder runner infra):
+   ```bash
+   mkdir -p ~/runner-master-gambar && cd ~/runner-master-gambar
+   ```
+   Setelah itu, salin dan tempelin perintah `curl`, `tar`, dan `./config.sh` yang disiapken web GitHub Anda ke dalam folder baru ini. 
+   *(Kenapa di Home? Agar agen Runner terisolasi rapi dan **tidak akan pernah bentrok** dengan file projek Anda yang berada di `/srv/workspace/apps/master-gambar`).*
+4. **🔥 Tip Pro (Agar Runner selalu online 24/7 & menyala otomatis saat server direstart):**  
+   Ketika sampai di tahap akhir konfigurasi (`./config.sh`), *hindari* mengetik `./run.sh` (karena koneksi akan putus saat jendela terminal putuskan). Sebaliknya, jadikan runner sebagai service latar belakang Linux:
+   ```bash
+   sudo ./svc.sh install
+   sudo ./svc.sh start
+   ```
+   *Selamat! Runner telah menetap abadi di dalam sistem SOHO Anda. Anda bebas dari rutinitas SSH seumur hidup.*
+
+**📱 Cara Mengeksekusi Update via CI/CD (Tanpa Buka Terminal Lagi):**
 1. Buka aplikasi **GitHub Mobile** di HP atau kunjungi repositori di Web Browser.
 2. Masuk ke tab **Actions** → Pilih workflow **Safe Deploy Master Gambar (SOHO Production)**.
 3. Tekan tombol hijau **Run workflow**. 
