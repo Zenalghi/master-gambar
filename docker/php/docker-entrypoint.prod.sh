@@ -31,36 +31,40 @@ if grep -q "^APP_KEY=$" .env 2>/dev/null || grep -q "^APP_KEY=base64:$" .env 2>/
     php artisan key:generate --force
 fi
 
-# Export APP_KEY ke lingkungan PHP-FPM
+# Export APP_KEY dan konfigurasi PHP-FPM ke file terpisah (overwrite, bukan append)
 APP_KEY_VALUE=$(grep "^APP_KEY=" .env 2>/dev/null | cut -d= -f2-)
+cat > /usr/local/etc/php-fpm.d/zz-custom.conf <<EOF
+ping.path = /ping
+pm.status_path = /status
+EOF
 if [ -n "$APP_KEY_VALUE" ]; then
-    echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/www.conf
+    echo "env[APP_KEY] = \"$APP_KEY_VALUE\"" >> /usr/local/etc/php-fpm.d/zz-custom.conf
 fi
 
-echo "ping.path = /ping" >> /usr/local/etc/php-fpm.d/www.conf
-echo "pm.status_path = /status" >> /usr/local/etc/php-fpm.d/www.conf
-
-# Wait for MySQL
+# Wait for MySQL (gunakan env vars dari docker-compose)
 echo "-> Waiting for MySQL..."
 cat > /tmp/wait_mysql.php << 'PHPEOF'
 <?php
-$pass = getenv('MYSQL_ROOT_PASSWORD') ?: 'root_anti_ini';
+$host = getenv('DB_HOST') ?: 'infra-mysql';
+$user = getenv('DB_USERNAME') ?: 'root';
+$pass = getenv('DB_PASSWORD') ?: '';
+$port = getenv('DB_PORT') ?: '3306';
 for ($i = 0; $i < 30; $i++) {
     try {
         $pdo = new PDO(
-            'mysql:host=mysql;port=3306',
-            'root',
+            "mysql:host=$host;port=$port",
+            $user,
             $pass,
             [PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false]
         );
-        echo "MySQL connected!\n";
+        echo "MySQL connected ($host as $user)!\n";
         exit(0);
     } catch (Exception $e) {
         echo "  MySQL not ready (" . ($i + 1) . "/30), retrying...\n";
         sleep(3);
     }
 }
-echo "ERROR: MySQL not ready after 30 retries\n";
+echo "ERROR: MySQL ($host) not ready after 30 retries\n";
 exit(1);
 PHPEOF
 php /tmp/wait_mysql.php

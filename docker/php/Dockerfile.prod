@@ -47,8 +47,8 @@ RUN apt-get update \
     && chmod +x /usr/local/bin/php-fpm-healthcheck
 
 COPY --from=composer /usr/bin/composer /usr/bin/composer
-COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
-COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+COPY docker/php/php.prod.ini /usr/local/etc/php/conf.d/99-app.ini
+COPY docker/php/docker-entrypoint.prod.sh /usr/local/bin/docker-entrypoint.sh
 COPY docker/php/generate_env.php /tmp/generate_env.php
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 

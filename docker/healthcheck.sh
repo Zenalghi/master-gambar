@@ -41,7 +41,7 @@ echo "  Container Status"
 echo "------------------------------------------"
 
 # Check each container
-CONTAINERS=("master-gambar-app" "master-gambar-nginx" "master-gambar-mysql")
+CONTAINERS=("master-gambar-app" "master-gambar-nginx" "infra-mysql")
 
 for container in "${CONTAINERS[@]}"; do
     echo -n "$container: "
@@ -77,7 +77,7 @@ echo ""
 echo "------------------------------------------"
 echo "  Network Status"
 echo "------------------------------------------"
-docker network inspect master-gambar-network --format '{{.Name}}: {{.Driver}} ({{.IPAM.Config}})' 2>/dev/null || echo "Network tidak ditemukan"
+docker network inspect rekayasa-network --format '{{.Name}}: {{.Driver}} ({{.IPAM.Config}})' 2>/dev/null || echo "Network tidak ditemukan"
 
 echo ""
 echo "=========================================="

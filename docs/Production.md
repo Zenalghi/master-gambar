@@ -93,7 +93,7 @@ nano .env.production
 
 | Variable | Keterangan |
 |----------|------------|
-| `APP_URL` | Ubah ke IP Server, contoh: `http://192.168.100.17:8080` |
+| `APP_URL` | Ubah ke IP/domain Server, contoh: `http://192.168.100.17` (via Nginx Proxy Manager) |
 | `DB_PASSWORD` | Password untuk App Laravel konek ke MySQL |
 | `MYSQL_ROOT_PASSWORD` | Password root MySQL (Wajib diganti!) |
 | `MYSQL_PASSWORD` | Sama dengan `DB_PASSWORD` |
@@ -102,7 +102,7 @@ nano .env.production
 ```bash
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=http://192.168.100.17:8080
+APP_URL=http://192.168.100.17
 
 DB_CONNECTION=mysql
 DB_HOST=infra-mysql
@@ -416,7 +416,7 @@ docker compose -f docker-compose.prod.yml ps
 docker compose -f docker-compose.prod.yml logs -f
 
 # Test aplikasi
-curl -I http://localhost:8080
+curl -I http://localhost
 ```
 ---
 
