@@ -425,9 +425,8 @@ curl -I http://localhost
 | Masalah | Solusi |
 |---------|--------|
 | Container tidak start | `docker compose -f docker-compose.prod.yml logs app` |
-| MySQL connection refused | Tunggu container mysql healthy |
-| Port 8080 dipakai | Ubah port di `docker-compose.prod.yml` |
-| Password salah | Edit `.env.production`, lalu restart |
+| MySQL connection refused | Pastikan container infra-mysql berjalan dan healthy di infra |
+| Password salah | Edit `.env.production`, lalu restart dengan docker compose |
 | Backup gagal | Cek konfigurasi backup di repository `infra` |
 | Storage permission error | Jalankan `chown -R www-data:www-data /var/www/html/storage/app/` |
 | Backup path salah | Pastikan `BACKUP_DIR` menggunakan path absolut, bukan `~` |
