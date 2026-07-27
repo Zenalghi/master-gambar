@@ -45,8 +45,8 @@ fi
 echo "-> Waiting for MySQL..."
 cat > /tmp/wait_mysql.php << 'PHPEOF'
 <?php
-$user = getenv('DB_USERNAME');
-$pass = getenv('DB_PASSWORD');
+$user = getenv('DB_USERNAME') ?: 'master_gambar_user';
+$pass = getenv('DB_PASSWORD') ?: '';
 $host = getenv('DB_HOST') ?: 'mysql';
 $port = getenv('DB_PORT') ?: '3306';
 for ($i = 0; $i < 30; $i++) {
@@ -57,14 +57,14 @@ for ($i = 0; $i < 30; $i++) {
             $pass,
             [PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false]
         );
-        echo "MySQL connected ($host as $user)!\n";
+        echo "MySQL connected successfully ($host as $user)!\n";
         exit(0);
     } catch (Exception $e) {
-        echo "  MySQL not ready (" . ($i + 1) . "/30), retrying...\n";
+        echo "  MySQL not ready (" . ($i + 1) . "/30) -> Error: [" . $e->getMessage() . "], retrying...\n";
         sleep(3);
     }
 }
-echo "ERROR: MySQL ($host) not ready after 30 retries\n";
+echo "ERROR: MySQL ($host as $user) not ready after 30 retries!\n";
 exit(1);
 PHPEOF
 php /tmp/wait_mysql.php
