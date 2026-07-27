@@ -81,7 +81,7 @@ if docker ps --format '{{.Names}}' | grep -q "infra-mysql"; then
 
     # Export khusus database aplikasi (tanpa warning password di CLI & tanpa butuh root)
     docker exec -e MYSQL_PWD="${DB_PASS}" infra-mysql \
-        mysqldump -u "${DB_USER}" --set-gtid-purged=OFF --single-transaction --routines --events \
+        mysqldump -u "${DB_USER}" --no-tablespaces --skip-masking-policies --skip-add-drop-masking-policy --set-gtid-purged=OFF --single-transaction --routines --events \
         "${DB_NAME}" > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
 
     if [ $? -eq 0 ]; then
@@ -101,7 +101,7 @@ echo ""
 # STEP 2: Backup Storage (file PDF, PNG, ZIP)
 # =====================================================================
 echo -e "${BLUE}[2/8] Backup storage (file PDF/PNG/ZIP)...${NC}"
-if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
+if docker ps -a --format '{{.Names}}' | grep -q "master-gambar-app"; then
 
     echo "  Backup folder: ${FOLDER_BACKUP}"
 
@@ -116,7 +116,7 @@ if docker ps --format '{{.Names}}' | grep -q "master-gambar-app"; then
     fi
 
 else
-    echo -e "${YELLOW}  ⚠ App container tidak running, skip storage backup${NC}"
+    echo -e "${YELLOW}  ⚠ App container tidak ditemukan, skip storage backup${NC}"
 fi
 
 echo ""
@@ -172,7 +172,7 @@ if docker ps --format '{{.Names}}' | grep -q "infra-mysql"; then
     
     # Export database setelah update
     docker exec -e MYSQL_PWD="${DB_PASS}" infra-mysql \
-        mysqldump -u "${DB_USER}" --set-gtid-purged=OFF --single-transaction --routines --events \
+        mysqldump -u "${DB_USER}" --no-tablespaces --skip-masking-policies --skip-add-drop-masking-policy --set-gtid-purged=OFF --single-transaction --routines --events \
         "${DB_NAME}" > "${FOLDER_BACKUP}/${DB_BACKUP_UPDATED_FILE}"
 
     if [ $? -eq 0 ]; then
