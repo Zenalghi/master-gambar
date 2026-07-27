@@ -59,7 +59,7 @@ if docker ps --format '{{.Names}}' | grep -q "${MYSQL_CONTAINER}"; then
     echo "  Backup database ke: ${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
     
     docker exec -e MYSQL_PWD="${DB_PASS}" "${MYSQL_CONTAINER}" \
-        mysqldump -u "${DB_USER}" --set-gtid-purged=OFF --single-transaction --routines --events \
+        mysqldump -u "${DB_USER}" --no-tablespaces --skip-masking-policies --skip-add-drop-masking-policy --set-gtid-purged=OFF --single-transaction --routines --events \
         "${DB_NAME}" > "${FOLDER_BACKUP}/${DB_BACKUP_FILE}"
     
     if [ $? -eq 0 ]; then
@@ -80,7 +80,7 @@ echo ""
 echo "[2/2] Backup storage (file PDF/PNG/ZIP)..."
 APP_CONTAINER="master-gambar-app"
 
-if docker ps --format '{{.Names}}' | grep -q "${APP_CONTAINER}"; then
+if docker ps -a --format '{{.Names}}' | grep -q "${APP_CONTAINER}"; then
     echo "  Backup folder ke: ${FOLDER_BACKUP}"
     
     # Akan mengkopi seluruh isian storage/app ke dalam ${FOLDER_BACKUP}/app
@@ -93,7 +93,7 @@ if docker ps --format '{{.Names}}' | grep -q "${APP_CONTAINER}"; then
         echo "  ✗ Storage backup gagal!"
     fi
 else
-    echo "  ⚠ App container (${APP_CONTAINER}) tidak running, skip storage backup"
+    echo "  ⚠ App container (${APP_CONTAINER}) tidak ditemukan, skip storage backup"
 fi
 
 echo ""
