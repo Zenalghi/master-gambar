@@ -26,6 +26,7 @@ class Customer extends Model
     protected $fillable = [
         'nama_pt',
         'pj',
+        'jabatan',
         'signature_pj',
         'nama_drafter',
         'signature_drafter',
@@ -37,6 +38,13 @@ class Customer extends Model
     {
         return Attribute::make(
             set: fn($value) => strtoupper($value),
+        );
+    }
+
+    protected function jabatan(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => $value ? strtoupper($value) : null,
         );
     }
 

@@ -16,6 +16,7 @@ class StoreCustomerRequest extends FormRequest
         return [
             'nama_pt' => 'required|string|max:255|unique:customers,nama_pt',
             'pj' => 'required|string|max:255',
+            'jabatan' => 'nullable|string|max:255',
             'signature_pj' => 'nullable|string', // atau 'image|mimes:png,jpg' jika upload file
             'nama_drafter' => 'nullable|string|max:255',
             'signature_drafter' => 'nullable|string',
