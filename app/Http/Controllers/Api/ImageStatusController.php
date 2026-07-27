@@ -22,6 +22,15 @@ class ImageStatusController extends Controller
             'sortBy' => 'nullable|string',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
+            'id' => 'nullable|string',
+            'type_engine' => 'nullable|string',
+            'merk' => 'nullable|string',
+            'type_chassis' => 'nullable|string',
+            'jenis_kendaraan' => 'nullable|string',
+            'varian_body' => 'nullable|string',
+            'created_at' => 'nullable|string',
+            'updated_at' => 'nullable|string',
+            'deskripsi_optional' => 'nullable|string',
         ]);
 
         $perPage = $validated['perPage'] ?? 50;
@@ -75,7 +84,34 @@ class ImageStatusController extends Controller
             'gambarUtama.gambarOptionals'
         ]);
 
-        // 5. Search
+        // 5. Advanced Filter Map
+        $filterMap = [
+            'id' => 'e_varian_body.id',
+            'type_engine' => 'a_type_engines.type_engine',
+            'merk' => 'b_merks.merk',
+            'type_chassis' => 'c_type_chassis.type_chassis',
+            'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
+            'varian_body' => 'e_varian_body.varian_body',
+            'created_at' => 'g_gambar_utama.created_at',
+            'deskripsi_optional' => 'h_gambar_optional.deskripsi',
+        ];
+
+        foreach ($filterMap as $key => $column) {
+            if ($request->filled($key)) {
+                $query->where($column, 'like', '%' . $request->input($key) . '%');
+            }
+        }
+
+        // Khusus updated_at (cek di gambar_utama dan gambar_optional)
+        if ($request->filled('updated_at')) {
+            $upd = $request->input('updated_at');
+            $query->where(function ($q) use ($upd) {
+                $q->where('g_gambar_utama.updated_at', 'like', "%{$upd}%")
+                  ->orWhere('h_gambar_optional.updated_at', 'like', "%{$upd}%");
+            });
+        }
+
+        // 6. Search Global
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('e_varian_body.id', 'like', "%{$search}%")
@@ -91,7 +127,7 @@ class ImageStatusController extends Controller
             });
         }
 
-        // 6. Sorting Mapping
+        // 7. Sorting Mapping
         $sortColumn = match ($sortBy) {
             'id' => 'e_varian_body.id',
             'type_engine' => 'a_type_engines.type_engine',
@@ -106,7 +142,7 @@ class ImageStatusController extends Controller
             default => 'e_varian_body.id',
         };
 
-        // 7. Penerapan Sorting
+        // 8. Penerapan Sorting
         // Kita gunakan orderBy biasa karena 'latest_updated_at' sudah berupa kolom kalkulasi yang bersih
         if ($sortBy === 'updated_at') {
             // Khusus tanggal, pastikan null (belum upload) ada di bawah/atas sesuai kebutuhan
@@ -128,10 +164,10 @@ class ImageStatusController extends Controller
             $query->orderBy($sortColumn, $sortDirection);
         }
 
-        // 8. Pagination
+        // 9. Pagination
         $paginator = $query->paginate($perPage);
 
-        // 9. Transformasi Data (Opsional, agar Frontend menerima field yang konsisten)
+        // 10. Transformasi Data (Opsional, agar Frontend menerima field yang konsisten)
         // Kita timpa field 'gambar_utama_updated_at' dengan hasil kalkulasi agar frontend menampilkan tanggal terbaru
         $paginator->getCollection()->transform(function ($item) {
             // Timpa nilai ini agar UI menampilkan tanggal komparasi
@@ -139,11 +175,6 @@ class ImageStatusController extends Controller
             return $item;
         });
 
-        return $paginator->appends([
-            'search' => $search,
-            'sortBy' => $sortBy,
-            'sortDirection' => $sortDirection,
-            'perPage' => $perPage
-        ]);
+        return $paginator->appends($request->query());
     }
 }
