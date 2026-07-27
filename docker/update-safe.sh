@@ -142,8 +142,8 @@ echo ""
 # STEP 5: Rebuild images
 # =====================================================================
 echo -e "${BLUE}[5/8] Rebuild Docker images...${NC}"
-${COMPOSE_CMD} build --no-cache
-echo -e "${GREEN}  ✓ Images rebuilt${NC}"
+${COMPOSE_CMD} build
+echo -e "${GREEN}  ✓ Images rebuilt (fast cached build)${NC}"
 echo ""
 
 # =====================================================================

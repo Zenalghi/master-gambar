@@ -153,6 +153,17 @@ docker volume prune
 docker network prune
 ```
 
+### 🧹 Perawatan Berkala (Rebuild dari Nol - Setiap 6 Bulan Sekali)
+
+Untuk alur kerja rutin harian/mingguan, sistem otomatis memanfaatkan memori *cache* agar proses update (CI/CD atau `update-safe.sh`) melesat dalam waktu 5-10 detik.  
+Namun, **setiap 6 bulan sekali** (atau jika ingin membersihkan riwayat cache lama dan menyegarkan paket pemeliharaan Linux OS dari nol), jalankan perintah berikut secara manual di terminal server:
+
+```bash
+cd /srv/workspace/apps/master-gambar
+docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up -d
+```
+*(Proses ini akan memakan waktu sekitar 10-15 menit untuk mengunduh ulang seluruh kemasan dari awal).*
+
 ---
 
 ## Troubleshooting
@@ -191,4 +202,4 @@ docker network prune
 2. **`.env.production`** harus di-ignore oleh Git (sudah ada di `.gitignore`).
 3. **`APP_DEBUG`** harus `false` di production.
 4. **Log rotation** sudah dikonfigurasi di docker-compose untuk mencegah disk penuh.
-5. **Gunakan password yang kuat** dan berbeda antara `MYSQL_ROOT_PASSWORD` dan `DB_PASSWORD`.
+5. **Gunakan password yang kuat** dan berbeda antara kredensial root di server Infra dengan `DB_PASSWORD` di `.env.production` aplikasi.

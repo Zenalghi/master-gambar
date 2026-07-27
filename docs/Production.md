@@ -436,6 +436,17 @@ Aplikasi ini sudah dipasangi workflow CI/CD berstandar industri di `.github/work
 - Backup disimpan di folder `/mnt/data/backups/` dengan format tanggal
 - Jika terjadi masalah, Anda bisa restore dari backup
 
+### 🧹 Perawatan Berkala: Rebuild Total Tanpa Cache (Setiap 6 Bulan Sekali)
+
+Untuk alur deploy rutin, baik CI/CD maupun `update-safe.sh` sengaja didesain menggunakan **memori cache** agar update harian tuntas secepat kilat (dalam hitungan 10 detik) dan menghemat umur hard disk.  
+Namun, **setiap 6 bulan sekali**, Anda sangat disarankan melakukan *clean rebuild* untuk membasuh tumpukan cache lama dan mendownload versi terbaru dari library sekuriti OS/Alpine:
+
+```bash
+cd /srv/workspace/apps/master-gambar
+docker compose -f docker-compose.prod.yml build --no-cache && docker compose -f docker-compose.prod.yml up -d
+```
+*(Catatan: Proses rutin 6 bulanan ini membutuhkan waktu lebih lama sekitar 10-15 menit).*
+
 ### 🔄 Verifikasi Setelah Update
 
 ```bash
