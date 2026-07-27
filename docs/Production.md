@@ -94,6 +94,8 @@ nano .env.production
 | Variable | Keterangan |
 |----------|------------|
 | `APP_URL` | Ubah ke IP/domain Server, contoh: `http://192.168.100.17` (via Nginx Proxy Manager) |
+| **`DB_HOST`** | **WAJIB DIUBAH!** Ganti dari `127.0.0.1` menjadi **`infra-mysql`** (nama kontainer MySQL di server Infra). Jika lupa diganti, deploy akan error! |
+| `DB_PORT` | Pastikan diatur ke **`3306`** (Port standar MySQL) |
 | `DB_DATABASE` | Nama database yang sudah Anda siapkan di server MySQL Infra |
 | `DB_USERNAME` | Nama user database khusus untuk aplikasi ini |
 | `DB_PASSWORD` | Password untuk user database aplikasi ini di MySQL Infra |
