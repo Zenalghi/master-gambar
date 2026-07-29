@@ -24,13 +24,13 @@ class X_CustomerController extends Controller
         $sortAsc = $request->input('sort_asc', 'false') === 'true';
 
         // 2. Tentukan kolom yang diizinkan untuk di-sort
-        $allowedSorts = ['nama_pt', 'pj', 'jabatan', 'nama_drafter', 'nama_pemeriksa', 'created_at', 'updated_at'];
+        $allowedSorts = ['nama_pt', 'pj', 'jabatan', 'nama_drafter', 'nama_pemeriksa', 'created_at', 'updated_at', 'status_tdp', 'tdp_masa_berlaku'];
         if (!in_array($sortBy, $allowedSorts)) {
             $sortBy = 'updated_at';
         }
 
         // 3. Mulai query
-        $query = Customer::query();
+        $query = Customer::query()->with('documentCustomer');
 
         // 4. Terapkan logika pencarian
         if ($search) {
@@ -47,8 +47,11 @@ class X_CustomerController extends Controller
         // 5. Terapkan logika sorting
         $direction = $sortAsc ? 'ASC' : 'DESC';
 
-        if (in_array($sortBy, ['jabatan', 'nama_drafter', 'nama_pemeriksa'])) {
-
+        if (in_array($sortBy, ['status_tdp', 'tdp_masa_berlaku'])) {
+            $query->leftJoin('document_customers', 'customers.id', '=', 'document_customers.customer_id')
+                  ->select('customers.*')
+                  ->orderByRaw("document_customers.tdp_masa_berlaku IS NULL ASC, document_customers.tdp_masa_berlaku {$direction}");
+        } elseif (in_array($sortBy, ['jabatan', 'nama_drafter', 'nama_pemeriksa'])) {
             $query->orderByRaw("$sortBy IS NULL ASC, $sortBy $direction");
         } else {
             // Untuk kolom yang tidak nullable (nama_pt, pj, dll)
@@ -58,7 +61,16 @@ class X_CustomerController extends Controller
         // 6. Ambil data dengan paginasi
         $paginated = $query->paginate($perPage);
 
-        // 7. Format response sesuai kebutuhan Flutter
+        // 7. Transformasi: Tambahkan status_tdp dan tdp_masa_berlaku ke response
+        $paginated->getCollection()->transform(function ($customer) {
+            $doc = $customer->documentCustomer;
+            $customer->setAttribute('status_tdp', $doc ? $doc->status_tdp : null);
+            $customer->setAttribute('tdp_masa_berlaku', $doc ? $doc->tdp_masa_berlaku?->format('Y-m-d') : null);
+            unset($customer->documentCustomer); // Hapus relasi dari response agar tidak duplikat
+            return $customer;
+        });
+
+        // 8. Format response sesuai kebutuhan Flutter
         return response()->json([
             'data' => $paginated->items(),
             'total' => $paginated->total(),
@@ -96,32 +108,30 @@ class X_CustomerController extends Controller
      */
     public function destroy(Customer $customer)
     {
-        // Cek apakah customer memiliki file paraf (signature_pj)
+        // 1. Hapus file paraf dan direktori di disk 'customer_paraf'
         if ($customer->signature_pj) {
-            // Ambil nama folder dari path file
-            $folderPath = dirname($customer->signature_pj);
-
-            // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
-            Storage::disk('customer_paraf')->deleteDirectory($folderPath);
+            Storage::disk('customer_paraf')->delete($customer->signature_pj);
+            Storage::disk('customer_paraf')->deleteDirectory(dirname($customer->signature_pj));
         }
-        // Cek apakah customer memiliki file paraf (signature_drafter)
         if ($customer->signature_drafter) {
-            // Ambil nama folder dari path file
-            $folderPath = dirname($customer->signature_drafter);
-
-            // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
-            Storage::disk('customer_paraf')->deleteDirectory($folderPath);
+            Storage::disk('customer_paraf')->delete($customer->signature_drafter);
+            Storage::disk('customer_paraf')->deleteDirectory(dirname($customer->signature_drafter));
         }
-        // Cek apakah customer memiliki file paraf (signature_pemeriksa)
         if ($customer->signature_pemeriksa) {
-            // Ambil nama folder dari path file
-            $folderPath = dirname($customer->signature_pemeriksa);
-
-            // Hapus seluruh folder milik customer tersebut dari disk 'customer_paraf'
-            Storage::disk('customer_paraf')->deleteDirectory($folderPath);
+            Storage::disk('customer_paraf')->delete($customer->signature_pemeriksa);
+            Storage::disk('customer_paraf')->deleteDirectory(dirname($customer->signature_pemeriksa));
         }
+        // Hapus juga direktori folder berdasarkan ID customer secara eksplisit
+        Storage::disk('customer_paraf')->deleteDirectory((string) $customer->id);
 
-        // Hapus data customer dari database
+        // 2. Hapus seluruh file PDF & folder di disk 'customer-documents'
+        Storage::disk('customer-documents')->deleteDirectory((string) $customer->id);
+
+        // 3. Hapus data di tabel document_customers
+        $customer->documentCustomer()->delete();
+        \App\Models\DocumentCustomer::where('customer_id', $customer->id)->delete();
+
+        // 4. Hapus data customer dari database (termasuk path gambar paraf di DB)
         $customer->delete();
 
         return response()->json(null, 204); // 204 No Content

@@ -24,6 +24,8 @@ class UpdateTypeChassisRequest extends FormRequest
                 // Cek unik, abaikan ID saat ini dan yang sudah di-soft-delete
                 Rule::unique('c_type_chassis')->whereNull('deleted_at')->ignore($chassisId),
             ],
+            'sut_pdf' => 'nullable|file|mimes:pdf|max:2048',
+            'remove_sut_pdf' => 'nullable|string',
         ];
     }
 }

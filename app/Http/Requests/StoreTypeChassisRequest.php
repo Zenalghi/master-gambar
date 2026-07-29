@@ -23,6 +23,7 @@ class StoreTypeChassisRequest extends FormRequest
                 // Cek unik hanya pada data yang tidak di-soft-delete
                 Rule::unique('c_type_chassis')->whereNull('deleted_at'),
             ],
+            'sut_pdf' => 'nullable|file|mimes:pdf|max:2048',
         ];
     }
 }

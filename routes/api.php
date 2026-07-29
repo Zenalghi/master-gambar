@@ -25,11 +25,27 @@ use App\Http\Controllers\Api\I_GambarKelistrikanController;
 use App\Http\Controllers\Api\ImageStatusController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\M_MasterVarianController;
+use App\Http\Controllers\Api\DocumentCustomerController;
+use App\Http\Controllers\Api\SkrbSettingController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']); // Jika Anda butuh registrasi mandiri
 Route::post('/drawings/generate-preview', [DrawingController::class, 'generatePdf'])->middleware('auth.api');
+Route::get('/test-skrb-pdf', function () {
+    $dir = 'C:\\Nova\\Rekayasa\\test';
+    if (!file_exists($dir)) {
+        mkdir($dir, 0777, true);
+    }
+    $pdf = (new \App\Support\SKRB_template())->generate();
+    $outputPath = $dir . '\\preview_skrb.pdf';
+    $pdf->Output($outputPath, 'F');
+
+    return response($pdf->Output('test_skrb.pdf', 'S'), 200, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="preview_skrb.pdf"',
+    ]);
+});
 
 // Rute Terproteksi (Sekarang menggunakan alias 'auth.api')
 Route::middleware('auth.api')->group(
@@ -61,6 +77,7 @@ Route::middleware('auth.api')->group(
         Route::apiResource('type-engines', TypeEngineController::class);
 
         Route::apiResource('merks', MerkController::class);
+        Route::get('/type-chassis/{typeChassis}/sut-pdf', [TypeChassisController::class, 'viewSutPdf']);
         Route::apiResource('type-chassis', TypeChassisController::class)
             ->parameters(['type-chassis' => 'typeChassis']);
         Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
@@ -79,6 +96,14 @@ Route::middleware('auth.api')->group(
 
         Route::get('/options/independent-images/{masterDataId}', [OptionController::class, 'getIndependentOptions']);
 
+        // --- DOCUMENT CUSTOMER (READ: semua user) ---
+        Route::get('customers/{customer}/document', [DocumentCustomerController::class, 'show']);
+        Route::get('customers/{customer}/document/pdf/{type}/{index?}', [DocumentCustomerController::class, 'viewPdf']);
+
+        // --- SKRB SETTING ---
+        Route::get('/skrb-setting', [SkrbSettingController::class, 'show']);
+        Route::post('/skrb-setting', [SkrbSettingController::class, 'update']);
+
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // --- MANAJEMEN USER & ROLE ---
             Route::apiResource('users', UserController::class);
@@ -86,6 +111,12 @@ Route::middleware('auth.api')->group(
 
             // --- MANAJEMEN CUSTOMER ---
             Route::apiResource('customers', CustomerController::class);
+
+            // --- DOCUMENT CUSTOMER (WRITE: admin only) ---
+            Route::post('customers/{customer}/document', [DocumentCustomerController::class, 'store']);
+            Route::delete('customers/{customer}/document', [DocumentCustomerController::class, 'destroy']);
+            Route::delete('customers/{customer}/document/tdp/{index}', [DocumentCustomerController::class, 'deleteTdpFile']);
+            Route::post('customers/{customer}/document/tdp/{index}/replace', [DocumentCustomerController::class, 'replaceTdpFile']);
 
             // --- MANAJEMEN GAMBAR MASTER (Utama & Optional) ---
             Route::post('/gambar-master/utama', [GambarMasterController::class, 'uploadGambarUtama']);

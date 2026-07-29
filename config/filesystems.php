@@ -77,6 +77,18 @@ return [
             'root' => storage_path('app/master/customer'),
             'throw' => false,
         ],
+
+        'customer-documents' => [
+            'driver' => 'local',
+            'root' => storage_path('app/master/customer-documents'),
+            'throw' => false,
+        ],
+
+        'sut-pdf' => [
+            'driver' => 'local',
+            'root' => storage_path('app/master/sut-pdf'),
+            'throw' => false,
+        ],
     ],
 
     /*

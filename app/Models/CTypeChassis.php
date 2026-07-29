@@ -14,7 +14,7 @@ class CTypeChassis extends Model
 
     protected $table = 'c_type_chassis';
     // ID sekarang auto-increment integer
-    protected $fillable = ['type_chassis'];
+    protected $fillable = ['type_chassis', 'sut_pdf_path'];
 
     public function setTypeChassisAttribute($value)
     {
