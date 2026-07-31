@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\DocumentCustomer;
+use App\Models\Skrb;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,8 +35,8 @@ class DocumentCustomerController extends Controller
     {
         // 1. Validasi
         $request->validate([
-            'kop_surat'          => 'nullable|file|mimes:pdf|max:1024',
-            'data_umum'          => 'nullable|file|mimes:pdf|max:1024',
+            'kop_surat_file'     => 'nullable|file|mimes:pdf|max:1024',
+            'data_umum_file'     => 'nullable|file|mimes:pdf|max:1024',
             'tdp_files'          => 'nullable|array|max:20',
             'tdp_files.*'        => 'file|mimes:pdf|max:1024',
             'tdp_masa_berlaku'   => 'required|date',
@@ -45,46 +46,46 @@ class DocumentCustomerController extends Controller
             'bidang_usaha'       => 'nullable|string|max:255',
             'alamat_lengkap'     => 'nullable|string|max:1000',
             // Flag untuk menandakan field mana yang dikirim (untuk partial update)
-            'remove_kop_surat'   => 'nullable|boolean',
-            'remove_data_umum'   => 'nullable|boolean',
+            'remove_kop_surat_file'   => 'nullable|boolean',
+            'remove_data_umum_file'   => 'nullable|boolean',
         ]);
 
         $disk = Storage::disk('customer-documents');
-        $folder = (string) $customer->id;
+        $folder = "docus-{$customer->id}";
         $now = Carbon::now()->format('Ymd-His');
 
         // 2. Ambil atau buat document baru
         $document = $customer->documentCustomer ?? new DocumentCustomer(['customer_id' => $customer->id]);
 
         // 3. Proses Kop Surat
-        if ($request->hasFile('kop_surat')) {
+        if ($request->hasFile('kop_surat_file')) {
             // Hapus file lama jika ada
-            if ($document->kop_surat && $disk->exists($document->kop_surat)) {
-                $disk->delete($document->kop_surat);
+            if ($document->kop_surat_file && $disk->exists($document->kop_surat_file)) {
+                $disk->delete($document->kop_surat_file);
             }
             $fileName = "{$customer->id}-1-kop-{$now}.pdf";
-            $path = $request->file('kop_surat')->storeAs($folder, $fileName, 'customer-documents');
-            $document->kop_surat = $path;
-        } elseif ($request->boolean('remove_kop_surat')) {
-            if ($document->kop_surat && $disk->exists($document->kop_surat)) {
-                $disk->delete($document->kop_surat);
+            $path = $request->file('kop_surat_file')->storeAs($folder, $fileName, 'customer-documents');
+            $document->kop_surat_file = $path;
+        } elseif ($request->boolean('remove_kop_surat_file')) {
+            if ($document->kop_surat_file && $disk->exists($document->kop_surat_file)) {
+                $disk->delete($document->kop_surat_file);
             }
-            $document->kop_surat = null;
+            $document->kop_surat_file = null;
         }
 
         // 4. Proses Data Umum
-        if ($request->hasFile('data_umum')) {
-            if ($document->data_umum && $disk->exists($document->data_umum)) {
-                $disk->delete($document->data_umum);
+        if ($request->hasFile('data_umum_file')) {
+            if ($document->data_umum_file && $disk->exists($document->data_umum_file)) {
+                $disk->delete($document->data_umum_file);
             }
             $fileName = "{$customer->id}-2-data-{$now}.pdf";
-            $path = $request->file('data_umum')->storeAs($folder, $fileName, 'customer-documents');
-            $document->data_umum = $path;
-        } elseif ($request->boolean('remove_data_umum')) {
-            if ($document->data_umum && $disk->exists($document->data_umum)) {
-                $disk->delete($document->data_umum);
+            $path = $request->file('data_umum_file')->storeAs($folder, $fileName, 'customer-documents');
+            $document->data_umum_file = $path;
+        } elseif ($request->boolean('remove_data_umum_file')) {
+            if ($document->data_umum_file && $disk->exists($document->data_umum_file)) {
+                $disk->delete($document->data_umum_file);
             }
-            $document->data_umum = null;
+            $document->data_umum_file = null;
         }
 
         // 5. Proses TDP Files (append baru, pertahankan yang lama)
@@ -120,8 +121,14 @@ class DocumentCustomerController extends Controller
             }
         }
 
+        $isTdpChanged = $document->exists && ($document->isDirty('tdp_masa_berlaku') || $document->isDirty('tdp_files'));
+
         // 8. Simpan
         $document->save();
+
+        if ($isTdpChanged) {
+            Skrb::where('customer_id', $customer->id)->where('fase', 2)->update(['is_tdp_updated_by_admin' => true]);
+        }
 
         return response()->json($document->fresh(), $document->wasRecentlyCreated ? 201 : 200);
     }
@@ -138,11 +145,15 @@ class DocumentCustomerController extends Controller
         }
 
         $disk = Storage::disk('customer-documents');
-        $folder = (string) $customer->id;
+        $docusFolder = 'docus-' . $customer->id;
+        $legacyFolder = (string) $customer->id;
 
-        // Hapus seluruh folder customer dari storage
-        if ($disk->exists($folder)) {
-            $disk->deleteDirectory($folder);
+        // Hapus seluruh folder customer dari storage (folder berawalan docus- maupun legacy)
+        if ($disk->exists($docusFolder)) {
+            $disk->deleteDirectory($docusFolder);
+        }
+        if ($disk->exists($legacyFolder)) {
+            $disk->deleteDirectory($legacyFolder);
         }
 
         // Hapus record dari database
@@ -182,7 +193,7 @@ class DocumentCustomerController extends Controller
 
         // Re-rename file agar urutan tetap konsisten
         $now = Carbon::now()->format('Ymd-His');
-        $folder = (string) $customer->id;
+        $folder = "docus-{$customer->id}";
         $renamedFiles = [];
 
         foreach ($tdpFiles as $i => $tdp) {
@@ -202,6 +213,8 @@ class DocumentCustomerController extends Controller
 
         $document->tdp_files = $renamedFiles;
         $document->save();
+
+        Skrb::where('customer_id', $customer->id)->where('fase', 2)->update(['is_tdp_updated_by_admin' => true]);
 
         return response()->json($document->fresh());
     }
@@ -228,7 +241,7 @@ class DocumentCustomerController extends Controller
         }
 
         $disk = Storage::disk('customer-documents');
-        $folder = (string) $customer->id;
+        $folder = "docus-{$customer->id}";
         $now = Carbon::now()->format('Ymd-His');
 
         // Hapus file lama
@@ -250,6 +263,8 @@ class DocumentCustomerController extends Controller
         $document->tdp_files = $tdpFiles;
         $document->save();
 
+        Skrb::where('customer_id', $customer->id)->where('fase', 2)->update(['is_tdp_updated_by_admin' => true]);
+
         return response()->json($document->fresh());
     }
 
@@ -269,10 +284,10 @@ class DocumentCustomerController extends Controller
 
         switch ($type) {
             case 'kop':
-                $path = $document->kop_surat;
+                $path = $document->kop_surat_file;
                 break;
             case 'data':
-                $path = $document->data_umum;
+                $path = $document->data_umum_file;
                 break;
             case 'tdp':
                 $tdpFiles = $document->tdp_files ?? [];

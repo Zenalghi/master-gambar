@@ -109,23 +109,40 @@ class X_CustomerController extends Controller
     public function destroy(Customer $customer)
     {
         // 1. Hapus file paraf dan direktori di disk 'customer_paraf'
-        if ($customer->signature_pj) {
+        if ($customer->signature_pj && Storage::disk('customer_paraf')->exists($customer->signature_pj)) {
             Storage::disk('customer_paraf')->delete($customer->signature_pj);
-            Storage::disk('customer_paraf')->deleteDirectory(dirname($customer->signature_pj));
+            $dir = dirname($customer->signature_pj);
+            if ($dir !== '.' && Storage::disk('customer_paraf')->exists($dir)) {
+                Storage::disk('customer_paraf')->deleteDirectory($dir);
+            }
         }
-        if ($customer->signature_drafter) {
+        if ($customer->signature_drafter && Storage::disk('customer_paraf')->exists($customer->signature_drafter)) {
             Storage::disk('customer_paraf')->delete($customer->signature_drafter);
-            Storage::disk('customer_paraf')->deleteDirectory(dirname($customer->signature_drafter));
+            $dir = dirname($customer->signature_drafter);
+            if ($dir !== '.' && Storage::disk('customer_paraf')->exists($dir)) {
+                Storage::disk('customer_paraf')->deleteDirectory($dir);
+            }
         }
-        if ($customer->signature_pemeriksa) {
+        if ($customer->signature_pemeriksa && Storage::disk('customer_paraf')->exists($customer->signature_pemeriksa)) {
             Storage::disk('customer_paraf')->delete($customer->signature_pemeriksa);
-            Storage::disk('customer_paraf')->deleteDirectory(dirname($customer->signature_pemeriksa));
+            $dir = dirname($customer->signature_pemeriksa);
+            if ($dir !== '.' && Storage::disk('customer_paraf')->exists($dir)) {
+                Storage::disk('customer_paraf')->deleteDirectory($dir);
+            }
         }
         // Hapus juga direktori folder berdasarkan ID customer secara eksplisit
-        Storage::disk('customer_paraf')->deleteDirectory((string) $customer->id);
+        if (Storage::disk('customer_paraf')->exists((string) $customer->id)) {
+            Storage::disk('customer_paraf')->deleteDirectory((string) $customer->id);
+        }
 
         // 2. Hapus seluruh file PDF & folder di disk 'customer-documents'
-        Storage::disk('customer-documents')->deleteDirectory((string) $customer->id);
+        $docusFolder = 'docus-' . $customer->id;
+        if (Storage::disk('customer-documents')->exists($docusFolder)) {
+            Storage::disk('customer-documents')->deleteDirectory($docusFolder);
+        }
+        if (Storage::disk('customer-documents')->exists((string) $customer->id)) {
+            Storage::disk('customer-documents')->deleteDirectory((string) $customer->id);
+        }
 
         // 3. Hapus data di tabel document_customers
         $customer->documentCustomer()->delete();

@@ -24,6 +24,7 @@ class UpdateJenisKendaraanRequest extends FormRequest
                 // Unique check ignoring soft-deleted records and the current record
                 Rule::unique('d_jenis_kendaraan')->whereNull('deleted_at')->ignore($jenisKendaraanId),
             ],
+            'alias_kendaraan' => 'nullable|string|max:255',
         ];
     }
 }

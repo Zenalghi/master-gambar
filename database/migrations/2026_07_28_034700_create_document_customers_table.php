@@ -16,10 +16,10 @@ return new class extends Migration
             $table->foreignId('customer_id')->unique()->constrained('customers')->cascadeOnDelete();
 
             // Poin 1: Kop Surat (single PDF)
-            $table->string('kop_surat')->nullable();
+            $table->string('kop_surat_file')->nullable();
 
             // Poin 2: Data Umum Perusahaan (single PDF)
-            $table->string('data_umum')->nullable();
+            $table->string('data_umum_file')->nullable();
 
             // Poin 3: TDP (multi PDF, max 20)
             $table->json('tdp_files')->nullable(); // [{path, uploaded_at}, ...]

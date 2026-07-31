@@ -22,6 +22,7 @@ class StoreJenisKendaraanRequest extends FormRequest
                 // Unique check ignoring soft-deleted records
                 Rule::unique('d_jenis_kendaraan')->whereNull('deleted_at'),
             ],
+            'alias_kendaraan' => 'nullable|string|max:255',
         ];
     }
 }

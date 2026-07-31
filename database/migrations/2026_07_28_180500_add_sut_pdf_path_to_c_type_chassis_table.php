@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('c_type_chassis', function (Blueprint $table) {
-            $table->string('sut_pdf_path')->nullable()->after('type_chassis');
+            $table->string('sut_file')->nullable()->after('type_chassis');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('c_type_chassis', function (Blueprint $table) {
-            $table->dropColumn('sut_pdf_path');
+            $table->dropColumn('sut_file');
         });
     }
 };

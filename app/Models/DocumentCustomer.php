@@ -12,8 +12,8 @@ class DocumentCustomer extends Model
 
     protected $fillable = [
         'customer_id',
-        'kop_surat',
-        'data_umum',
+        'kop_surat_file',
+        'data_umum_file',
         'tdp_files',
         'tdp_masa_berlaku',
         'permohonan_skrb',
@@ -25,7 +25,7 @@ class DocumentCustomer extends Model
 
     protected $casts = [
         'tdp_files' => 'array',
-        'tdp_masa_berlaku' => 'date',
+        'tdp_masa_berlaku' => 'date:Y-m-d',
     ];
 
     /**
@@ -44,15 +44,16 @@ class DocumentCustomer extends Model
             return null;
         }
 
-        $now = Carbon::now()->startOfDay();
-        $expiry = Carbon::parse($this->tdp_masa_berlaku)->startOfDay();
+        // Gunakan standar waktu WIB (Asia/Jakarta) dan reset ke awal hari (00:00:00)
+        $now = Carbon::now('Asia/Jakarta')->startOfDay();
+        $expiry = Carbon::parse($this->tdp_masa_berlaku, 'Asia/Jakarta')->startOfDay();
 
         if ($now->greaterThan($expiry)) {
             return 'Expired';
         }
 
         // 5 pekan = 35 hari
-        $warningThreshold = $expiry->copy()->subWeeks(5);
+        $warningThreshold = $expiry->copy()->subDays(35);
 
         if ($now->greaterThanOrEqualTo($warningThreshold)) {
             return 'WARNING';

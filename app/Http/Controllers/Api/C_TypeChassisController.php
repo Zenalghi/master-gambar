@@ -24,7 +24,7 @@ class C_TypeChassisController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            'sortBy' => 'nullable|string|in:id,type_chassis,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,type_chassis,jenis_tipe,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -40,6 +40,7 @@ class C_TypeChassisController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
                     ->orWhere('type_chassis', 'like', "%{$search}%")
+                    ->orWhere('jenis_tipe', 'like', "%{$search}%")
                     ->orWhere('created_at', 'like', "%{$search}%")
                     ->orWhere('updated_at', 'like', "%{$search}%");
             });
@@ -58,7 +59,10 @@ class C_TypeChassisController extends Controller
         $search = $request->input('search', '');
 
         return CTypeChassis::onlyTrashed()
-            ->where('type_chassis', 'like', "%{$search}%") // Filter pencarian
+            ->where(function ($q) use ($search) {
+                $q->where('type_chassis', 'like', "%{$search}%")
+                    ->orWhere('jenis_tipe', 'like', "%{$search}%");
+            })
             ->orderBy('deleted_at', 'desc')
             ->get();
     }
@@ -102,14 +106,15 @@ class C_TypeChassisController extends Controller
         $validated = $request->validated();
         $typeChassis = CTypeChassis::create([
             'type_chassis' => $validated['type_chassis'],
+            'jenis_tipe' => $validated['jenis_tipe'] ?? null,
         ]);
 
-        if ($request->hasFile('sut_pdf')) {
-            $folder = (string) $typeChassis->id;
+        if ($request->hasFile('sut_file')) {
+            $folder = "sut-{$typeChassis->id}";
             $now = now()->format('Ymd-His');
             $filename = "{$typeChassis->id}-sut-{$now}.pdf";
-            $path = $request->file('sut_pdf')->storeAs($folder, $filename, 'sut-pdf');
-            $typeChassis->sut_pdf_path = $path;
+            $path = $request->file('sut_file')->storeAs($folder, $filename, 'sut-pdf');
+            $typeChassis->sut_file = $path;
             $typeChassis->save();
         }
 
@@ -124,25 +129,28 @@ class C_TypeChassisController extends Controller
     public function update(UpdateTypeChassisRequest $request, CTypeChassis $typeChassis)
     {
         $typeChassis->type_chassis = $request->input('type_chassis', $typeChassis->type_chassis);
+        if ($request->has('jenis_tipe')) {
+            $typeChassis->jenis_tipe = $request->input('jenis_tipe');
+        }
         
         $disk = Storage::disk('sut-pdf');
-        $folder = (string) $typeChassis->id;
+        $folder = "sut-{$typeChassis->id}";
 
-        if ($request->input('remove_sut_pdf') === '1') {
-            if ($typeChassis->sut_pdf_path && $disk->exists($typeChassis->sut_pdf_path)) {
-                $disk->delete($typeChassis->sut_pdf_path);
+        if ($request->input('remove_sut_file') === '1' || $request->input('remove_sut_pdf') === '1') {
+            if ($typeChassis->sut_file && $disk->exists($typeChassis->sut_file)) {
+                $disk->delete($typeChassis->sut_file);
             }
-            $typeChassis->sut_pdf_path = null;
+            $typeChassis->sut_file = null;
         }
 
-        if ($request->hasFile('sut_pdf')) {
-            if ($typeChassis->sut_pdf_path && $disk->exists($typeChassis->sut_pdf_path)) {
-                $disk->delete($typeChassis->sut_pdf_path);
+        if ($request->hasFile('sut_file')) {
+            if ($typeChassis->sut_file && $disk->exists($typeChassis->sut_file)) {
+                $disk->delete($typeChassis->sut_file);
             }
             $now = now()->format('Ymd-His');
             $filename = "{$typeChassis->id}-sut-{$now}.pdf";
-            $path = $request->file('sut_pdf')->storeAs($folder, $filename, 'sut-pdf');
-            $typeChassis->sut_pdf_path = $path;
+            $path = $request->file('sut_file')->storeAs($folder, $filename, 'sut-pdf');
+            $typeChassis->sut_file = $path;
         }
 
         $typeChassis->save();
@@ -151,11 +159,11 @@ class C_TypeChassisController extends Controller
 
     public function viewSutPdf(CTypeChassis $typeChassis)
     {
-        if (!$typeChassis->sut_pdf_path || !Storage::disk('sut-pdf')->exists($typeChassis->sut_pdf_path)) {
+        if (!$typeChassis->sut_file || !Storage::disk('sut-pdf')->exists($typeChassis->sut_file)) {
             return response()->json(['message' => 'File PDF SUT tidak ditemukan.'], 404);
         }
 
-        return Storage::disk('sut-pdf')->response($typeChassis->sut_pdf_path, null, [
+        return Storage::disk('sut-pdf')->response($typeChassis->sut_file, null, [
             'Content-Type' => 'application/pdf',
         ]);
     }
@@ -192,7 +200,13 @@ class C_TypeChassisController extends Controller
         }
 
         $typeChassis = CTypeChassis::onlyTrashed()->findOrFail($id);
-        Storage::disk('sut-pdf')->deleteDirectory((string) $typeChassis->id);
+        $sutFolder = 'sut-' . $typeChassis->id;
+        if (Storage::disk('sut-pdf')->exists($sutFolder)) {
+            Storage::disk('sut-pdf')->deleteDirectory($sutFolder);
+        }
+        if (Storage::disk('sut-pdf')->exists((string) $typeChassis->id)) {
+            Storage::disk('sut-pdf')->deleteDirectory((string) $typeChassis->id);
+        }
         $typeChassis->forceDelete();
 
         return response()->json(null, 204);

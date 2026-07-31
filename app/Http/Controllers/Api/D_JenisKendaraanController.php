@@ -21,7 +21,7 @@ class D_JenisKendaraanController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            'sortBy' => 'nullable|string|in:id,jenis_kendaraan,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,jenis_kendaraan,alias_kendaraan,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -38,6 +38,7 @@ class D_JenisKendaraanController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
                     ->orWhere('jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('alias_kendaraan', 'like', "%{$search}%")
                     ->orWhere('created_at', 'like', "%{$search}%")
                     ->orWhere('updated_at', 'like', "%{$search}%");
             });
@@ -56,7 +57,10 @@ class D_JenisKendaraanController extends Controller
         $search = $request->input('search', '');
 
         return DJenisKendaraan::onlyTrashed()
-            ->where('jenis_kendaraan', 'like', "%{$search}%") // Filter pencarian
+            ->where(function ($q) use ($search) {
+                $q->where('jenis_kendaraan', 'like', "%{$search}%")
+                    ->orWhere('alias_kendaraan', 'like', "%{$search}%");
+            })
             ->orderBy('deleted_at', 'desc')
             ->get();
     }

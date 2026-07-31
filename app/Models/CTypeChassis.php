@@ -14,11 +14,16 @@ class CTypeChassis extends Model
 
     protected $table = 'c_type_chassis';
     // ID sekarang auto-increment integer
-    protected $fillable = ['type_chassis', 'sut_pdf_path'];
+    protected $fillable = ['type_chassis', 'jenis_tipe', 'sut_file'];
 
     public function setTypeChassisAttribute($value)
     {
         $this->attributes['type_chassis'] = Str::upper($value);
+    }
+
+    public function setJenisTipeAttribute($value)
+    {
+        $this->attributes['jenis_tipe'] = !empty($value) ? Str::upper($value) : null;
     }
 
     // Relasi ke Gambar Kelistrikan masih valid karena terhubung langsung
