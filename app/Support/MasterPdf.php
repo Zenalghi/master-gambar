@@ -16,11 +16,20 @@ class MasterPdf extends Fpdi
         $this->setPrintFooter(false);
         $this->SetAutoPageBreak(false, 0);
 
-        // 3. Daftarkan Font Arial dari resources/fonts/
-        // TCPDF secara otomatis akan mendeteksi file arial.z dan arial.ctg.z di folder yang sama
-        $fontPath = resource_path('fonts/arial.php');
-        if (file_exists($fontPath)) {
-            $this->AddFont('arial', '', $fontPath);
+        $tahomaPath = resource_path('fonts/tahoma.php');
+        if (file_exists($tahomaPath)) {
+            $this->AddFont('tahoma', '', $tahomaPath);
+            $this->AddFont('tahoma', 'B', $tahomaPath);
+            $this->AddFont('tahoma', 'I', $tahomaPath);
+            $this->AddFont('tahoma', 'BI', $tahomaPath);
+        }
+
+        $arialPath = resource_path('fonts/arial.php');
+        if (file_exists($arialPath)) {
+            $this->AddFont('arial', '', $arialPath);
+            $this->AddFont('arial', 'B', $arialPath);
+            $this->AddFont('arial', 'I', $arialPath);
+            $this->AddFont('arial', 'BI', $arialPath);
         }
     }
 }

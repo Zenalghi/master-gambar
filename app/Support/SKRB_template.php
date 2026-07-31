@@ -15,8 +15,9 @@ class SKRB_template extends MasterPdf
     {
         // Panggil MasterPdf dengan orientasi Portrait ('P'), unit 'mm', ukuran 'A4'
         parent::__construct('P', 'mm', 'A4', true, 'UTF-8', false, false);
-        
-        $this->SetMargins(20, 20, 20);
+
+        // Margin Kiri & Atas presisi berdasarkan koordinat desain (13.531 mm)
+        $this->SetMargins(13.531, 13.531, 13.531);
         $this->SetAutoPageBreak(true, 15);
     }
 
@@ -41,11 +42,11 @@ class SKRB_template extends MasterPdf
 
         // Sisipkan baris baru di sebelum "Di " atau "di " yang diikuti nama kota/lokasi (misal: Di Jakarta)
         $text = preg_replace('/\s+(Di\s+[A-Z])/i', "\n$0", $text);
-        
+
         // Bersihkan spasi ganda setelah replacement
         $lines = explode("\n", $text);
         $lines = array_map('trim', $lines);
-        
+
         return implode("\n", $lines);
     }
 
@@ -57,213 +58,242 @@ class SKRB_template extends MasterPdf
     {
         $this->AddPage('P', 'A4');
 
-        // 1. Import dan pasang background KOP Surat (untuk pengujian dari local storage)
-        $kopPath = $data['kop_path'] ?? "C:\\Nova\\Rekayasa\\Modul\\KOP.pdf";
+        // 1. Import KOP Surat dari path atau fallback lokal
+        $kopPath = !empty($data['kop_path']) && file_exists($data['kop_path'])
+            ? $data['kop_path']
+            : "C:\\Nova\\Rekayasa\\Modul\\KOP.pdf";
+
         if (file_exists($kopPath)) {
             try {
                 $pageCount = $this->setSourceFile($kopPath);
                 $templateId = $this->importPage(1);
-                // Tempatkan KOP dari koordinat 0,0 sepenuh halaman A4 (210 x 297 mm)
                 $this->useTemplate($templateId, 0, 0, 210, 297);
             } catch (Exception $e) {
-                // Abaikan jika ada kegagalan membaca KOP agar proses pembutan PDF tetap berjalan
+                // Biarkan lanjut jika KOP gagal dibaca
             }
         }
 
-        // Set font Arial ukuran 10.5
-        $this->SetFont('arial', '', 10.5);
+        // Set Font Tahoma 10.5pt
+        $this->SetFont('tahoma', '', 10.5);
         $this->SetTextColor(0, 0, 0);
 
-        // Atur posisi Y awal di bawah area KOP Surat (sekitar 48 mm dari atas)
-        $startY = $data['start_y'] ?? 50;
+        // Koordinat Y awal sesuai pengukuran presisi (40 mm)
+        $startY = $data['start_y'] ?? 40;
         $this->SetY($startY);
 
-        // === PERSIAPAN VARIABEL UTAMA ===
-        // <jenis_pengajuan> validasi / default value "Varian"
+        // === PREPARASI DATA ===
         $jenisPengajuan = !empty($data['jenis_pengajuan']) ? $data['jenis_pengajuan'] : 'Varian';
-        
-        // Penomoran & Tanggal
-        $nomorSurat   = $data['nomor_surat'] ?? '15/VCLAS-SKRB/V/2026';
-        $lampiran     = $data['lampiran'] ?? '-';
-        
-        // Format Tanggal Hari Ini (dalam bahasa Indonesia, contoh: Jakarta, 29 Juli 2026)
-        if (!empty($data['tanggal'])) {
-            $tanggalString = $data['tanggal'];
-        } else {
-            Carbon::setLocale('id');
-            $today = Carbon::now();
-            $bulanIndo = [
-                1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
-                5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
-                9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
-            ];
-            $tanggalString = "Jakarta, " . $today->day . ' ' . $bulanIndo[$today->month] . ' ' . $today->year;
-        }
+        $nomorSurat     = $data['nomor_surat'] ?? '-';
+        $lampiran       = $data['lampiran'] ?? '1 (Satu) Berkas';
 
-        // Identifikasi Penerima (Alamat Tujuan Surat) dari parameter atau dari tabel database skrb_settings
+        Carbon::setLocale('id');
+        $today = Carbon::now();
+        $bulanIndo = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
+            5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus',
+            9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+        ];
+        $dateOnly = $today->day . ' ' . $bulanIndo[$today->month] . ' ' . $today->year;
+
+        $alamatPermohonan = trim((string)($data['alamat_permohonan'] ?? ''));
+        $isTanggalError = empty($alamatPermohonan) || $alamatPermohonan === '-';
+
+        // Identifikasi Penerima
         $setting = SkrbSetting::first();
         $dbRecipient = $setting ? $setting->recipient_address : "Bapak Direktur Jendral Perhubungan Darat\nCq. Direktur Sarana dan Keselamatan\nTransportasi Jalan\nJl. Merdeka Barat No.8\nDi Jakarta";
         $rawRecipient = !empty($data['identifikasi_penerima']) ? $data['identifikasi_penerima'] : $dbRecipient;
         $recipientFormatted = $this->formatRecipientAddress($rawRecipient);
 
-        // === BAGIAN 1: HEADER SURAT (KOLOM KIRI: NOMOR/LAMPIRAN/PERIHAL, KOLOM KANAN: TANGGAL/TUJUAN) ===
-        
+        // === BAGIAN 1: HEADER SURAT ===
+        $leftX  = 14.031;
+        $rightX = 115.5;
+
         // Baris 1: Nomor & Tanggal
-        $this->SetX(20);
-        $this->Cell(22, 5, 'Nomor', 0, 0, 'L');
+        $this->SetX($leftX);
+        $this->Cell(25, 5, 'Nomor', 0, 0, 'L');
         $this->Cell(4, 5, ':', 0, 0, 'L');
-        $this->Cell(69, 5, $nomorSurat, 0, 0, 'L');
-        
-        $this->SetXY(115, $this->GetY());
-        $this->Cell(75, 5, $tanggalString, 0, 1, 'L');
+        $this->Cell(65, 5, $nomorSurat, 0, 0, 'L');
+
+        $this->SetXY($rightX, $startY);
+        if ($isTanggalError && empty($data['tanggal'])) {
+            $this->SetFont('tahoma', 'B', 10.5);
+            $this->SetTextColor(255, 0, 0);
+            $this->Cell(75, 5, 'Data Belum diisi, hubungi admin', 0, 1, 'L');
+            $this->SetFont('tahoma', '', 10.5);
+            $this->SetTextColor(0, 0, 0);
+        } else {
+            $tanggalString = !empty($data['tanggal']) ? $data['tanggal'] : ($alamatPermohonan . ', ' . $dateOnly);
+            $this->Cell(75, 5, $tanggalString, 0, 1, 'L');
+        }
 
         // Baris 2: Lampiran
-        $this->SetX(20);
-        $this->Cell(22, 5, 'Lampiran', 0, 0, 'L');
+        $this->SetX($leftX);
+        $this->Cell(25, 5, 'Lampiran', 0, 0, 'L');
         $this->Cell(4, 5, ':', 0, 0, 'L');
-        $this->Cell(69, 5, $lampiran, 0, 1, 'L');
+        $this->Cell(65, 5, $lampiran, 0, 1, 'L');
 
-        // Baris 3: Perihal & Alamat Tujuan Surat
-        $perihalStartY = $this->GetY() + 1;
-        $this->SetXY(20, $perihalStartY);
-        $this->Cell(22, 5, 'Perihal', 0, 0, 'L');
+        // Baris 3: Perihal & Tujuan Surat
+        $perihalStartY = $this->GetY();
+        $this->SetXY($leftX, $perihalStartY);
+        $this->Cell(25, 5, 'Perihal', 0, 0, 'L');
         $this->Cell(4, 5, ':', 0, 0, 'L');
-        
-        // Teks Perihal (MultiCell Kolom Kiri)
+
         $perihalText = "Permohonan {$jenisPengajuan}\nRancang Bangun dan Rekayasa\nKendaraan Bermotor";
-        $this->MultiCell(69, 5, $perihalText, 0, 'L');
+        $this->MultiCell(65, 5, $perihalText, 0, 'L');
         $leftMaxY = $this->GetY();
 
-        // Kolom Kanan: Kepada Yth & Alamat Penerima
-        $this->SetXY(115, $perihalStartY + 4); // Turun sedikit sejajar baris ke-2 perihal
+        $this->SetXY($rightX, $perihalStartY);
         $this->Cell(75, 5, 'Kepada Yth.', 0, 1, 'L');
-        $this->SetX(115);
+        $this->SetX($rightX);
         $this->MultiCell(75, 5, $recipientFormatted, 0, 'L');
         $rightMaxY = $this->GetY();
 
-        // Ambil titik terendah dari kedua kolom untuk melanjutkan baris ke bawah
-        $nextY = max($leftMaxY, $rightMaxY) + 6;
-        $this->SetY($nextY);
+        $this->SetY(max($leftMaxY, $rightMaxY) + 2);
 
 
         // === BAGIAN 2: SALAM PEMBUKA & DATA PIHAK PEMOHON ===
-        $this->SetX(20);
+        $this->SetX($leftX);
         $this->Cell(170, 5, 'Dengan Hormat,', 0, 1, 'L');
-        
-        $this->SetX(20);
-        $this->Cell(170, 5, '1. Yang bertandatangan dibawah ini :', 0, 1, 'L');
 
-        // Indentasi Data Pemohon (X = 26)
-        $nama       = $data['nama_pemohon'] ?? 'Drs. Sularjo';
-        $jabatan    = $data['jabatan'] ?? 'Direktur';
-        $alamat     = $data['alamat'] ?? "Ruko Avenue D-8-165 Jakarta Garden City\nJalan Raya Cakung Cilincing KM. 0,5 Jakarta";
-        $bidang     = $data['bidang_usaha'] ?? 'Karoseri Kendaraan Bermotor';
+        $this->SetX($leftX);
+        $this->Cell(170, 5, '1. Yang bertanda tangan di bawah ini:', 0, 1, 'L');
+
+        $nama    = $data['nama_pemohon'] ?? null;
+        $jabatan = $data['jabatan'] ?? null;
+        $alamat  = $data['alamat'] ?? null;
+        $bidang  = $data['bidang_usaha'] ?? null;
 
         $this->printIdentitasRow('Nama', $nama);
         $this->printIdentitasRow('Jabatan', $jabatan);
-        $this->printIdentitasRow('Alamat', $alamat, true); // Mendukung multi-line
+        $this->printIdentitasRow('Alamat', $alamat, true);
         $this->printIdentitasRow('Bidang Usaha', $bidang);
 
-        $this->Ln(3); // Jarak antar paragraf
+        $this->Ln(2);
 
 
         // === BAGIAN 3: MENGAJUKAN PERMOHONAN ===
-        $this->SetX(20);
-        $introKendaraan = "Mengajukan Permohonan {$jenisPengajuan} rancang bangun dan rekayasa kendaraan bermotor :";
-        $this->MultiCell(170, 5, $introKendaraan, 0, 'L');
+        $this->SetX($leftX);
+        $introKendaraan = "Mengajukan permohonan {$jenisPengajuan} rancang bangun dan rekayasa kendaraan bermotor :";
+        $this->MultiCell(175, 5, $introKendaraan, 0, 'L');
 
-        // Spesifikasi Kendaraan & Daftar Varian / Standar
-        $merekTipe  = $data['merek_tipe'] ?? 'SUZUKI TIPE AEV415P CL TYPE 2 (4x2) M/T (VARIAN KEENAM)';
-        $jenis      = $data['jenis'] ?? 'Mobil Angkutan Barang';
-        $peruntukan = $data['peruntukan'] ?? 'Mobil Bak Muatan Tertutup - Box Fiber';
+        $merekTipe  = $data['merek_tipe'] ?? null;
+        $jenis      = $data['jenis'] ?? null;
+        $peruntukan = $data['peruntukan'] ?? null;
 
-        // Item a, b, c
-        $this->printKendaraanRow('a. ', 'Merk / Type', $merekTipe);
+        $this->printKendaraanRow('a. ', 'Merk / Tipe', $merekTipe);
         $this->printKendaraanRow('b. ', 'Jenis', $jenis);
         $this->printKendaraanRow('c. ', 'Peruntukan', $peruntukan);
 
-        // Item d (Standar & Varian 1, 2, 3...)
-        $varianList = $data['varian_list'] ?? [
-            ['prefix' => 'd. ', 'label' => 'STANDAR',  'value' => 'Pintu Belakang Double Swing'],
-            ['prefix' => '   ', 'label' => 'VARIAN 1', 'value' => 'Pintu Belakang Single Swing'],
-            ['prefix' => '   ', 'label' => 'VARIAN 2', 'value' => 'Pintu Belakang Single Swing, Pintu Samping LH Single Swing'],
-            ['prefix' => '   ', 'label' => 'VARIAN 3', 'value' => '-'],
+        $varianList = !empty($data['varian_list']) ? $data['varian_list'] : [
+            ['prefix' => 'd. ', 'label' => 'Varian Body', 'value' => null],
         ];
 
         foreach ($varianList as $v) {
             $prefix = $v['prefix'] ?? '   ';
             $label  = $v['label'] ?? '';
-            $value  = $v['value'] ?? '-';
+            $value  = $v['value'] ?? null;
             $this->printKendaraanRow($prefix, $label, $value);
+        }
+
+        $this->Ln(9);
+
+
+        // === BAGIAN 4: KELENGKAPAN PERMOHONAN ===
+        $this->SetX($leftX);
+        $this->Cell(175, 5, 'Sebagai kelengkapan permohonan ini, bersama ini kami lampirkan:', 0, 1, 'L');
+
+        $this->printLampiranItem('a.', 'Data Umum Perusahaan');
+        $this->printLampiranItem('b.', 'Gambar Teknik');
+        $this->printLampiranItem('c.', 'Spesifikasi Teknik Kendaraan');
+
+        if (!empty($data['skrb_no'])) {
+            $this->printLampiranItem('d.', "Foto Copy SKRB No : {$data['skrb_no']}");
         }
 
         $this->Ln(3);
 
 
-        // === BAGIAN 4: KELENGKAPAN PERMOHONAN ===
-        $this->SetX(20);
-        $this->Cell(170, 5, 'Sebagai Kelengkapan Permohonan ini, bersama ini kami lampirkan :', 0, 1, 'L');
-
-        // Daftar lampiran berindentasi
-        $this->printLampiranItem('a.', 'Data Umum Perusahaan');
-        $this->printLampiranItem('b.', 'Gambar Teknik');
-        $this->printLampiranItem('c.', 'Spesifikasi Teknis Kendaraan');
-        
-        $skrbNo = $data['skrb_no'] ?? 'KP-DJPD 3253 TAHUN 2026';
-        $this->printLampiranItem('d.', "Foto Copy SKRB No    : {$skrbNo}");
+        // === BAGIAN 5: PENUTUP  ===
+        $this->SetX($leftX);
+        $penutupText = "Demikian permohonan kami dan atas perhatian Bapak Direktur, kami mengucapkan banyak terima kasih.";
+        $this->MultiCell(175, 5, $penutupText, 0, 'L');
 
         $this->Ln(4);
-
-
-        // === BAGIAN 5: PENUTUP ===
-        $this->SetX(20);
-        $penutupText = "Demikian permohonan kami dan atas perhatian Bapak Direktur, kami ucapkan terimakasih.";
-        $this->MultiCell(170, 5, $penutupText, 0, 'L');
 
         return $this;
     }
 
     /**
-     * Helper mencetak baris identitas (Nama, Jabatan, Alamat, dll) dengan indentasi rapi.
+     * Helper mencetak baris identitas pemohon.
      */
-    private function printIdentitasRow(string $label, string $value, bool $isMultiLine = false): void
+    private function printIdentitasRow(string $label, ?string $value, bool $isMultiLine = false): void
     {
-        $this->SetX(26); // Indentasi ke kanan
-        $this->Cell(28, 5, $label, 0, 0, 'L');
+        $indentX = 19.052;
+        $this->SetX($indentX);
+        $this->Cell(36, 5, $label, 0, 0, 'L');
         $this->Cell(4, 5, ':', 0, 0, 'L');
-        
-        if ($isMultiLine && str_contains($value, "\n")) {
-            $this->MultiCell(112, 5, $value, 0, 'L');
+
+        $val = trim((string)$value);
+        $isError = empty($val) || $val === '-' || str_contains(strtolower($val), 'data belum diisi');
+
+        if ($isError) {
+            $val = 'Data Belum diisi, hubungi admin';
+            $this->SetFont('tahoma', 'B', 10.5);
+            $this->SetTextColor(255, 0, 0);
+        }
+
+        if ($isMultiLine || str_contains($val, "\n")) {
+            $this->MultiCell(130, 5, $val, 0, 'L');
         } else {
-            $this->Cell(112, 5, $value, 0, 1, 'L');
+            $this->Cell(130, 5, $val, 0, 1, 'L');
+        }
+
+        if ($isError) {
+            $this->SetFont('tahoma', '', 10.5);
+            $this->SetTextColor(0, 0, 0);
         }
     }
 
     /**
-     * Helper mencetak baris spesifikasi kendaraan dengan format prefix huruf (a., b., c., d.).
+     * Helper mencetak baris spesifikasi kendaraan.
      */
-    private function printKendaraanRow(string $prefix, string $label, string $value): void
+    private function printKendaraanRow(string $prefix, string $label, ?string $value): void
     {
-        $this->SetX(24);
+        $indentX = 19.052;
+        $this->SetX($indentX);
         $this->Cell(6, 5, $prefix, 0, 0, 'L');
-        $this->Cell(26, 5, $label, 0, 0, 'L');
+        $this->Cell(30, 5, $label, 0, 0, 'L');
         $this->Cell(4, 5, ':', 0, 0, 'L');
-        
-        // Gunakan MultiCell jika value panjang
-        if (strlen($value) > 55 || str_contains($value, "\n")) {
-            $this->MultiCell(110, 5, $value, 0, 'L');
+
+        $val = trim((string)$value);
+        $isError = empty($val) || $val === '-' || str_contains(strtolower($val), 'data belum diisi');
+
+        if ($isError) {
+            $val = 'Data Belum diisi, hubungi admin';
+            $this->SetFont('tahoma', 'B', 10.5);
+            $this->SetTextColor(255, 0, 0);
+        }
+
+        if (strlen($val) > 50 || str_contains($val, "\n")) {
+            $this->MultiCell(130, 5, $val, 0, 'L');
         } else {
-            $this->Cell(110, 5, $value, 0, 1, 'L');
+            $this->Cell(130, 5, $val, 0, 1, 'L');
+        }
+
+        if ($isError) {
+            $this->SetFont('tahoma', '', 10.5);
+            $this->SetTextColor(0, 0, 0);
         }
     }
 
     /**
-     * Helper mencetak item daftar lampiran (a., b., c., d.).
+     * Helper mencetak item daftar lampiran.
      */
     private function printLampiranItem(string $prefix, string $text): void
     {
-        $this->SetX(24);
+        $indentX = 19.052;
+        $this->SetX($indentX);
         $this->Cell(6, 5, $prefix, 0, 0, 'L');
-        $this->Cell(140, 5, $text, 0, 1, 'L');
+        $this->Cell(145, 5, $text, 0, 1, 'L');
     }
 }

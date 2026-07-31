@@ -314,7 +314,7 @@ class ProsesTransaksiController extends Controller
 
                     foreach ($tempFiles as $file) @unlink($file);
                     if (ob_get_length()) ob_clean();
-                    return response($pdfMerger->Output('S'), 200)->header('Content-Type', 'application/pdf')->header('Content-Disposition', 'attachment; filename="' . $cleanFileName . '"');
+                    return response($pdfMerger->Output($cleanFileName, 'S'), 200)->header('Content-Type', 'application/pdf')->header('Content-Disposition', 'attachment; filename="' . $cleanFileName . '"');
                 } else {
                     $generatedPdfs = [];
                     foreach ($drawingJobs as $job) {
@@ -342,6 +342,183 @@ class ProsesTransaksiController extends Controller
                 return response()->json(['message' => 'Server Error: ' . $e->getMessage()], 500);
             }
         }
+    }
+
+    public static function extractGambarUtamaMetadataForSkrb(Transaksi $transaksi): array
+    {
+        $transaksi->load(['detail']);
+
+        if (!$transaksi->detail || empty($transaksi->detail->data_gambar_utama)) {
+            return [];
+        }
+
+        $detail = $transaksi->detail;
+        $gambarUtamaList = [];
+        $index = 0;
+        $keys = ['a', 'b', 'c', 'd'];
+
+        foreach ($detail->data_gambar_utama as $item) {
+            $varian_id = $item['varian_id'] ?? null;
+            $judul_id = $item['judul_id'] ?? null;
+            if (!$varian_id || !$judul_id) continue;
+
+            $varianBody = EVarianBody::find($varian_id);
+            $gambarUtamaData = GGambarUtama::where('e_varian_body_id', $varian_id)->first();
+            $jenisJudul = JJudulGambar::find($judul_id);
+
+            if ($gambarUtamaData && $jenisJudul && $varianBody) {
+                $gambarUtamaList[] = [
+                    'key' => $keys[$index] ?? ('img_' . $index),
+                    'index' => ($index + 1),
+                    'label' => 'Gambar ' . ($index + 1),
+                    'judul' => $jenisJudul->nama_judul,
+                    'varian' => $varianBody->varian_body,
+                    'path' => null,
+                    'status' => 'pending',
+                    'varian_id' => $varian_id,
+                    'judul_id' => $judul_id,
+                ];
+                $index++;
+            }
+        }
+
+        return $gambarUtamaList;
+    }
+
+    public static function extractGambarUtamaForSkrb(Transaksi $transaksi): array
+    {
+        $transaksi->load([
+            'detail',
+            'user',
+            'customer',
+            'fPengajuan',
+            'masterData.typeEngine',
+            'masterData.merk',
+            'masterData.typeChassis',
+            'masterData.jenisKendaraan'
+        ]);
+
+        if (!$transaksi->detail || empty($transaksi->detail->data_gambar_utama)) {
+            return [];
+        }
+
+        $detail = $transaksi->detail;
+        $snapshot = $detail->snapshot_data ?? [];
+        $pemeriksa = $detail->pemeriksa_id ? User::find($detail->pemeriksa_id) : null;
+        $pihakPenyetujuan = $detail->pihak_penyetujuan ?? 'vendor';
+        $deskripsiOptional = $detail->deskripsi_optional;
+        $descSpace = $detail->desc_space ?? 0;
+
+        // Hitung total halaman berdasarkan seluruh gambar transaksi sebenarnya (tidak hanya gambar utama)
+        $jenisPengajuan = strtoupper($transaksi->fPengajuan ? $transaksi->fPengajuan->jenis_pengajuan : '');
+        $isGambarTU = ($jenisPengajuan === 'GAMBAR TU');
+        $totalHalaman = 0;
+
+        if (!empty($detail->data_gambar_utama)) {
+            foreach ($detail->data_gambar_utama as $item) {
+                $varian_id = $item['varian_id'] ?? null;
+                if (!$varian_id) continue;
+
+                $gambarUtamaData = GGambarUtama::with('gambarOptionals')->where('e_varian_body_id', $varian_id)->first();
+                if (!$gambarUtamaData) continue;
+
+                $pathUtama = $snapshot['varian'][$varian_id]['utama'] ?? $gambarUtamaData->path_gambar_utama;
+                if ($pathUtama) $totalHalaman++;
+
+                if ($isGambarTU) continue;
+
+                $pathTerurai = $snapshot['varian'][$varian_id]['terurai'] ?? $gambarUtamaData->path_gambar_terurai;
+                if (!empty($pathTerurai)) $totalHalaman++;
+
+                $pathKontruksi = $snapshot['varian'][$varian_id]['kontruksi'] ?? $gambarUtamaData->path_gambar_kontruksi;
+                if (!empty($pathKontruksi)) $totalHalaman++;
+
+                if (!empty($snapshot['varian'][$varian_id]['paket']) && is_array($snapshot['varian'][$varian_id]['paket'])) {
+                    $totalHalaman += count(array_filter($snapshot['varian'][$varian_id]['paket']));
+                } elseif ($gambarUtamaData->gambarOptionals) {
+                    foreach ($gambarUtamaData->gambarOptionals as $opt) {
+                        if ($opt->tipe === 'paket' && !empty($opt->path_gambar_optional)) $totalHalaman++;
+                    }
+                }
+            }
+        }
+
+        if (!$isGambarTU) {
+            if (!empty($detail->ordered_independent_ids) && is_array($detail->ordered_independent_ids)) {
+                $gambarIndependen = HGambarOptional::whereIn('id', $detail->ordered_independent_ids)->where('tipe', 'independen')->get();
+                foreach ($gambarIndependen as $ind) {
+                    $pathInd = $snapshot['independen'][$ind->id] ?? $ind->path_gambar_optional;
+                    if ($pathInd) $totalHalaman++;
+                }
+            }
+
+            if (!empty($detail->i_gambar_kelistrikan_id)) {
+                $gambarKelistrikan = IGambarKelistrikan::with('fileKelistrikan')->find($detail->i_gambar_kelistrikan_id);
+                if ($gambarKelistrikan && $gambarKelistrikan->fileKelistrikan) {
+                    $pathKel = $snapshot['kelistrikan'] ?? $gambarKelistrikan->fileKelistrikan->path_file;
+                    if ($pathKel) $totalHalaman++;
+                }
+            }
+        }
+
+        if ($totalHalaman === 0) {
+            $totalHalaman = is_array($detail->data_gambar_utama) ? count($detail->data_gambar_utama) : 4;
+        }
+
+        $controller = new self();
+        $gambarUtamaList = [];
+        $index = 0;
+        $keys = ['a', 'b', 'c', 'd'];
+
+        foreach ($detail->data_gambar_utama as $item) {
+            $varian_id = $item['varian_id'] ?? null;
+            $judul_id = $item['judul_id'] ?? null;
+            if (!$varian_id || !$judul_id) continue;
+
+            $varianBody = EVarianBody::find($varian_id);
+            $gambarUtamaData = GGambarUtama::where('e_varian_body_id', $varian_id)->first();
+            $jenisJudul = JJudulGambar::find($judul_id);
+
+            if ($gambarUtamaData && $jenisJudul && $varianBody) {
+                $pathUtama = $snapshot['varian'][$varian_id]['utama'] ?? $gambarUtamaData->path_gambar_utama;
+                if (!$pathUtama) continue;
+
+                $job = [
+                    'type' => 'standard',
+                    'title' => 'GAMBAR TAMPAK UTAMA ' . $jenisJudul->nama_judul,
+                    'varian' => $varianBody->varian_body,
+                    'source_pdf' => $pathUtama,
+                    'deskripsi_optional' => $deskripsiOptional,
+                    'desc_space' => $descSpace,
+                    'page' => ($index + 1),
+                ];
+
+                try {
+                    $pdfData = $controller->buildPdfData($job, $transaksi, $pemeriksa, $totalHalaman, $pihakPenyetujuan);
+                    $pdfContent = $controller->generateUncopyablePdfPage($pdfData);
+                } catch (\Exception $e) {
+                    Log::warning("Gagal generate uncopyable pdf untuk skrb, fallback ke source file: " . $e->getMessage());
+                    $pdfContent = Storage::disk('master_gambar')->get($pathUtama);
+                }
+
+                $savePath = 'skrb-' . $transaksi->id . '/gambar_utama/gambar_' . ($index + 1) . '.pdf';
+                Storage::disk('skrb')->put($savePath, $pdfContent);
+
+                $gambarUtamaList[] = [
+                    'key' => $keys[$index] ?? ('img_' . $index),
+                    'index' => ($index + 1),
+                    'label' => 'Gambar ' . ($index + 1),
+                    'judul' => $jenisJudul->nama_judul,
+                    'varian' => $varianBody->varian_body,
+                    'path' => $savePath,
+                    'varian_id' => $varian_id,
+                    'judul_id' => $judul_id,
+                ];
+                $index++;
+            }
+        }
+
+        return $gambarUtamaList;
     }
 
     private function buildPdfData(array $job, Transaksi $transaksi, ?User $pemeriksa, int $totalHalaman, string $pihakPenyetujuan): array

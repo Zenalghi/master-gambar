@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\M_MasterVarianController;
 use App\Http\Controllers\Api\DocumentCustomerController;
 use App\Http\Controllers\Api\SkrbSettingController;
+use App\Http\Controllers\Api\SkrbController;
 
 // Rute Publik (tidak perlu login)
 Route::post('/login', [AuthController::class, 'login']);
@@ -103,6 +104,24 @@ Route::middleware('auth.api')->group(
         // --- SKRB SETTING ---
         Route::get('/skrb-setting', [SkrbSettingController::class, 'show']);
         Route::post('/skrb-setting', [SkrbSettingController::class, 'update']);
+
+        // --- PERMOHONAN SKRB & DETAIL SKRB ---
+        Route::get('/skrbs/available-transactions', [SkrbController::class, 'availableTransactions']);
+        Route::get('/skrbs', [SkrbController::class, 'index']);
+        Route::post('/skrbs', [SkrbController::class, 'store']);
+        Route::get('/skrbs/{skrb}', [SkrbController::class, 'show']);
+        Route::get('/skrbs/{skrb}/storage-info', [SkrbController::class, 'storageInfo']);
+        Route::post('/skrbs/{skrb}/generate-gambar', [SkrbController::class, 'generateGambar']);
+        Route::put('/skrbs/{skrb}', [SkrbController::class, 'update']);
+        Route::delete('/skrbs/{skrb}', [SkrbController::class, 'destroy']);
+        Route::post('/skrbs/{skrb}/reset-files', [SkrbController::class, 'resetFiles']);
+        Route::post('/skrbs/{skrb}/upload/{key}', [SkrbController::class, 'uploadFile']);
+        Route::get('/skrbs/{skrb}/preview/{key}', [SkrbController::class, 'viewFile']);
+        Route::post('/skrbs/{skrb}/merge', [SkrbController::class, 'merge']);
+        Route::delete('/skrbs/{skrb}/histories', [SkrbController::class, 'deleteAllHistories']);
+        Route::get('/skrb-histories/{history}/view', [SkrbController::class, 'viewHistory']);
+        Route::get('/skrb-histories/{history}/download', [SkrbController::class, 'downloadHistory']);
+        Route::delete('/skrb-histories/{history}', [SkrbController::class, 'deleteHistory']);
 
         Route::middleware('is.admin')->prefix('admin')->group(function () {
             // --- MANAJEMEN USER & ROLE ---

@@ -11,5 +11,10 @@ class SkrbSetting extends Model
 
     protected $fillable = [
         'recipient_address',
+        'ignore_names',
+    ];
+
+    protected $casts = [
+        'ignore_names' => 'array',
     ];
 }

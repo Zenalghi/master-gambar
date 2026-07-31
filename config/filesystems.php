@@ -89,6 +89,12 @@ return [
             'root' => storage_path('app/master/sut-pdf'),
             'throw' => false,
         ],
+
+        'skrb' => [
+            'driver' => 'local',
+            'root' => storage_path('app/master/skrb'),
+            'throw' => false,
+        ],
     ],
 
     /*

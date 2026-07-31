@@ -15,7 +15,7 @@ class DJenisKendaraan extends Model
 
     // ID is now auto-increment integer (default behavior), so we remove $incrementing=false and $keyType='string'
 
-    protected $fillable = ['jenis_kendaraan'];
+    protected $fillable = ['jenis_kendaraan', 'alias_kendaraan'];
 
     /**
      * Automatically convert 'jenis_kendaraan' to uppercase.
@@ -23,6 +23,11 @@ class DJenisKendaraan extends Model
     public function setJenisKendaraanAttribute($value)
     {
         $this->attributes['jenis_kendaraan'] = Str::upper($value);
+    }
+
+    public function setAliasKendaraanAttribute($value)
+    {
+        $this->attributes['alias_kendaraan'] = !empty($value) ? Str::upper($value) : null;
     }
 
     public function masterVarians()
