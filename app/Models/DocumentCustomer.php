@@ -36,7 +36,41 @@ class DocumentCustomer extends Model
      * - Expired : sudah lewat masa berlaku
      * - null    : masa berlaku belum diisi
      */
-    protected $appends = ['status_tdp'];
+    protected $appends = ['status_tdp', 'kop_surat_size', 'data_umum_size'];
+
+    public function getKopSuratSizeAttribute(): int
+    {
+        if (!$this->kop_surat_file) {
+            return 0;
+        }
+        $disk = \Illuminate\Support\Facades\Storage::disk('customer-documents');
+        return $disk->exists($this->kop_surat_file) ? (int) $disk->size($this->kop_surat_file) : 0;
+    }
+
+    public function getDataUmumSizeAttribute(): int
+    {
+        if (!$this->data_umum_file) {
+            return 0;
+        }
+        $disk = \Illuminate\Support\Facades\Storage::disk('customer-documents');
+        return $disk->exists($this->data_umum_file) ? (int) $disk->size($this->data_umum_file) : 0;
+    }
+
+    public function getTdpFilesAttribute($value)
+    {
+        $files = is_string($value) ? json_decode($value, true) : $value;
+        if (!is_array($files)) {
+            return [];
+        }
+        $disk = \Illuminate\Support\Facades\Storage::disk('customer-documents');
+        foreach ($files as &$file) {
+            if (!isset($file['size']) || $file['size'] == 0) {
+                $path = $file['path'] ?? null;
+                $file['size'] = ($path && $disk->exists($path)) ? (int) $disk->size($path) : 0;
+            }
+        }
+        return $files;
+    }
 
     public function getStatusTdpAttribute(): ?string
     {
