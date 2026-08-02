@@ -164,7 +164,7 @@ class SKRB_template extends MasterPdf
         $bidang  = $data['bidang_usaha'] ?? null;
 
         $this->printIdentitasRow('Nama', $nama);
-        $this->printIdentitasRow('Jabatan', $jabatan);
+        $this->printIdentitasRow('Jabatan', $this->toTitleCase($jabatan));
         $this->printIdentitasRow('Alamat', $alamat, true);
         $this->printIdentitasRow('Bidang Usaha', $bidang);
 
@@ -181,8 +181,8 @@ class SKRB_template extends MasterPdf
         $peruntukan = $data['peruntukan'] ?? null;
 
         $this->printKendaraanRow('a. ', 'Merk / Tipe', $merekTipe);
-        $this->printKendaraanRow('b. ', 'Jenis', $jenis);
-        $this->printKendaraanRow('c. ', 'Peruntukan', $peruntukan);
+        $this->printKendaraanRow('b. ', 'Jenis', $this->toTitleCase($jenis));
+        $this->printKendaraanRow('c. ', 'Peruntukan', $this->toTitleCase($peruntukan));
 
         $varianList = !empty($data['varian_list']) ? $data['varian_list'] : [
             ['prefix' => 'd. ', 'label' => 'Varian Body', 'value' => null],
@@ -190,8 +190,8 @@ class SKRB_template extends MasterPdf
 
         foreach ($varianList as $v) {
             $prefix = $v['prefix'] ?? '   ';
-            $label  = $v['label'] ?? '';
-            $value  = $v['value'] ?? null;
+            $label  = $this->toTitleCase($v['label'] ?? '') ?? '';
+            $value  = $this->toTitleCase($v['value'] ?? null);
             $this->printKendaraanRow($prefix, $label, $value);
         }
 
@@ -221,6 +221,17 @@ class SKRB_template extends MasterPdf
         $this->Ln(4);
 
         return $this;
+    }
+
+    /**
+     * Helper mengubah string menjadi Kapital Setiap Kata (Title Case).
+     */
+    private function toTitleCase(?string $text): ?string
+    {
+        if (empty($text) || $text === '-' || str_contains(strtolower($text), 'data belum diisi')) {
+            return $text;
+        }
+        return ucwords(strtolower($text));
     }
 
     /**
