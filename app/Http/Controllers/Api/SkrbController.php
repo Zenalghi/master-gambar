@@ -170,20 +170,16 @@ class SkrbController extends Controller
             $kopSource = 'local_fallback';
         }
 
-        // Cek apakah TDP sudah di-update oleh admin (Hanya berlaku untuk Fase 2 Tersimpan & Terkunci)
-        // Di Fase 1 & Fase 3 (Mode Edit), sistem mengambil data terbaru secara live dari DocumentCustomer, sehingga status TDP adalah status asli dan tidak menjadi 'Diperbarui Admin'.
-        $isTdpOutdated = false;
-        if ($skrb->fase == 2) {
-            $isTdpOutdated = (bool) $skrb->is_tdp_updated_by_admin;
-            if (!$isTdpOutdated) {
-                $savedMasa = $snapshot['tdp_masa_berlaku_saved'] ?? null;
-                if ($savedMasa !== $masaBerlaku && $savedMasa !== null) {
-                    $isTdpOutdated = true;
-                }
+        // Cek apakah TDP / Document Customer sudah di-update oleh admin
+        $isTdpOutdated = (bool) $skrb->is_tdp_updated_by_admin;
+        if (!$isTdpOutdated && $skrb->fase == 2) {
+            $savedMasa = $snapshot['tdp_masa_berlaku_saved'] ?? null;
+            if ($savedMasa !== $masaBerlaku && $savedMasa !== null) {
+                $isTdpOutdated = true;
             }
-            if ($isTdpOutdated) {
-                $statusTdp = 'Diperbarui Admin';
-            }
+        }
+        if ($isTdpOutdated) {
+            $statusTdp = 'Diperbarui Admin';
         }
 
         $fileNames = $this->getCleanMergedFileName($skrb, $snapshot);
@@ -535,7 +531,6 @@ class SkrbController extends Controller
             $newFase = (int) $request->input('fase');
             $skrb->fase = $newFase;
             if ($newFase == 3) {
-                $skrb->is_tdp_updated_by_admin = false;
                 $snapshot = $skrb->snapshot_documents ?? [];
                 unset($snapshot['modified_keys']);
                 $skrb->snapshot_documents = $snapshot;
@@ -561,7 +556,7 @@ class SkrbController extends Controller
      */
     public function uploadFile(Request $request, Skrb $skrb, string $key)
     {
-        $maxSize = in_array($key, ['5', '6', '7', '8', '9']) ? 2048 : 5120; // max 2MB untuk opsi 5-9, 5MB untuk gambar utama
+        $maxSize = in_array($key, ['5', '6', '7', '8', '9']) ? 500 : 5120; // max 500KB untuk opsi 5-9, 5MB untuk gambar utama
         $request->validate([
             'file' => "required|file|mimes:pdf|max:{$maxSize}",
         ]);
@@ -1017,7 +1012,7 @@ class SkrbController extends Controller
             foreach ($gambarList as $idx => $item) {
                 $varianList[] = [
                     'prefix' => ($idx === 0) ? 'd. ' : '   ',
-                    'label'  => strtoupper($item['judul'] ?? ('VARIAN ' . ($idx + 1))),
+                    'label'  => ucwords(strtolower($item['judul'] ?? ('Varian ' . ($idx + 1)))),
                     'value'  => $item['varian'] ?? null,
                 ];
             }

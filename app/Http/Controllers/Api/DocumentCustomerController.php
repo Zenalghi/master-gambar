@@ -35,10 +35,10 @@ class DocumentCustomerController extends Controller
     {
         // 1. Validasi
         $request->validate([
-            'kop_surat_file'     => 'nullable|file|mimes:pdf|max:1024',
-            'data_umum_file'     => 'nullable|file|mimes:pdf|max:1024',
+            'kop_surat_file'     => 'nullable|file|mimes:pdf|max:500',
+            'data_umum_file'     => 'nullable|file|mimes:pdf|max:500',
             'tdp_files'          => 'nullable|array|max:20',
-            'tdp_files.*'        => 'file|mimes:pdf|max:1024',
+            'tdp_files.*'        => 'file|mimes:pdf|max:500',
             'tdp_masa_berlaku'   => 'required|date',
             'permohonan_skrb'    => 'nullable|string|max:255',
             'permohonan_rekom'   => 'nullable|string|max:255',
@@ -101,6 +101,7 @@ class DocumentCustomerController extends Controller
                 $existingTdp[] = [
                     'path' => $path,
                     'uploaded_at' => Carbon::now()->toIso8601String(),
+                    'size' => $file->getSize(),
                 ];
                 $nextIndex++;
             }
@@ -121,14 +122,10 @@ class DocumentCustomerController extends Controller
             }
         }
 
-        $isTdpChanged = $document->exists && ($document->isDirty('tdp_masa_berlaku') || $document->isDirty('tdp_files'));
-
         // 8. Simpan
         $document->save();
 
-        if ($isTdpChanged) {
-            Skrb::where('customer_id', $customer->id)->where('fase', 2)->update(['is_tdp_updated_by_admin' => true]);
-        }
+        Skrb::where('customer_id', $customer->id)->update(['is_tdp_updated_by_admin' => true]);
 
         return response()->json($document->fresh(), $document->wasRecentlyCreated ? 201 : 200);
     }
@@ -158,6 +155,8 @@ class DocumentCustomerController extends Controller
 
         // Hapus record dari database
         $document->delete();
+
+        Skrb::where('customer_id', $customer->id)->update(['is_tdp_updated_by_admin' => true]);
 
         return response()->json(null, 204);
     }
@@ -208,13 +207,14 @@ class DocumentCustomerController extends Controller
             $renamedFiles[] = [
                 'path' => $newPath,
                 'uploaded_at' => $tdp['uploaded_at'] ?? Carbon::now()->toIso8601String(),
+                'size' => $tdp['size'] ?? ($disk->exists($newPath) ? $disk->size($newPath) : 0),
             ];
         }
 
         $document->tdp_files = $renamedFiles;
         $document->save();
 
-        Skrb::where('customer_id', $customer->id)->where('fase', 2)->update(['is_tdp_updated_by_admin' => true]);
+        Skrb::where('customer_id', $customer->id)->update(['is_tdp_updated_by_admin' => true]);
 
         return response()->json($document->fresh());
     }
@@ -225,7 +225,7 @@ class DocumentCustomerController extends Controller
     public function replaceTdpFile(Request $request, Customer $customer, int $index): JsonResponse
     {
         $request->validate([
-            'tdp_file' => 'required|file|mimes:pdf|max:1024',
+            'tdp_file' => 'required|file|mimes:pdf|max:500',
         ]);
 
         $document = $customer->documentCustomer;
@@ -258,12 +258,13 @@ class DocumentCustomerController extends Controller
         $tdpFiles[$index] = [
             'path' => $path,
             'uploaded_at' => Carbon::now()->toIso8601String(),
+            'size' => $request->file('tdp_file')->getSize(),
         ];
 
         $document->tdp_files = $tdpFiles;
         $document->save();
 
-        Skrb::where('customer_id', $customer->id)->where('fase', 2)->update(['is_tdp_updated_by_admin' => true]);
+        Skrb::where('customer_id', $customer->id)->update(['is_tdp_updated_by_admin' => true]);
 
         return response()->json($document->fresh());
     }

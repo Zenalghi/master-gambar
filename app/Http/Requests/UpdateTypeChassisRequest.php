@@ -25,7 +25,7 @@ class UpdateTypeChassisRequest extends FormRequest
                 Rule::unique('c_type_chassis')->whereNull('deleted_at')->ignore($chassisId),
             ],
             'jenis_tipe' => 'nullable|string|max:255',
-            'sut_file' => 'nullable|file|mimes:pdf|max:2048',
+            'sut_file' => 'nullable|file|mimes:pdf|max:500',
             'remove_sut_file' => 'nullable|string',
         ];
     }
