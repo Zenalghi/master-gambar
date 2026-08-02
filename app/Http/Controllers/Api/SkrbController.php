@@ -74,6 +74,9 @@ class SkrbController extends Controller
         }
 
         if ($trx && $rebuildGambarUtama) {
+            // [KOMENTAR FITUR LAMA]: Sebelumnya sistem men-generate file fisik PDF gambar utama (a/b/c/d) dan memprosesnya di background.
+            // Sesuai arahan baru, gambar utama tidak dimasukkan sebagai file PDF ke dalam SKRB, melainkan hanya teksnya yang dimasukkan ke dalam Surat Permohonan.
+            /*
             $alreadyExistsAndReady = false;
             if (($snapshot['gambar_status'] ?? null) === 'ready' && !empty($snapshot['gambar_utama_list'])) {
                 $alreadyExistsAndReady = true;
@@ -100,6 +103,10 @@ class SkrbController extends Controller
                 $snapshot['gambar_utama_list'] = ProsesTransaksiController::extractGambarUtamaForSkrb($trx);
                 $snapshot['gambar_status'] = 'ready';
             }
+            */
+            // [LOGIKA BARU]: Langsung ambil metadata (teks judul & varian body) tanpa proses background / generate file fisik:
+            $snapshot['gambar_utama_list'] = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
+            $snapshot['gambar_status'] = 'ready';
         }
 
         if ($originalSnapshot !== $snapshot || $force) {
@@ -201,6 +208,8 @@ class SkrbController extends Controller
             'has_kop_surat' => $hasKopSurat,
             'kop_source' => $kopSource,
             'fase' => $skrb->fase,
+            'foto_copy_skrb' => $skrb->foto_copy_skrb ?? ($snapshot['foto_copy_skrb'] ?? null),
+            'tanggal_permohonan' => $skrb->tanggal_permohonan ? \Carbon\Carbon::parse($skrb->tanggal_permohonan)->format('Y-m-d') : ($snapshot['tanggal_permohonan'] ?? null),
             'suggested_file_name' => $fileNames['download_name'],
             'custom_files' => $skrb->custom_files ?? [],
             'hidden_flags' => $skrb->hidden_flags ?? [],
@@ -307,9 +316,9 @@ class SkrbController extends Controller
             } while (Skrb::where('id_skrb', $idSkrb)->exists());
         }
 
-        // Ekstrak HANYA metadata gambar utama dari ProsesTransaksiController (PDF diproses di background)
+        // Ekstrak metadata gambar utama (teks judul & varian body untuk Surat Permohonan, tanpa proses background PDF)
         $gambarUtamaList = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
-        $gambarStatus = empty($gambarUtamaList) ? 'ready' : 'pending';
+        $gambarStatus = 'ready'; // Sebelumnya: empty($gambarUtamaList) ? 'ready' : 'pending'; (dikomentari karena tidak perlu generate PDF fisik di background)
 
         // Siapkan snapshot
         $snapshot = [
@@ -391,6 +400,8 @@ class SkrbController extends Controller
      */
     public function generateGambar(Skrb $skrb)
     {
+        // [KOMENTAR FITUR LAMA]: Sebelumnya endpoint ini men-generate PDF fisik gambar utama a, b, c, d di background:
+        /*
         set_time_limit(300);
         ini_set('memory_limit', '512M');
 
@@ -437,9 +448,22 @@ class SkrbController extends Controller
         } finally {
             Cache::forget($lockKey);
         }
+        */
+
+        // [LOGIKA BARU]: Karena gambar utama hanya diambil teksnya untuk Surat Permohonan, langsung pastikan status 'ready'
+        $snapshot = $skrb->snapshot_documents ?? [];
+        $skrb->load('transaksi');
+        $trx = $skrb->transaksi;
+
+        if ($trx && empty($snapshot['gambar_utama_list'])) {
+            $snapshot['gambar_utama_list'] = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
+        }
+        $snapshot['gambar_status'] = 'ready';
+        $skrb->snapshot_documents = $snapshot;
+        $skrb->save();
 
         return response()->json([
-            'message' => 'Gambar utama berhasil diproses.',
+            'message' => 'Metadata gambar utama siap.',
             'data' => $this->formatSkrb($skrb)
         ], 200);
     }
@@ -541,6 +565,46 @@ class SkrbController extends Controller
 
         if ($request->has('hidden_flags')) {
             $skrb->hidden_flags = $request->input('hidden_flags');
+        }
+
+        if ($request->has('gambar_utama_list')) {
+            $snapshot = $skrb->snapshot_documents ?? [];
+            $snapshot['gambar_utama_list'] = $request->input('gambar_utama_list');
+            
+            // Generate ulang PDF Surat Permohonan agar teks varian body & judul baru langsung tecermin di file No 1:
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            if ($suratPath) {
+                $snapshot['surat_permohonan_path'] = $suratPath;
+            }
+            $skrb->snapshot_documents = $snapshot;
+        }
+
+        if ($request->has('foto_copy_skrb')) {
+            $val = $request->input('foto_copy_skrb');
+            $skrb->foto_copy_skrb = $val;
+            $snapshot = $skrb->snapshot_documents ?? [];
+            $snapshot['foto_copy_skrb'] = $val;
+
+            // Generate ulang PDF Surat Permohonan agar teks foto copy skrb langsung tecermin di file No 1:
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            if ($suratPath) {
+                $snapshot['surat_permohonan_path'] = $suratPath;
+            }
+            $skrb->snapshot_documents = $snapshot;
+        }
+
+        if ($request->has('tanggal_permohonan')) {
+            $val = $request->input('tanggal_permohonan');
+            $skrb->tanggal_permohonan = $val ?: null;
+            $snapshot = $skrb->snapshot_documents ?? [];
+            $snapshot['tanggal_permohonan'] = $val ?: null;
+
+            // Generate ulang PDF Surat Permohonan agar tanggal permohonan baru langsung tecermin di file No 1:
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            if ($suratPath) {
+                $snapshot['surat_permohonan_path'] = $suratPath;
+            }
+            $skrb->snapshot_documents = $snapshot;
         }
 
         $skrb->save();
@@ -756,6 +820,8 @@ class SkrbController extends Controller
         }
 
         // a, b, c, d (Gambar Utama)
+        // [KOMENTAR FITUR LAMA]: Dulu dilekatkan di proses merger SKRB. Kini tidak dilampirkan lagi karena hanya teks varian/judul yang dicantumkan pada Surat Permohonan (No. 1).
+        /*
         $gambarList = $snapshot['gambar_utama_list'] ?? [];
         foreach (['a', 'b', 'c', 'd'] as $gKey) {
             if ($isHidden($gKey)) continue;
@@ -770,6 +836,7 @@ class SkrbController extends Controller
                 }
             }
         }
+        */
 
         // 2. Data Umum Perusahaan
         $dataUmumPath = $snapshot['data_umum_file'] ?? ($snapshot['data_umum'] ?? null);
@@ -1057,7 +1124,8 @@ class SkrbController extends Controller
                     ? Storage::disk('customer-documents')->path($snapshot['kop_surat_file'])
                     : (!empty($snapshot['kop_surat']) && Storage::disk('customer-documents')->exists($snapshot['kop_surat']) 
                         ? Storage::disk('customer-documents')->path($snapshot['kop_surat']) : null),
-                'foto_copy_skrb'=> $idSkrb,
+                'foto_copy_skrb'=> $snapshot['foto_copy_skrb'] ?? null,
+                'tanggal_permohonan' => $snapshot['tanggal_permohonan'] ?? null,
             ];
 
             $template = new SKRB_template();

@@ -115,14 +115,21 @@ class SKRB_template extends MasterPdf
         $this->Cell(65, 5, $nomorSurat, 0, 0, 'L');
 
         $this->SetXY($rightX, $startY);
-        if ($isTanggalError && empty($data['tanggal'])) {
+        if ($isTanggalError && empty($data['tanggal_permohonan'])) {
             $this->SetFont('tahoma', 'B', 10.5);
             $this->SetTextColor(255, 0, 0);
             $this->Cell(75, 5, 'Data Belum diisi, hubungi admin', 0, 1, 'L');
             $this->SetFont('tahoma', '', 10.5);
-            $this->SetTextColor(0, 0, 0);
         } else {
-            $tanggalString = !empty($data['tanggal']) ? $data['tanggal'] : ($alamatPermohonan . ', ' . $dateOnly);
+            if (!empty($data['tanggal_permohonan']) && preg_match('/^\d{4}-\d{2}-\d{2}/', $data['tanggal_permohonan'])) {
+                $customDate = Carbon::parse($data['tanggal_permohonan']);
+                $dateString = $customDate->day . ' ' . $bulanIndo[$customDate->month] . ' ' . $customDate->year;
+                $tanggalString = $alamatPermohonan . ', ' . $dateString;
+            } elseif (!empty($data['tanggal_permohonan'])) {
+                $tanggalString = $data['tanggal_permohonan'];
+            } else {
+                $tanggalString = $alamatPermohonan . ', ' . $dateOnly;
+            }
             $this->Cell(75, 5, $tanggalString, 0, 1, 'L');
         }
 
@@ -207,7 +214,7 @@ class SKRB_template extends MasterPdf
         $this->printLampiranItem('c.', 'Spesifikasi Teknik Kendaraan');
 
         if (!empty($data['foto_copy_skrb'])) {
-            $this->printLampiranItem('d.', "Foto Copy SKRB No : {$data['foto_copy_skrb']}");
+            $this->printLampiranItem('d.', 'Foto Copy SKRB No :', $data['foto_copy_skrb']);
         }
 
         $this->Ln(3);
@@ -300,11 +307,28 @@ class SKRB_template extends MasterPdf
     /**
      * Helper mencetak item daftar lampiran.
      */
-    private function printLampiranItem(string $prefix, string $text): void
+    private function printLampiranItem(string $prefix, string $text, ?string $value = null): void
     {
         $indentX = 19.052;
         $this->SetX($indentX);
         $this->Cell(6, 5, $prefix, 0, 0, 'L');
-        $this->Cell(145, 5, $text, 0, 1, 'L');
+        
+        $oldLMargin = $this->lMargin;
+        if ($value !== null) {
+            $labelWidth = $this->GetStringWidth($text) + 1.5;
+            $this->Cell($labelWidth, 5, $text, 0, 0, 'L');
+            
+            $valueX = $indentX + 6 + $labelWidth;
+            $width = 189 - $valueX;
+            $this->SetLeftMargin($valueX);
+            $this->SetX($valueX);
+            $this->MultiCell($width, 5, trim((string)$value), 0, 'L');
+        } else {
+            $textX = $indentX + 6;
+            $this->SetLeftMargin($textX);
+            $this->SetX($textX);
+            $this->MultiCell(155, 5, $text, 0, 'L');
+        }
+        $this->SetLeftMargin($oldLMargin);
     }
 }

@@ -18,6 +18,8 @@ class Skrb extends Model
         'bulan_tahun',
         'nomor_urut',
         'is_tdp_updated_by_admin',
+        'foto_copy_skrb',
+        'tanggal_permohonan',
         'snapshot_documents',
         'custom_files',
         'hidden_flags',
