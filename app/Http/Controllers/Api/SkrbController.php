@@ -1057,6 +1057,7 @@ class SkrbController extends Controller
                     ? Storage::disk('customer-documents')->path($snapshot['kop_surat_file'])
                     : (!empty($snapshot['kop_surat']) && Storage::disk('customer-documents')->exists($snapshot['kop_surat']) 
                         ? Storage::disk('customer-documents')->path($snapshot['kop_surat']) : null),
+                'foto_copy_skrb'=> $idSkrb,
             ];
 
             $template = new SKRB_template();

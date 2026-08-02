@@ -206,8 +206,8 @@ class SKRB_template extends MasterPdf
         $this->printLampiranItem('b.', 'Gambar Teknik');
         $this->printLampiranItem('c.', 'Spesifikasi Teknik Kendaraan');
 
-        if (!empty($data['skrb_no'])) {
-            $this->printLampiranItem('d.', "Foto Copy SKRB No : {$data['skrb_no']}");
+        if (!empty($data['foto_copy_skrb'])) {
+            $this->printLampiranItem('d.', "Foto Copy SKRB No : {$data['foto_copy_skrb']}");
         }
 
         $this->Ln(3);
