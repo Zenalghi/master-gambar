@@ -72,6 +72,7 @@ class SkrbController extends Controller
             if ($md->typeChassis) {
                 $snapshot['sut_file'] = $md->typeChassis->sut_file;
                 $snapshot['type_chassis'] = $md->typeChassis->type_chassis ?: null;
+                $snapshot['merek_dagang'] = $md->typeChassis->merek_dagang ?: null;
                 $snapshot['jenis_tipe'] = $md->typeChassis->jenis_tipe ?: null;
             }
             if ($md->jenisKendaraan) {
@@ -104,9 +105,15 @@ class SkrbController extends Controller
         $dateStr = now()->format('d-m-y');
         $pengajuanStr = strtoupper($snapshot['jenis_pengajuan'] ?? 'VARIAN');
         $chassisStr = strtoupper($snapshot['type_chassis'] ?? '');
+        $dagangVal = trim((string) ($snapshot['merek_dagang'] ?? ''));
+        $dagangStr = !empty($dagangVal) ? strtoupper($dagangVal) : null;
         $kendaraanStr = strtoupper($snapshot['jenis_kendaraan'] ?? '');
 
-        $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s)", $dateStr, $pengajuanStr, $chassisStr, $kendaraanStr);
+        if ($dagangStr) {
+            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s) (%s)", $dateStr, $pengajuanStr, $chassisStr, $dagangStr, $kendaraanStr);
+        } else {
+            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s)", $dateStr, $pengajuanStr, $chassisStr, $kendaraanStr);
+        }
         
         // Ambil murni dari DB skrb_settings Tanpa hardcode fallback
         $skrbSetting = SkrbSetting::first();
@@ -450,6 +457,7 @@ class SkrbController extends Controller
                 'type_engine' => $trx->masterData && $trx->masterData->typeEngine ? $trx->masterData->typeEngine->type_engine : '-',
                 'merk' => $trx->masterData && $trx->masterData->merk ? $trx->masterData->merk->merk : null,
                 'type_chassis' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->type_chassis : null,
+                'merek_dagang' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->merek_dagang : null,
                 'jenis_tipe' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->jenis_tipe : null,
                 'jenis_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->jenis_kendaraan : null,
                 'alias_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->alias_kendaraan : null,
@@ -561,6 +569,7 @@ class SkrbController extends Controller
                 'type_engine' => $masterData->typeEngine ? ($masterData->typeEngine->type_engine ?? '-') : '-',
                 'merk' => $masterData->merk ? ($masterData->merk->merk ?? null) : null,
                 'type_chassis' => $masterData->typeChassis ? ($masterData->typeChassis->type_chassis ?? null) : null,
+                'merek_dagang' => $masterData->typeChassis ? ($masterData->typeChassis->merek_dagang ?? null) : null,
                 'jenis_tipe' => $masterData->typeChassis ? ($masterData->typeChassis->jenis_tipe ?? null) : null,
                 'jenis_kendaraan' => $masterData->jenisKendaraan ? ($masterData->jenisKendaraan->jenis_kendaraan ?? null) : null,
                 'alias_kendaraan' => $masterData->jenisKendaraan ? ($masterData->jenisKendaraan->alias_kendaraan ?? null) : null,

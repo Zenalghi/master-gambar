@@ -14,11 +14,16 @@ class CTypeChassis extends Model
 
     protected $table = 'c_type_chassis';
     // ID sekarang auto-increment integer
-    protected $fillable = ['type_chassis', 'jenis_tipe', 'sut_file'];
+    protected $fillable = ['type_chassis', 'merek_dagang', 'jenis_tipe', 'sut_file'];
 
     public function setTypeChassisAttribute($value)
     {
         $this->attributes['type_chassis'] = Str::upper($value);
+    }
+
+    public function setMerekDagangAttribute($value)
+    {
+        $this->attributes['merek_dagang'] = !empty($value) ? Str::upper($value) : null;
     }
 
     public function setJenisTipeAttribute($value)

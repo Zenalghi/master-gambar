@@ -24,7 +24,7 @@ class C_TypeChassisController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            'sortBy' => 'nullable|string|in:id,type_chassis,jenis_tipe,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,type_chassis,merek_dagang,jenis_tipe,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
         ]);
@@ -40,6 +40,7 @@ class C_TypeChassisController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
                     ->orWhere('type_chassis', 'like', "%{$search}%")
+                    ->orWhere('merek_dagang', 'like', "%{$search}%")
                     ->orWhere('jenis_tipe', 'like', "%{$search}%")
                     ->orWhere('created_at', 'like', "%{$search}%")
                     ->orWhere('updated_at', 'like', "%{$search}%");
@@ -61,6 +62,7 @@ class C_TypeChassisController extends Controller
         return CTypeChassis::onlyTrashed()
             ->where(function ($q) use ($search) {
                 $q->where('type_chassis', 'like', "%{$search}%")
+                    ->orWhere('merek_dagang', 'like', "%{$search}%")
                     ->orWhere('jenis_tipe', 'like', "%{$search}%");
             })
             ->orderBy('deleted_at', 'desc')
@@ -106,6 +108,7 @@ class C_TypeChassisController extends Controller
         $validated = $request->validated();
         $typeChassis = CTypeChassis::create([
             'type_chassis' => $validated['type_chassis'],
+            'merek_dagang' => $validated['merek_dagang'] ?? null,
             'jenis_tipe' => $validated['jenis_tipe'] ?? null,
         ]);
 
@@ -129,6 +132,9 @@ class C_TypeChassisController extends Controller
     public function update(UpdateTypeChassisRequest $request, CTypeChassis $typeChassis)
     {
         $typeChassis->type_chassis = $request->input('type_chassis', $typeChassis->type_chassis);
+        if ($request->has('merek_dagang')) {
+            $typeChassis->merek_dagang = $request->input('merek_dagang');
+        }
         if ($request->has('jenis_tipe')) {
             $typeChassis->jenis_tipe = $request->input('jenis_tipe');
         }
