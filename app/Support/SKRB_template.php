@@ -188,7 +188,7 @@ class SKRB_template extends MasterPdf
         $peruntukan = $data['peruntukan'] ?? null;
 
         $this->printKendaraanRow('a. ', 'Merk / Tipe', $merekTipe);
-        $this->printKendaraanRow('b. ', 'Jenis', $this->toTitleCase($jenis));
+        $this->printKendaraanRow('b. ', 'Jenis', $jenis);
         $this->printKendaraanRow('c. ', 'Peruntukan', $this->toTitleCase($peruntukan));
 
         $varianList = !empty($data['varian_list']) ? $data['varian_list'] : [

@@ -28,7 +28,7 @@ class CTypeChassis extends Model
 
     public function setJenisTipeAttribute($value)
     {
-        $this->attributes['jenis_tipe'] = !empty($value) ? Str::upper($value) : null;
+        $this->attributes['jenis_tipe'] = !empty($value) ? trim($value) : null;
     }
 
     // Relasi ke Gambar Kelistrikan masih valid karena terhubung langsung
