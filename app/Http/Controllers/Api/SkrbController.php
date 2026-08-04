@@ -110,7 +110,7 @@ class SkrbController extends Controller
         $kendaraanStr = strtoupper($snapshot['jenis_kendaraan'] ?? '');
 
         if ($dagangStr) {
-            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s) (%s)", $dateStr, $pengajuanStr, $chassisStr, $dagangStr, $kendaraanStr);
+            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s %s (%s)", $dateStr, $pengajuanStr, $chassisStr, $dagangStr, $kendaraanStr);
         } else {
             $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s)", $dateStr, $pengajuanStr, $chassisStr, $kendaraanStr);
         }
@@ -203,6 +203,7 @@ class SkrbController extends Controller
             'type_engine' => ($md && $md->typeEngine) ? $md->typeEngine->type_engine : ($snapshot['type_engine'] ?? '-'),
             'merk' => ($md && $md->merk) ? $md->merk->merk : ($snapshot['merk'] ?? '-'),
             'type_chassis' => ($md && $md->typeChassis) ? $md->typeChassis->type_chassis : ($snapshot['type_chassis'] ?? '-'),
+            'merek_dagang' => ($md && $md->typeChassis) ? $md->typeChassis->merek_dagang : ($snapshot['merek_dagang'] ?? null),
             'jenis_kendaraan' => ($md && $md->jenisKendaraan) ? $md->jenisKendaraan->jenis_kendaraan : ($snapshot['jenis_kendaraan'] ?? '-'),
             'jenis_pengajuan' => $fPengajuan ? $fPengajuan->jenis_pengajuan : ($snapshot['jenis_pengajuan'] ?? 'Varian'),
             'status_tdp' => $statusTdp,
@@ -268,6 +269,7 @@ class SkrbController extends Controller
                 'type_engine' => $trx->masterData && $trx->masterData->typeEngine ? $trx->masterData->typeEngine->type_engine : '-',
                 'merk' => $trx->masterData && $trx->masterData->merk ? $trx->masterData->merk->merk : '-',
                 'type_chassis' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->type_chassis : '-',
+                'merek_dagang' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->merek_dagang : null,
                 'jenis_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->jenis_kendaraan : '-',
                 'jenis_pengajuan' => $trx->fPengajuan ? $trx->fPengajuan->jenis_pengajuan : 'Varian',
             ];

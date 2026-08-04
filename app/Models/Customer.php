@@ -45,22 +45,22 @@ class Customer extends Model
     protected function jabatan(): Attribute
     {
         return Attribute::make(
-            set: fn($value) => $value ? strtoupper($value) : null,
+            set: fn($value) => $value ? trim($value) : null,
         );
     }
 
-    // --- TAMBAHAN OPSIONAL: Auto Uppercase ---
+    // --- TAMBAHAN OPSIONAL ---
     protected function namaDrafter(): Attribute
     {
         return Attribute::make(
-            set: fn($value) => $value ? strtoupper($value) : null,
+            set: fn($value) => $value ? trim($value) : null,
         );
     }
 
     protected function namaPemeriksa(): Attribute
     {
         return Attribute::make(
-            set: fn($value) => $value ? strtoupper($value) : null,
+            set: fn($value) => $value ? trim($value) : null,
         );
     }
 

@@ -171,7 +171,7 @@ class SKRB_template extends MasterPdf
         $bidang  = $data['bidang_usaha'] ?? null;
 
         $this->printIdentitasRow('Nama', $nama);
-        $this->printIdentitasRow('Jabatan', $this->toTitleCase($jabatan));
+        $this->printIdentitasRow('Jabatan', $jabatan);
         $this->printIdentitasRow('Alamat', $alamat, true);
         $this->printIdentitasRow('Bidang Usaha', $bidang);
 
@@ -189,7 +189,7 @@ class SKRB_template extends MasterPdf
 
         $this->printKendaraanRow('a. ', 'Merk / Tipe', $merekTipe);
         $this->printKendaraanRow('b. ', 'Jenis', $jenis);
-        $this->printKendaraanRow('c. ', 'Peruntukan', $this->toTitleCase($peruntukan));
+        $this->printKendaraanRow('c. ', 'Peruntukan', $peruntukan);
 
         $varianList = !empty($data['varian_list']) ? $data['varian_list'] : [
             ['prefix' => 'd. ', 'label' => 'Varian Body', 'value' => null],

@@ -55,6 +55,7 @@ class H_GambarOptionalController extends Controller
                     ->orWhere('h_gambar_optional.id', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.created_at', 'like', "%{$search}%")

@@ -27,7 +27,7 @@ class DJenisKendaraan extends Model
 
     public function setAliasKendaraanAttribute($value)
     {
-        $this->attributes['alias_kendaraan'] = !empty($value) ? Str::upper($value) : null;
+        $this->attributes['alias_kendaraan'] = !empty($value) ? trim($value) : null;
     }
 
     public function masterVarians()

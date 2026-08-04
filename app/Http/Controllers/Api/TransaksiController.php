@@ -92,7 +92,15 @@ class TransaksiController extends Controller
 
         foreach ($filterMap as $key => $column) {
             if ($request->filled($key)) {
-                $query->where($column, 'like', '%' . $request->input($key) . '%');
+                if ($key === 'type_chassis') {
+                    $val = $request->input($key);
+                    $query->where(function ($q) use ($val) {
+                        $q->where('c_type_chassis.type_chassis', 'like', "%{$val}%")
+                          ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$val}%");
+                    });
+                } else {
+                    $query->where($column, 'like', '%' . $request->input($key) . '%');
+                }
             }
         }
 
@@ -104,6 +112,7 @@ class TransaksiController extends Controller
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('f_pengajuan.jenis_pengajuan', 'like', "%{$search}%")
                     ->orWhere('users.name', 'like', "%{$search}%")

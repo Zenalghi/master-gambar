@@ -80,6 +80,7 @@ class MasterDataController extends Controller
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhereHas('gambarKelistrikan', function ($qKelistrikan) use ($search) {
                         $qKelistrikan->where('deskripsi', 'like', "%{$search}%");
@@ -158,7 +159,7 @@ class MasterDataController extends Controller
                 $q->where('id', 'like', "%{$search}%")
                     ->orWhereHas('typeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
                     ->orWhereHas('merk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
-                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
+                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%")->orWhere('merek_dagang', 'like', "%{$search}%"))
                     ->orWhereHas('jenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"));
             });
         }

@@ -55,11 +55,24 @@ class _OptionController extends Controller
     {
         $search = $request->input('search', '');
         return CTypeChassis::query()
-            ->where('type_chassis', 'like', "%{$search}%")
+            ->where(function ($q) use ($search) {
+                $q->where('type_chassis', 'like', "%{$search}%")
+                  ->orWhere('merek_dagang', 'like', "%{$search}%");
+            })
             ->whereNull('deleted_at')
             ->orderBy('created_at', 'desc')
             ->limit(30)
-            ->get(['id', 'type_chassis as name']);
+            ->get(['id', 'type_chassis', 'merek_dagang'])
+            ->map(function ($item) {
+                $name = $item->type_chassis;
+                if (!empty($item->merek_dagang)) {
+                    $name .= ' (' . trim($item->merek_dagang) . ')';
+                }
+                return [
+                    'id' => $item->id,
+                    'name' => $name,
+                ];
+            });
     }
 
     /**
@@ -91,7 +104,7 @@ class _OptionController extends Controller
                 // Cari di semua kolom relasi
                 $q->whereHas('typeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
                     ->orWhereHas('merk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
-                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%"))
+                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%")->orWhere('merek_dagang', 'like', "%{$search}%"))
                     ->orWhereHas('jenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"));
             })
             ->whereNull('deleted_at')
@@ -103,7 +116,8 @@ class _OptionController extends Controller
             // Cek untuk jaga-jaga jika ada relasi yang terhapus
             $engine = $item->typeEngine->type_engine ?? 'N/A';
             $merk = $item->merk->merk ?? 'N/A';
-            $chassis = $item->typeChassis->type_chassis ?? 'N/A';
+            $chassisObj = $item->typeChassis;
+            $chassis = $chassisObj ? $chassisObj->type_chassis . (!empty($chassisObj->merek_dagang) ? ' (' . trim($chassisObj->merek_dagang) . ')' : '') : 'N/A';
             $jenis = $item->jenisKendaraan->jenis_kendaraan ?? 'N/A';
 
             return [
