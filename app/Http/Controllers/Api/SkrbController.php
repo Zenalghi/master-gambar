@@ -27,16 +27,31 @@ class SkrbController extends Controller
         if (!$skrb->relationLoaded('transaksi')) {
             $skrb->load(['transaksi.customer', 'transaksi.fPengajuan', 'transaksi.masterData.typeEngine', 'transaksi.masterData.merk', 'transaksi.masterData.typeChassis', 'transaksi.masterData.jenisKendaraan']);
         }
-        $doc = DocumentCustomer::where('customer_id', $skrb->customer_id)->first();
+        if (!$skrb->relationLoaded('customer') && $skrb->customer_id) {
+            $skrb->load('customer');
+        }
+        if (!$skrb->relationLoaded('masterData') && $skrb->master_data_id) {
+            $skrb->load(['masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan']);
+        }
+        if (!$skrb->relationLoaded('fPengajuan') && $skrb->jenis_pengajuan_id) {
+            $skrb->load('fPengajuan');
+        }
+
         $trx = $skrb->transaksi;
+        $customer = $skrb->customer ?: ($trx ? $trx->customer : null);
+        $md = $skrb->masterData ?: ($trx ? $trx->masterData : null);
+        $fPengajuan = $skrb->fPengajuan ?: ($trx ? $trx->fPengajuan : null);
+        $customerId = $skrb->customer_id ?: ($customer ? $customer->id : null);
+
+        $doc = $customerId ? DocumentCustomer::where('customer_id', $customerId)->first() : null;
         $snapshot = $skrb->snapshot_documents ?? [];
         $originalSnapshot = $snapshot;
 
-        if ($trx && $trx->customer) {
-            $snapshot['customer_name'] = $trx->customer->nama_pt ?: '-';
-            $snapshot['customer_pj'] = $trx->customer->pj ?: '-';
-            $snapshot['customer_jabatan'] = $trx->customer->jabatan ?: null;
-            $snapshot['customer_alamat_kantor'] = $trx->customer->alamat_kantor ?: null;
+        if ($customer) {
+            $snapshot['customer_name'] = $customer->nama_pt ?: '-';
+            $snapshot['customer_pj'] = $customer->pj ?: '-';
+            $snapshot['customer_jabatan'] = $customer->jabatan ?: null;
+            $snapshot['customer_alamat_kantor'] = $customer->alamat_kantor ?: null;
         }
 
         if ($doc) {
@@ -51,59 +66,25 @@ class SkrbController extends Controller
             $snapshot['tdp_masa_berlaku_saved'] = $doc->tdp_masa_berlaku ? \Carbon\Carbon::parse($doc->tdp_masa_berlaku)->format('Y-m-d') : null;
         }
 
-        if ($trx && $trx->masterData) {
-            if ($trx->masterData->typeEngine) {
-                $snapshot['type_engine'] = $trx->masterData->typeEngine->type_engine ?: '-';
+        if ($md) {
+            $snapshot['type_engine'] = $md->typeEngine ? ($md->typeEngine->type_engine ?: '-') : '-';
+            $snapshot['merk'] = $md->merk ? ($md->merk->merk ?: null) : null;
+            if ($md->typeChassis) {
+                $snapshot['sut_file'] = $md->typeChassis->sut_file;
+                $snapshot['type_chassis'] = $md->typeChassis->type_chassis ?: null;
+                $snapshot['jenis_tipe'] = $md->typeChassis->jenis_tipe ?: null;
             }
-            if ($trx->masterData->merk) {
-                $snapshot['merk'] = $trx->masterData->merk->merk ?: null;
-            }
-            if ($trx->masterData->typeChassis) {
-                $snapshot['sut_file'] = $trx->masterData->typeChassis->sut_file;
-                $snapshot['type_chassis'] = $trx->masterData->typeChassis->type_chassis ?: null;
-                $snapshot['jenis_tipe'] = $trx->masterData->typeChassis->jenis_tipe ?: null;
-            }
-            if ($trx->masterData->jenisKendaraan) {
-                $snapshot['jenis_kendaraan'] = $trx->masterData->jenisKendaraan->jenis_kendaraan ?: null;
-                $snapshot['alias_kendaraan'] = $trx->masterData->jenisKendaraan->alias_kendaraan ?: null;
+            if ($md->jenisKendaraan) {
+                $snapshot['jenis_kendaraan'] = $md->jenisKendaraan->jenis_kendaraan ?: null;
+                $snapshot['alias_kendaraan'] = $md->jenisKendaraan->alias_kendaraan ?: null;
             }
         }
 
-        if ($trx && $trx->fPengajuan) {
-            $snapshot['jenis_pengajuan'] = $trx->fPengajuan->jenis_pengajuan ?: 'Varian';
+        if ($fPengajuan) {
+            $snapshot['jenis_pengajuan'] = $fPengajuan->jenis_pengajuan ?: 'Varian';
         }
 
         if ($trx && $rebuildGambarUtama) {
-            // [KOMENTAR FITUR LAMA]: Sebelumnya sistem men-generate file fisik PDF gambar utama (a/b/c/d) dan memprosesnya di background.
-            // Sesuai arahan baru, gambar utama tidak dimasukkan sebagai file PDF ke dalam SKRB, melainkan hanya teksnya yang dimasukkan ke dalam Surat Permohonan.
-            /*
-            $alreadyExistsAndReady = false;
-            if (($snapshot['gambar_status'] ?? null) === 'ready' && !empty($snapshot['gambar_utama_list'])) {
-                $alreadyExistsAndReady = true;
-                foreach ($snapshot['gambar_utama_list'] as $g) {
-                    $path = $g['path'] ?? null;
-                    $key = $g['key'] ?? '';
-                    if (empty($path) && empty($skrb->custom_files[$key] ?? null)) {
-                        $alreadyExistsAndReady = false;
-                        break;
-                    }
-                    if (!empty($path) && !Storage::disk('skrb')->exists($path)) {
-                        $alreadyExistsAndReady = false;
-                        break;
-                    }
-                }
-            }
-
-            if ($alreadyExistsAndReady) {
-                $snapshot['gambar_status'] = 'ready';
-            } elseif ($asPendingMetadata) {
-                $snapshot['gambar_utama_list'] = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
-                $snapshot['gambar_status'] = 'pending';
-            } else {
-                $snapshot['gambar_utama_list'] = ProsesTransaksiController::extractGambarUtamaForSkrb($trx);
-                $snapshot['gambar_status'] = 'ready';
-            }
-            */
             // [LOGIKA BARU]: Langsung ambil metadata (teks judul & varian body) tanpa proses background / generate file fisik:
             $snapshot['gambar_utama_list'] = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
             $snapshot['gambar_status'] = 'ready';
@@ -158,10 +139,23 @@ class SkrbController extends Controller
         if (!$skrb->relationLoaded('transaksi')) {
             $skrb->load(['transaksi.customer', 'transaksi.fPengajuan', 'transaksi.masterData.typeEngine', 'transaksi.masterData.merk', 'transaksi.masterData.typeChassis', 'transaksi.masterData.jenisKendaraan', 'histories']);
         }
+        if (!$skrb->relationLoaded('customer') && $skrb->customer_id) {
+            $skrb->load('customer');
+        }
+        if (!$skrb->relationLoaded('masterData') && $skrb->master_data_id) {
+            $skrb->load(['masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan']);
+        }
+        if (!$skrb->relationLoaded('fPengajuan') && $skrb->jenis_pengajuan_id) {
+            $skrb->load('fPengajuan');
+        }
         $trx = $skrb->transaksi;
+        $customer = $skrb->customer ?: ($trx ? $trx->customer : null);
+        $md = $skrb->masterData ?: ($trx ? $trx->masterData : null);
+        $fPengajuan = $skrb->fPengajuan ?: ($trx ? $trx->fPengajuan : null);
+        $customerId = $skrb->customer_id ?: ($customer ? $customer->id : null);
         $snapshot = $skrb->snapshot_documents ?? [];
         
-        $doc = DocumentCustomer::where('customer_id', $skrb->customer_id)->first();
+        $doc = $customerId ? DocumentCustomer::where('customer_id', $customerId)->first() : null;
         $statusTdp = $doc ? ($doc->status_tdp ?: '-') : '-';
         $masaBerlaku = $doc && $doc->tdp_masa_berlaku ? \Carbon\Carbon::parse($doc->tdp_masa_berlaku)->format('Y-m-d') : null;
 
@@ -195,13 +189,15 @@ class SkrbController extends Controller
             'id' => $skrb->id,
             'id_skrb' => $skrb->id_skrb,
             'transaksi_id' => $skrb->transaksi_id,
-            'customer_id' => $skrb->customer_id,
-            'customer_name' => ($trx && $trx->customer) ? $trx->customer->nama_pt : ($snapshot['customer_name'] ?? '-'),
-            'type_engine' => ($trx && $trx->masterData && $trx->masterData->typeEngine) ? $trx->masterData->typeEngine->type_engine : ($snapshot['type_engine'] ?? '-'),
-            'merk' => ($trx && $trx->masterData && $trx->masterData->merk) ? $trx->masterData->merk->merk : ($snapshot['merk'] ?? '-'),
-            'type_chassis' => ($trx && $trx->masterData && $trx->masterData->typeChassis) ? $trx->masterData->typeChassis->type_chassis : ($snapshot['type_chassis'] ?? '-'),
-            'jenis_kendaraan' => ($trx && $trx->masterData && $trx->masterData->jenisKendaraan) ? $trx->masterData->jenisKendaraan->jenis_kendaraan : ($snapshot['jenis_kendaraan'] ?? '-'),
-            'jenis_pengajuan' => ($trx && $trx->fPengajuan) ? $trx->fPengajuan->jenis_pengajuan : ($snapshot['jenis_pengajuan'] ?? 'Varian'),
+            'master_data_id' => $skrb->master_data_id ?: ($trx ? $trx->master_data_id : null),
+            'jenis_pengajuan_id' => $skrb->jenis_pengajuan_id ?: ($trx ? $trx->f_pengajuan_id : null),
+            'customer_id' => $skrb->customer_id ?: ($customer ? $customer->id : null),
+            'customer_name' => $customer ? $customer->nama_pt : ($snapshot['customer_name'] ?? '-'),
+            'type_engine' => ($md && $md->typeEngine) ? $md->typeEngine->type_engine : ($snapshot['type_engine'] ?? '-'),
+            'merk' => ($md && $md->merk) ? $md->merk->merk : ($snapshot['merk'] ?? '-'),
+            'type_chassis' => ($md && $md->typeChassis) ? $md->typeChassis->type_chassis : ($snapshot['type_chassis'] ?? '-'),
+            'jenis_kendaraan' => ($md && $md->jenisKendaraan) ? $md->jenisKendaraan->jenis_kendaraan : ($snapshot['jenis_kendaraan'] ?? '-'),
+            'jenis_pengajuan' => $fPengajuan ? $fPengajuan->jenis_pengajuan : ($snapshot['jenis_pengajuan'] ?? 'Varian'),
             'status_tdp' => $statusTdp,
             'tdp_masa_berlaku' => $masaBerlaku,
             'is_tdp_outdated' => $isTdpOutdated,
@@ -236,20 +232,33 @@ class SkrbController extends Controller
 
     /**
      * Daftar transaksi yang sudah punya detail dan belum dibuatkan SKRB (untuk DropdownSearch di Header)
+     * - Exclude transaksi yang Jenis Pengajuannya adalah GAMBAR TU (id = 4)
+     * - Exclude transaksi yang transaksi_id-nya sudah digunakan pada tabel skrbs
      */
     public function availableTransactions()
     {
-        $usedIds = Skrb::pluck('transaksi_id')->toArray();
+        // Hanya ambil transaksi_id yang tidak null (Cara 1)
+        $usedIds = Skrb::whereNotNull('transaksi_id')->pluck('transaksi_id')->toArray();
         $transactions = Transaksi::with(['customer', 'fPengajuan', 'masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan', 'detail'])
             ->whereHas('detail')
             ->whereNotIn('id', $usedIds)
+            ->where(function ($q) {
+                // Exclude jenis pengajuan GAMBAR TU (id=4)
+                $q->whereHas('fPengajuan', function ($q2) {
+                    $q2->whereNotIn('id', [4]);
+                })->orWhereNull('f_pengajuan_id');
+            })
             ->latest()
             ->get();
 
         $data = $transactions->map(function ($trx) {
             return [
                 'id' => $trx->id,
+                'customer_id' => $trx->customer_id,
+                'master_data_id' => $trx->master_data_id,
+                'jenis_pengajuan_id' => $trx->f_pengajuan_id,
                 'customer_name' => $trx->customer ? $trx->customer->nama_pt : '-',
+                'type_engine' => $trx->masterData && $trx->masterData->typeEngine ? $trx->masterData->typeEngine->type_engine : '-',
                 'merk' => $trx->masterData && $trx->masterData->merk ? $trx->masterData->merk->merk : '-',
                 'type_chassis' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->type_chassis : '-',
                 'jenis_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->jenis_kendaraan : '-',
@@ -261,109 +270,136 @@ class SkrbController extends Controller
     }
 
     /**
-     * Membuat rekor Permohonan SKRB baru dari ID transaksi (dari Header ataupun dari tombol di tabel Transaksi)
+     * Preview ID SKRB sistem yang akan dibuat (untuk dialog konfirmasi di Flutter sebelum store)
+     * Query: GET /skrbs/preview-id?customer_id=X
      */
-    public function store(Request $request)
+    public function previewIdSkrb(Request $request)
     {
-        $request->validate([
-            'transaksi_id' => 'required|string|exists:z_transaksi,id',
-        ]);
+        $request->validate(['customer_id' => 'required|integer']);
 
-        $transaksiId = $request->transaksi_id;
-        $existing = Skrb::where('transaksi_id', $transaksiId)->first();
-        if ($existing) {
-            $formatted = $this->formatSkrb($existing);
-            $formatted['already_exists'] = true;
-            return response()->json([
-                'message' => 'Permohonan SKRB untuk transaksi ini sudah ada. Mengalihkan ke Detail SKRB.',
-                'data' => $formatted,
-                'already_exists' => true,
-            ], 200);
-        }
-
-        $trx = Transaksi::with(['customer', 'fPengajuan', 'masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan', 'detail'])
-            ->findOrFail($transaksiId);
-
-        $customerId = $trx->customer_id;
+        $customerId = (int) $request->customer_id;
         $today = now();
         $bulanRomawi = $this->toRoman($today->month);
         $tahun = $today->year;
         $bulanTahun = $today->format('m-Y');
 
-        // Nomor urut surat keluar per bulan & tahun untuk customer ini
         $lastUrut = Skrb::where('customer_id', $customerId)->where('bulan_tahun', $bulanTahun)->max('nomor_urut') ?? 0;
         $nomorUrut = $lastUrut + 1;
         $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
 
-        // Ambil dokumen customer
         $docCustomer = DocumentCustomer::where('customer_id', $customerId)->first();
-        $hasCustomPermohonan = ($docCustomer && !empty(trim($docCustomer->permohonan_skrb)));
+        $hasCustomPermohonan = ($docCustomer && !empty(trim($docCustomer->permohonan_skrb ?? '')));
+
         if ($hasCustomPermohonan) {
             $permohonanDoc = trim($docCustomer->permohonan_skrb);
-            // Formula: ##/$permohonan_skrb/$bulan_romawi/$Y
-            $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-            while (Skrb::where('id_skrb', $idSkrb)->exists()) {
-                $nomorUrut++;
-                $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
-                $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+            $previewId = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+            // Cek apakah preview ID sudah terpakai, jika ya naikan urut
+            $tempUrut = $nomorUrut;
+            while (Skrb::where('id_skrb', $previewId)->exists()) {
+                $tempUrut++;
+                $tempStr = str_pad($tempUrut, 2, '0', STR_PAD_LEFT);
+                $previewId = sprintf("%s/%s/%s/%s", $tempStr, $permohonanDoc, $bulanRomawi, $tahun);
             }
         } else {
-            // Jika admin belum mengisi permohonan_skrb, gunakan prefix x + angka random sebelum SKRB (cth: x485-SKRB)
-            do {
-                $randNum = mt_rand(100, 999);
-                $permohonanDoc = "x{$randNum}-SKRB";
+            $previewId = sprintf("%s/x???-SKRB/%s/%s", $strUrut, $bulanRomawi, $tahun);
+        }
+
+        return response()->json([
+            'preview_id_skrb' => $previewId,
+            'nomor_urut_sistem' => $nomorUrut,
+            'has_custom_permohonan' => $hasCustomPermohonan,
+        ]);
+    }
+
+    /**
+     * Helper private: Hitung nomor urut & ID SKRB berdasarkan customer_id, bulan-tahun, dan opsional nomor manual.
+     * Return: ['idSkrb', 'nomorUrut', 'strUrut', 'permohonanDoc']
+     */
+    private function generateIdSkrb(int $customerId, ?int $nomorUrutManual = null): array
+    {
+        $today = now();
+        $bulanRomawi = $this->toRoman($today->month);
+        $tahun = $today->year;
+        $bulanTahun = $today->format('m-Y');
+
+        $docCustomer = DocumentCustomer::where('customer_id', $customerId)->first();
+        $hasCustomPermohonan = ($docCustomer && !empty(trim($docCustomer->permohonan_skrb ?? '')));
+
+        if ($nomorUrutManual !== null) {
+            // Mode Manual: user menentukan nomor urut
+            $nomorUrut = $nomorUrutManual;
+            $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
+
+            if ($hasCustomPermohonan) {
+                $permohonanDoc = trim($docCustomer->permohonan_skrb);
                 $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-            } while (Skrb::where('id_skrb', $idSkrb)->exists());
+            } else {
+                // Tanpa permohonan_skrb custom: gunakan x???-SKRB
+                do {
+                    $randNum = mt_rand(100, 999);
+                    $permohonanDoc = "x{$randNum}-SKRB";
+                    $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+                } while (Skrb::where('id_skrb', $idSkrb)->exists());
+            }
+
+            // Validasi uniqueness untuk mode manual
+            if (Skrb::where('id_skrb', $idSkrb)->exists()) {
+                throw new \Exception("ID SKRB '{$idSkrb}' sudah digunakan. Pilih nomor urut yang berbeda.");
+            }
+        } else {
+            // Mode Sistem: auto-increment
+            $lastUrut = Skrb::where('customer_id', $customerId)->where('bulan_tahun', $bulanTahun)->max('nomor_urut') ?? 0;
+            $nomorUrut = $lastUrut + 1;
+            $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
+
+            if ($hasCustomPermohonan) {
+                $permohonanDoc = trim($docCustomer->permohonan_skrb);
+                $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+                while (Skrb::where('id_skrb', $idSkrb)->exists()) {
+                    $nomorUrut++;
+                    $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
+                    $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+                }
+            } else {
+                do {
+                    $randNum = mt_rand(100, 999);
+                    $permohonanDoc = "x{$randNum}-SKRB";
+                    $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+                } while (Skrb::where('id_skrb', $idSkrb)->exists());
+            }
         }
 
-        // Ekstrak metadata gambar utama (teks judul & varian body untuk Surat Permohonan, tanpa proses background PDF)
-        $gambarUtamaList = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
-        $gambarStatus = 'ready'; // Sebelumnya: empty($gambarUtamaList) ? 'ready' : 'pending'; (dikomentari karena tidak perlu generate PDF fisik di background)
-
-        // Siapkan snapshot
-        $snapshot = [
-            'customer_name' => $trx->customer ? $trx->customer->nama_pt : '-',
-            'customer_pj' => $trx->customer ? $trx->customer->pj : null,
-            'customer_jabatan' => $trx->customer ? $trx->customer->jabatan : null,
-            'alamat_permohonan' => $docCustomer ? $docCustomer->alamat_permohonan : null,
-            'alamat_lengkap' => $docCustomer ? $docCustomer->alamat_lengkap : ($trx->customer ? $trx->customer->alamat_kantor : null),
-            'customer_alamat' => $docCustomer ? ($docCustomer->alamat_permohonan ?: $docCustomer->alamat_lengkap) : ($trx->customer ? $trx->customer->alamat_kantor : '-'),
-            'bidang_usaha' => $docCustomer ? $docCustomer->bidang_usaha : null,
-            'data_umum_file' => $docCustomer ? $docCustomer->data_umum_file : null,
-            'tdp_files' => $docCustomer && is_array($docCustomer->tdp_files) ? $docCustomer->tdp_files : [],
-            'kop_surat_file' => $docCustomer ? $docCustomer->kop_surat_file : null,
-            'tdp_masa_berlaku_saved' => $docCustomer && $docCustomer->tdp_masa_berlaku ? \Carbon\Carbon::parse($docCustomer->tdp_masa_berlaku)->format('Y-m-d') : null,
-            'sut_file' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->sut_file : null,
-            'type_engine' => $trx->masterData && $trx->masterData->typeEngine ? $trx->masterData->typeEngine->type_engine : '-',
-            'merk' => $trx->masterData && $trx->masterData->merk ? $trx->masterData->merk->merk : null,
-            'type_chassis' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->type_chassis : null,
-            'jenis_tipe' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->jenis_tipe : null,
-            'jenis_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->jenis_kendaraan : null,
-            'alias_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->alias_kendaraan : null,
-            'jenis_pengajuan' => $trx->fPengajuan ? $trx->fPengajuan->jenis_pengajuan : 'Varian',
-            'gambar_utama_list' => $gambarUtamaList,
-            'gambar_status' => $gambarStatus,
+        return [
+            'idSkrb' => $idSkrb,
+            'nomorUrut' => $nomorUrut,
+            'strUrut' => $strUrut,
+            'bulanTahun' => $bulanTahun,
+            'permohonanDoc' => $permohonanDoc ?? null,
+            'hasCustomPermohonan' => $hasCustomPermohonan,
         ];
+    }
 
-        // Generate dan simpan file 1: Surat Permohonan ke disk skrb
-        $suratPath = $this->generateSuratPermohonanPdf($transaksiId, $idSkrb, $snapshot);
-        if ($suratPath) {
-            $snapshot['surat_permohonan_path'] = $suratPath;
-        }
+    /**
+     * Membuat rekor Permohonan SKRB baru.
+     * Cara 1: dari ID transaksi (transaksi_id wajib ada) → data kendaraan & customer dari transaksi.
+     * Cara 2: dari customer_id + master_data_id + jenis_pengajuan_id → tanpa transaksi.
+     * Keduanya support nomor_urut_manual (untuk ID SKRB kustom).
+     */
+    public function store(Request $request)
+    {
+        // Tentukan cara: Cara 1 (ada transaksi_id) atau Cara 2 (tidak ada transaksi_id)
+        $isCara1 = $request->has('transaksi_id') && !empty($request->transaksi_id);
 
-        try {
-            $skrb = Skrb::create([
-                'id_skrb' => $idSkrb,
-                'transaksi_id' => $transaksiId,
-                'customer_id' => $customerId,
-                'bulan_tahun' => $bulanTahun,
-                'nomor_urut' => $nomorUrut,
-                'snapshot_documents' => $snapshot,
-                'custom_files' => [],
-                'hidden_flags' => [],
-                'fase' => 1,
+        if ($isCara1) {
+            // === CARA 1: Buat SKRB dari ID Transaksi ===
+            $request->validate([
+                'transaksi_id' => 'required|string|exists:z_transaksi,id',
+                'nomor_urut_manual' => 'nullable|integer|min:1',
             ]);
-        } catch (\Exception $e) {
+
+            $transaksiId = $request->transaksi_id;
+
+            // Cara 1: 1 transaksi_id hanya boleh punya 1 SKRB → arahkan ke existing jika ada
             $existing = Skrb::where('transaksi_id', $transaksiId)->first();
             if ($existing) {
                 $formatted = $this->formatSkrb($existing);
@@ -374,17 +410,208 @@ class SkrbController extends Controller
                     'already_exists' => true,
                 ], 200);
             }
-            throw $e;
+
+            $trx = Transaksi::with(['customer', 'fPengajuan', 'masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan', 'detail'])
+                ->findOrFail($transaksiId);
+
+            $customerId = $trx->customer_id;
+            $nomorUrutManual = $request->has('nomor_urut_manual') ? (int) $request->nomor_urut_manual : null;
+
+            try {
+                $idData = $this->generateIdSkrb($customerId, $nomorUrutManual);
+            } catch (\Exception $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            $idSkrb = $idData['idSkrb'];
+            $nomorUrut = $idData['nomorUrut'];
+            $bulanTahun = $idData['bulanTahun'];
+
+            // Ekstrak metadata gambar utama
+            $gambarUtamaList = ProsesTransaksiController::extractGambarUtamaMetadataForSkrb($trx);
+
+            // Ambil dokumen customer
+            $docCustomer = DocumentCustomer::where('customer_id', $customerId)->first();
+
+            // Siapkan snapshot
+            $snapshot = [
+                'customer_name' => $trx->customer ? $trx->customer->nama_pt : '-',
+                'customer_pj' => $trx->customer ? $trx->customer->pj : null,
+                'customer_jabatan' => $trx->customer ? $trx->customer->jabatan : null,
+                'alamat_permohonan' => $docCustomer ? $docCustomer->alamat_permohonan : null,
+                'alamat_lengkap' => $docCustomer ? $docCustomer->alamat_lengkap : ($trx->customer ? $trx->customer->alamat_kantor : null),
+                'customer_alamat' => $docCustomer ? ($docCustomer->alamat_permohonan ?: $docCustomer->alamat_lengkap) : ($trx->customer ? $trx->customer->alamat_kantor : '-'),
+                'bidang_usaha' => $docCustomer ? $docCustomer->bidang_usaha : null,
+                'data_umum_file' => $docCustomer ? $docCustomer->data_umum_file : null,
+                'tdp_files' => $docCustomer && is_array($docCustomer->tdp_files) ? $docCustomer->tdp_files : [],
+                'kop_surat_file' => $docCustomer ? $docCustomer->kop_surat_file : null,
+                'tdp_masa_berlaku_saved' => $docCustomer && $docCustomer->tdp_masa_berlaku ? \Carbon\Carbon::parse($docCustomer->tdp_masa_berlaku)->format('Y-m-d') : null,
+                'sut_file' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->sut_file : null,
+                'type_engine' => $trx->masterData && $trx->masterData->typeEngine ? $trx->masterData->typeEngine->type_engine : '-',
+                'merk' => $trx->masterData && $trx->masterData->merk ? $trx->masterData->merk->merk : null,
+                'type_chassis' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->type_chassis : null,
+                'jenis_tipe' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->jenis_tipe : null,
+                'jenis_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->jenis_kendaraan : null,
+                'alias_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->alias_kendaraan : null,
+                'jenis_pengajuan' => $trx->fPengajuan ? $trx->fPengajuan->jenis_pengajuan : 'Varian',
+                'gambar_utama_list' => $gambarUtamaList,
+                'gambar_status' => 'ready',
+            ];
+
+            // Generate Surat Permohonan PDF
+            $suratPath = $this->generateSuratPermohonanPdf($transaksiId, $idSkrb, $snapshot);
+            if ($suratPath) {
+                $snapshot['surat_permohonan_path'] = $suratPath;
+            }
+
+            try {
+                $skrb = Skrb::create([
+                    'id_skrb' => $idSkrb,
+                    'transaksi_id' => $transaksiId,
+                    'master_data_id' => $trx->master_data_id,
+                    'jenis_pengajuan_id' => $trx->f_pengajuan_id,
+                    'customer_id' => $customerId,
+                    'bulan_tahun' => $bulanTahun,
+                    'nomor_urut' => $nomorUrut,
+                    'snapshot_documents' => $snapshot,
+                    'custom_files' => [],
+                    'hidden_flags' => [],
+                    'fase' => 1,
+                ]);
+            } catch (\Exception $e) {
+                // Race condition: cek sekali lagi
+                $existing = Skrb::where('transaksi_id', $transaksiId)->first();
+                if ($existing) {
+                    $formatted = $this->formatSkrb($existing);
+                    $formatted['already_exists'] = true;
+                    return response()->json([
+                        'message' => 'Permohonan SKRB untuk transaksi ini sudah ada. Mengalihkan ke Detail SKRB.',
+                        'data' => $formatted,
+                        'already_exists' => true,
+                    ], 200);
+                }
+                // Jika bukan duplicate transaksi_id (misal duplicate id_skrb manual)
+                if (str_contains($e->getMessage(), 'Duplicate') || str_contains($e->getMessage(), 'UNIQUE')) {
+                    return response()->json(['message' => 'ID SKRB sudah digunakan. Pilih nomor urut yang berbeda.'], 422);
+                }
+                throw $e;
+            }
+
+            $formatted = $this->formatSkrb($skrb);
+            $formatted['already_exists'] = false;
+
+            return response()->json([
+                'message' => 'Permohonan SKRB berhasil dibuat!',
+                'data' => $formatted,
+                'already_exists' => false,
+            ], 201);
+
+        } else {
+            // === CARA 2: Buat SKRB tanpa Transaksi (Customer + Kendaraan + Jenis Pengajuan) ===
+            $request->validate([
+                'customer_id' => 'required|integer|exists:customers,id',
+                'master_data_id' => 'required|integer',
+                'jenis_pengajuan_id' => 'required|integer|exists:f_pengajuan,id',
+                'nomor_urut_manual' => 'nullable|integer|min:1',
+            ]);
+
+            // Pastikan jenis pengajuan bukan GAMBAR TU (id=4)
+            if ((int)$request->jenis_pengajuan_id === 4) {
+                return response()->json(['message' => 'Jenis Pengajuan GAMBAR TU tidak diperbolehkan untuk SKRB.'], 422);
+            }
+
+            $customerId = (int) $request->customer_id;
+            $masterDataId = (int) $request->master_data_id;
+            $jenisPengajuanId = (int) $request->jenis_pengajuan_id;
+            $nomorUrutManual = $request->has('nomor_urut_manual') ? (int) $request->nomor_urut_manual : null;
+
+            // Load relasi yang dibutuhkan
+            $customer = \App\Models\Customer::findOrFail($customerId);
+            $masterData = \App\Models\MasterData::with(['typeEngine', 'merk', 'typeChassis', 'jenisKendaraan'])->findOrFail($masterDataId);
+            $fPengajuan = \App\Models\FPengajuan::findOrFail($jenisPengajuanId);
+
+            try {
+                $idData = $this->generateIdSkrb($customerId, $nomorUrutManual);
+            } catch (\Exception $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
+            $idSkrb = $idData['idSkrb'];
+            $nomorUrut = $idData['nomorUrut'];
+            $bulanTahun = $idData['bulanTahun'];
+
+            // Snapshot dari customer & master data (tanpa transaksi)
+            $docCustomer = DocumentCustomer::where('customer_id', $customerId)->first();
+
+            $snapshot = [
+                'customer_name' => $customer->nama_pt ?? '-',
+                'customer_pj' => $customer->pj ?? null,
+                'customer_jabatan' => $customer->jabatan ?? null,
+                'customer_alamat_kantor' => $customer->alamat_kantor ?? null,
+                'alamat_permohonan' => $docCustomer ? $docCustomer->alamat_permohonan : null,
+                'alamat_lengkap' => $docCustomer ? $docCustomer->alamat_lengkap : ($customer->alamat_kantor ?? null),
+                'customer_alamat' => $docCustomer ? ($docCustomer->alamat_permohonan ?: $docCustomer->alamat_lengkap) : ($customer->alamat_kantor ?? '-'),
+                'bidang_usaha' => $docCustomer ? $docCustomer->bidang_usaha : null,
+                'data_umum_file' => $docCustomer ? $docCustomer->data_umum_file : null,
+                'tdp_files' => $docCustomer && is_array($docCustomer->tdp_files) ? $docCustomer->tdp_files : [],
+                'kop_surat_file' => $docCustomer ? $docCustomer->kop_surat_file : null,
+                'tdp_masa_berlaku_saved' => $docCustomer && $docCustomer->tdp_masa_berlaku ? \Carbon\Carbon::parse($docCustomer->tdp_masa_berlaku)->format('Y-m-d') : null,
+                // Data kendaraan dari master data
+                'sut_file' => $masterData->typeChassis ? $masterData->typeChassis->sut_file : null,
+                'type_engine' => $masterData->typeEngine ? ($masterData->typeEngine->type_engine ?? '-') : '-',
+                'merk' => $masterData->merk ? ($masterData->merk->merk ?? null) : null,
+                'type_chassis' => $masterData->typeChassis ? ($masterData->typeChassis->type_chassis ?? null) : null,
+                'jenis_tipe' => $masterData->typeChassis ? ($masterData->typeChassis->jenis_tipe ?? null) : null,
+                'jenis_kendaraan' => $masterData->jenisKendaraan ? ($masterData->jenisKendaraan->jenis_kendaraan ?? null) : null,
+                'alias_kendaraan' => $masterData->jenisKendaraan ? ($masterData->jenisKendaraan->alias_kendaraan ?? null) : null,
+                'jenis_pengajuan' => $fPengajuan->jenis_pengajuan ?? 'Varian',
+                // Cara 2: tidak ada gambar utama dari transaksi — user isi manual di Detail SKRB
+                'gambar_utama_list' => [],
+                'gambar_status' => 'ready',
+            ];
+
+            // Generate Surat Permohonan PDF (tanpa transaksi_id, gunakan 'standalone-{skrb.id}' setelah create)
+            // Surat permohonan di-generate setelah create agar ada ID untuk folder
+
+            try {
+                $skrb = Skrb::create([
+                    'id_skrb' => $idSkrb,
+                    'transaksi_id' => null, // Cara 2: tidak ada transaksi
+                    'master_data_id' => $masterDataId,
+                    'jenis_pengajuan_id' => $jenisPengajuanId,
+                    'customer_id' => $customerId,
+                    'bulan_tahun' => $bulanTahun,
+                    'nomor_urut' => $nomorUrut,
+                    'snapshot_documents' => $snapshot,
+                    'custom_files' => [],
+                    'hidden_flags' => [],
+                    'fase' => 1,
+                ]);
+            } catch (\Exception $e) {
+                if (str_contains($e->getMessage(), 'Duplicate') || str_contains($e->getMessage(), 'UNIQUE')) {
+                    return response()->json(['message' => 'ID SKRB sudah digunakan. Pilih nomor urut yang berbeda.'], 422);
+                }
+                throw $e;
+            }
+
+            // Generate Surat Permohonan PDF menggunakan ID SKRB baru
+            $storageKey = $skrb->getStorageKey();
+            $suratPath = $this->generateSuratPermohonanPdf($storageKey, $idSkrb, $snapshot);
+            if ($suratPath) {
+                $snapshot['surat_permohonan_path'] = $suratPath;
+                $skrb->snapshot_documents = $snapshot;
+                $skrb->saveQuietly();
+            }
+
+            $formatted = $this->formatSkrb($skrb);
+            $formatted['already_exists'] = false;
+
+            return response()->json([
+                'message' => 'Permohonan SKRB berhasil dibuat (tanpa transaksi)!',
+                'data' => $formatted,
+                'already_exists' => false,
+            ], 201);
         }
-
-        $formatted = $this->formatSkrb($skrb);
-        $formatted['already_exists'] = false;
-
-        return response()->json([
-            'message' => 'Permohonan SKRB berhasil dibuat!',
-            'data' => $formatted,
-            'already_exists' => false,
-        ], 201);
     }
 
     /**
@@ -474,9 +701,10 @@ class SkrbController extends Controller
     public function storageInfo(Skrb $skrb)
     {
         $disk = Storage::disk('skrb');
-        $folder = 'skrb-' . $skrb->transaksi_id;
-        if (!$disk->exists($folder) && $disk->exists((string) $skrb->transaksi_id)) {
-            $folder = (string) $skrb->transaksi_id;
+        $storageKey = $skrb->getStorageKey();
+        $folder = 'skrb-' . $storageKey;
+        if (!$disk->exists($folder) && $disk->exists($storageKey)) {
+            $folder = $storageKey;
         }
 
         $totalBytes = 0;
@@ -551,6 +779,36 @@ class SkrbController extends Controller
      */
     public function update(Request $request, Skrb $skrb)
     {
+        $coreDataChanged = false;
+
+        if ($request->has('customer_id') && (int) $request->input('customer_id') != (int) $skrb->customer_id) {
+            $skrb->customer_id = (int) $request->input('customer_id');
+            $coreDataChanged = true;
+        }
+        if ($request->has('master_data_id') && (int) $request->input('master_data_id') != (int) $skrb->master_data_id) {
+            $skrb->master_data_id = (int) $request->input('master_data_id');
+            $coreDataChanged = true;
+        }
+        if ($request->has('jenis_pengajuan_id') && (int) $request->input('jenis_pengajuan_id') != (int) $skrb->jenis_pengajuan_id) {
+            if ((int) $request->input('jenis_pengajuan_id') === 4) {
+                return response()->json(['message' => 'Jenis Pengajuan GAMBAR TU tidak diperbolehkan untuk SKRB.'], 422);
+            }
+            $skrb->jenis_pengajuan_id = (int) $request->input('jenis_pengajuan_id');
+            $coreDataChanged = true;
+        }
+
+        if ($coreDataChanged) {
+            $skrb->saveQuietly();
+            $skrb->unsetRelations();
+            $this->syncSnapshotIfOpen($skrb, true);
+            $snapshot = $skrb->snapshot_documents ?? [];
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            if ($suratPath) {
+                $snapshot['surat_permohonan_path'] = $suratPath;
+                $skrb->snapshot_documents = $snapshot;
+            }
+        }
+
         if ($request->has('fase')) {
             $newFase = (int) $request->input('fase');
             $skrb->fase = $newFase;
@@ -572,7 +830,7 @@ class SkrbController extends Controller
             $snapshot['gambar_utama_list'] = $request->input('gambar_utama_list');
             
             // Generate ulang PDF Surat Permohonan agar teks varian body & judul baru langsung tecermin di file No 1:
-            $suratPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
             if ($suratPath) {
                 $snapshot['surat_permohonan_path'] = $suratPath;
             }
@@ -586,7 +844,7 @@ class SkrbController extends Controller
             $snapshot['foto_copy_skrb'] = $val;
 
             // Generate ulang PDF Surat Permohonan agar teks foto copy skrb langsung tecermin di file No 1:
-            $suratPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
             if ($suratPath) {
                 $snapshot['surat_permohonan_path'] = $suratPath;
             }
@@ -600,7 +858,7 @@ class SkrbController extends Controller
             $snapshot['tanggal_permohonan'] = $val ?: null;
 
             // Generate ulang PDF Surat Permohonan agar tanggal permohonan baru langsung tecermin di file No 1:
-            $suratPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
+            $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
             if ($suratPath) {
                 $snapshot['surat_permohonan_path'] = $suratPath;
             }
@@ -642,8 +900,8 @@ class SkrbController extends Controller
         ];
 
         $detailName = $namesMap[$key] ?? ("Detail_" . $key);
-        $filename = sprintf("%s-%s-%s.pdf", $skrb->transaksi_id, $detailName, now()->format('Ymd-His'));
-        $saveFolder = 'skrb-' . $skrb->transaksi_id;
+        $filename = sprintf("%s-%s-%s.pdf", $skrb->getStorageKey(), $detailName, now()->format('Ymd-His'));
+        $saveFolder = 'skrb-' . $skrb->getStorageKey();
         
         $path = $file->storeAs($saveFolder, $filename, 'skrb');
 
@@ -682,9 +940,9 @@ class SkrbController extends Controller
 
         // 1. Surat Permohonan
         if ($key === '1') {
-            $path = $snapshot['surat_permohonan_path'] ?? ('skrb-' . $skrb->transaksi_id . '/surat_permohonan.pdf');
+            $path = $snapshot['surat_permohonan_path'] ?? ('skrb-' . $skrb->getStorageKey() . '/surat_permohonan.pdf');
             if ($skrb->fase != 2 || !Storage::disk('skrb')->exists($path)) {
-                $newPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $path);
+                $newPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $path);
                 if ($newPath) {
                     $path = $newPath;
                     $snapshot['surat_permohonan_path'] = $path;
@@ -805,8 +1063,8 @@ class SkrbController extends Controller
 
         // 1. Surat Permohonan - selalu re-generate dengan snapshot terbaru
         if (!$isHidden('1')) {
-            $oldPath = $snapshot['surat_permohonan_path'] ?? ('skrb-' . $skrb->transaksi_id . '/surat_permohonan.pdf');
-            $newPath = $this->generateSuratPermohonanPdf($skrb->transaksi_id, $skrb->id_skrb, $snapshot, $oldPath);
+            $oldPath = $snapshot['surat_permohonan_path'] ?? ('skrb-' . $skrb->getStorageKey() . '/surat_permohonan.pdf');
+            $newPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $oldPath);
             if ($newPath) {
                 $snapshot['surat_permohonan_path'] = $newPath;
                 $skrb->snapshot_documents = $snapshot;
@@ -907,7 +1165,7 @@ class SkrbController extends Controller
                     ->header('X-Suggested-Filename', $cleanDownloadName);
             }
 
-            $relativeSavePath = 'skrb-' . $skrb->transaksi_id . '/saved/' . $cleanStorageFileName;
+            $relativeSavePath = 'skrb-' . $skrb->getStorageKey() . '/saved/' . $cleanStorageFileName;
             Storage::disk('skrb')->put($relativeSavePath, $pdfOutput);
 
             // Catat di tabel history
@@ -962,12 +1220,13 @@ class SkrbController extends Controller
         }
 
         // Hapus folder saved/ untuk SKRB ini
-        $savedFolder = 'skrb-' . $skrb->transaksi_id . '/saved';
+        $storageKey = $skrb->getStorageKey();
+        $savedFolder = 'skrb-' . $storageKey . '/saved';
         if (Storage::disk('skrb')->exists($savedFolder)) {
             Storage::disk('skrb')->deleteDirectory($savedFolder);
         }
-        if (Storage::disk('skrb')->exists($skrb->transaksi_id . '/saved')) {
-            Storage::disk('skrb')->deleteDirectory($skrb->transaksi_id . '/saved');
+        if (Storage::disk('skrb')->exists($storageKey . '/saved')) {
+            Storage::disk('skrb')->deleteDirectory($storageKey . '/saved');
         }
 
         // Hapus rekor di tabel skrb_histories
@@ -994,12 +1253,13 @@ class SkrbController extends Controller
     public function destroy(Skrb $skrb)
     {
         // Hapus seluruh direktori id_transaksi di disk skrb
-        $folder = 'skrb-' . $skrb->transaksi_id;
+        $storageKey = $skrb->getStorageKey();
+        $folder = 'skrb-' . $storageKey;
         if (Storage::disk('skrb')->exists($folder)) {
             Storage::disk('skrb')->deleteDirectory($folder);
         }
-        if (Storage::disk('skrb')->exists($skrb->transaksi_id)) {
-            Storage::disk('skrb')->deleteDirectory($skrb->transaksi_id);
+        if (Storage::disk('skrb')->exists($storageKey)) {
+            Storage::disk('skrb')->deleteDirectory($storageKey);
         }
 
         $skrb->delete();
@@ -1056,12 +1316,13 @@ class SkrbController extends Controller
      */
     public function deleteAllHistories(Skrb $skrb)
     {
-        $savedFolder = 'skrb-' . $skrb->transaksi_id . '/saved';
+        $storageKey = $skrb->getStorageKey();
+        $savedFolder = 'skrb-' . $storageKey . '/saved';
         if (Storage::disk('skrb')->exists($savedFolder)) {
             Storage::disk('skrb')->deleteDirectory($savedFolder);
         }
-        if (Storage::disk('skrb')->exists($skrb->transaksi_id . '/saved')) {
-            Storage::disk('skrb')->deleteDirectory($skrb->transaksi_id . '/saved');
+        if (Storage::disk('skrb')->exists($storageKey . '/saved')) {
+            Storage::disk('skrb')->deleteDirectory($storageKey . '/saved');
         }
         $skrb->histories()->delete();
 

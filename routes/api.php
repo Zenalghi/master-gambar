@@ -107,6 +107,7 @@ Route::middleware('auth.api')->group(
 
         // --- PERMOHONAN SKRB & DETAIL SKRB ---
         Route::get('/skrbs/available-transactions', [SkrbController::class, 'availableTransactions']);
+        Route::get('/skrbs/preview-id', [SkrbController::class, 'previewIdSkrb']);
         Route::get('/skrbs', [SkrbController::class, 'index']);
         Route::post('/skrbs', [SkrbController::class, 'store']);
         Route::get('/skrbs/{skrb}', [SkrbController::class, 'show']);

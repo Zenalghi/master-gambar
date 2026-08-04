@@ -148,7 +148,9 @@ class _OptionController extends Controller
     }
     public function getPengajuan()
     {
-        return response()->json(FPengajuan::all());
+        // Exclude ID 4 (GAMBAR TU) — tidak relevan untuk SKRB maupun form transaksi standar.
+        // Best practice: filter di sumber data agar tidak perlu filter berulang di setiap consumer.
+        return response()->json(FPengajuan::whereNotIn('id', [4])->orderBy('id')->get());
     }
     public function getRoles()
     {

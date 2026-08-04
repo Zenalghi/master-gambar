@@ -287,7 +287,7 @@ class SKRB_template extends MasterPdf
         $isError = empty($val) || $val === '-' || str_contains(strtolower($val), 'data belum diisi');
 
         if ($isError) {
-            $val = 'Data Belum diisi, hubungi admin';
+            $val = 'Data Belum diisi, silahkan isi terlebih dahulu';
             $this->SetFont('tahoma', 'B', 10.5);
             $this->SetTextColor(255, 0, 0);
         }
