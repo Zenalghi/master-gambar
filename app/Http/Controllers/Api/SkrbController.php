@@ -346,7 +346,7 @@ class SkrbController extends Controller
      * Helper private: Hitung nomor urut & ID SKRB berdasarkan customer_id, bulan-tahun, dan opsional nomor manual.
      * Return: ['idSkrb', 'nomorUrut', 'strUrut', 'permohonanDoc']
      */
-    private function generateIdSkrb(int $customerId, ?int $nomorUrutManual = null): array
+    private function generateIdSkrb(int $customerId, ?int $nomorUrutManual = null, ?int $excludeSkrbId = null): array
     {
         $today = now();
         $bulanRomawi = $this->toRoman($today->month);
@@ -357,7 +357,7 @@ class SkrbController extends Controller
         $hasCustomPermohonan = ($docCustomer && !empty(trim($docCustomer->permohonan_skrb ?? '')));
 
         if ($nomorUrutManual !== null) {
-            // Mode Manual: user menentukan nomor urut
+            // Mode Kustom / Ubah Nomor Urut: user menentukan nomor urut
             $nomorUrut = $nomorUrutManual;
             $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
 
@@ -370,12 +370,20 @@ class SkrbController extends Controller
                     $randNum = mt_rand(100, 999);
                     $permohonanDoc = "x{$randNum}-SKRB";
                     $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-                } while (Skrb::where('id_skrb', $idSkrb)->exists());
+                    $checkQuery = Skrb::where('id_skrb', $idSkrb);
+                    if ($excludeSkrbId !== null) {
+                        $checkQuery->where('id', '!=', $excludeSkrbId);
+                    }
+                } while ($checkQuery->exists());
             }
 
-            // Validasi uniqueness untuk mode manual
-            if (Skrb::where('id_skrb', $idSkrb)->exists()) {
-                throw new \Exception("ID SKRB '{$idSkrb}' sudah digunakan. Pilih nomor urut yang berbeda.");
+            // Validasi uniqueness
+            $query = Skrb::where('id_skrb', $idSkrb);
+            if ($excludeSkrbId !== null) {
+                $query->where('id', '!=', $excludeSkrbId);
+            }
+            if ($query->exists()) {
+                throw new \Exception("ID SKRB '{$idSkrb}' sudah terdaftar! ID SKRB harus unik dan tidak boleh sama persis dengan ID lainnya. Harap ubah nomor urut Anda.");
             }
         } else {
             // Mode Sistem: auto-increment
@@ -814,9 +822,27 @@ class SkrbController extends Controller
     {
         $coreDataChanged = false;
 
-        if ($request->has('customer_id') && (int) $request->input('customer_id') != (int) $skrb->customer_id) {
-            $skrb->customer_id = (int) $request->input('customer_id');
-            $coreDataChanged = true;
+        $newCustomerId = $request->has('customer_id') ? (int) $request->input('customer_id') : (int) $skrb->customer_id;
+        $customerIdChanged = ($newCustomerId != (int) $skrb->customer_id);
+        
+        $nomorUrutParam = $request->has('nomor_urut_manual') ? $request->input('nomor_urut_manual') : ($request->has('nomor_urut') ? $request->input('nomor_urut') : null);
+        $hasNomorUrut = ($nomorUrutParam !== null && trim((string) $nomorUrutParam) !== '');
+        $newNomorUrut = $hasNomorUrut ? (int) $nomorUrutParam : null;
+
+        if ($customerIdChanged || ($newNomorUrut !== null && $newNomorUrut != (int) $skrb->nomor_urut)) {
+            try {
+                $targetNomor = $newNomorUrut ?? ($customerIdChanged ? null : $skrb->nomor_urut);
+                $generated = $this->generateIdSkrb($newCustomerId, $targetNomor, $skrb->id);
+                $skrb->customer_id = $newCustomerId;
+                $skrb->id_skrb = $generated['idSkrb'];
+                $skrb->nomor_urut = $generated['nomorUrut'];
+                $skrb->bulan_tahun = $generated['bulanTahun'];
+                $coreDataChanged = true;
+            } catch (\Exception $e) {
+                return response()->json([
+                    'message' => $e->getMessage()
+                ], 422);
+            }
         }
         if ($request->has('master_data_id') && (int) $request->input('master_data_id') != (int) $skrb->master_data_id) {
             $skrb->master_data_id = (int) $request->input('master_data_id');
