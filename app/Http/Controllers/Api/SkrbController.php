@@ -279,6 +279,28 @@ class SkrbController extends Controller
     }
 
     /**
+     * Mengecek apakah SKRB untuk ID transaksi tertentu sudah dibuat atau belum.
+     * Jika sudah ada, kembalikan data SKRB. Jika belum, kembalikan null.
+     */
+    public function getByTransaksi($transaksiId)
+    {
+        $existing = Skrb::where('transaksi_id', $transaksiId)->first();
+        if ($existing) {
+            $formatted = $this->formatSkrb($existing);
+            $formatted['already_exists'] = true;
+            return response()->json([
+                'exists' => true,
+                'data' => $formatted,
+            ], 200);
+        }
+
+        return response()->json([
+            'exists' => false,
+            'data' => null,
+        ], 200);
+    }
+
+    /**
      * Preview ID SKRB sistem yang akan dibuat (untuk dialog konfirmasi di Flutter sebelum store)
      * Query: GET /skrbs/preview-id?customer_id=X
      */
