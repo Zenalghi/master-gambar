@@ -1068,12 +1068,13 @@ class SkrbController extends Controller
         // Sebelum disatukan dan disimpan, wajib ambil snapshot live dari DocumentCustomer & SUT terbaru
         $this->syncSnapshotIfOpen($skrb, true, true);
 
-        $doc = DocumentCustomer::where('customer_id', $skrb->customer_id)->first();
-        if ($doc && strcasecmp($doc->status_tdp ?? '', 'Expired') === 0) {
-            return response()->json([
-                'message' => 'Dokumen TDP sudah Expired. Hubungi Admin'
-            ], 422);
-        }
+        // TODO: Hapus cek dokumen TDP expired (perlu diskusi ulang)
+        // $doc = DocumentCustomer::where('customer_id', $skrb->customer_id)->first();
+        // if ($doc && strcasecmp($doc->status_tdp ?? '', 'Expired') === 0) {
+        //     return response()->json([
+        //         'message' => 'Dokumen TDP sudah Expired. Hubungi Admin'
+        //     ], 422);
+        // }
 
         $isDownload = filter_var($request->input('download', false), FILTER_VALIDATE_BOOLEAN);
         $historyCount = $skrb->histories()->count();
