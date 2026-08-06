@@ -884,39 +884,50 @@ class SkrbController extends Controller
             $skrb->hidden_flags = $request->input('hidden_flags');
         }
 
+        $needRegenPdf = false;
+        $snapshot = $skrb->snapshot_documents ?? [];
+
         if ($request->has('gambar_utama_list')) {
-            $snapshot = $skrb->snapshot_documents ?? [];
             $snapshot['gambar_utama_list'] = $request->input('gambar_utama_list');
-            
-            // Generate ulang PDF Surat Permohonan agar teks varian body & judul baru langsung tecermin di file No 1:
-            $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
-            if ($suratPath) {
-                $snapshot['surat_permohonan_path'] = $suratPath;
-            }
-            $skrb->snapshot_documents = $snapshot;
+            $needRegenPdf = true;
         }
 
         if ($request->has('foto_copy_skrb')) {
             $val = $request->input('foto_copy_skrb');
             $skrb->foto_copy_skrb = $val;
-            $snapshot = $skrb->snapshot_documents ?? [];
             $snapshot['foto_copy_skrb'] = $val;
-
-            // Generate ulang PDF Surat Permohonan agar teks foto copy skrb langsung tecermin di file No 1:
-            $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
-            if ($suratPath) {
-                $snapshot['surat_permohonan_path'] = $suratPath;
-            }
-            $skrb->snapshot_documents = $snapshot;
+            $needRegenPdf = true;
         }
 
         if ($request->has('tanggal_permohonan')) {
             $val = $request->input('tanggal_permohonan');
             $skrb->tanggal_permohonan = $val ?: null;
-            $snapshot = $skrb->snapshot_documents ?? [];
             $snapshot['tanggal_permohonan'] = $val ?: null;
+            $needRegenPdf = true;
+        }
 
-            // Generate ulang PDF Surat Permohonan agar tanggal permohonan baru langsung tecermin di file No 1:
+        if ($request->has('is_permohonan_manual')) {
+            $snapshot['is_permohonan_manual'] = filter_var($request->input('is_permohonan_manual'), FILTER_VALIDATE_BOOLEAN);
+            $needRegenPdf = true;
+        }
+        if ($request->has('manual_merk_tipe')) {
+            $snapshot['manual_merk_tipe'] = $request->input('manual_merk_tipe');
+            $needRegenPdf = true;
+        }
+        if ($request->has('manual_jenis')) {
+            $snapshot['manual_jenis'] = $request->input('manual_jenis');
+            $needRegenPdf = true;
+        }
+        if ($request->has('manual_peruntukan')) {
+            $snapshot['manual_peruntukan'] = $request->input('manual_peruntukan');
+            $needRegenPdf = true;
+        }
+        if ($request->has('manual_gambar_list')) {
+            $snapshot['manual_gambar_list'] = $request->input('manual_gambar_list');
+            $needRegenPdf = true;
+        }
+
+        if ($needRegenPdf) {
             $suratPath = $this->generateSuratPermohonanPdf($skrb->getStorageKey(), $skrb->id_skrb, $snapshot, $snapshot['surat_permohonan_path'] ?? null);
             if ($suratPath) {
                 $snapshot['surat_permohonan_path'] = $suratPath;
@@ -1395,7 +1406,11 @@ class SkrbController extends Controller
     private function generateSuratPermohonanPdf(string $transaksiId, string $idSkrb, array $snapshot, ?string $oldPath = null): ?string
     {
         try {
-            $gambarList = $snapshot['gambar_utama_list'] ?? [];
+            $isManual = !empty($snapshot['is_permohonan_manual']) && ($snapshot['is_permohonan_manual'] === true || $snapshot['is_permohonan_manual'] === 'true' || $snapshot['is_permohonan_manual'] === 1 || $snapshot['is_permohonan_manual'] === '1');
+
+            $gambarList = ($isManual && !empty($snapshot['manual_gambar_list'])) 
+                ? $snapshot['manual_gambar_list'] 
+                : ($snapshot['gambar_utama_list'] ?? []);
             $varianList = [];
             foreach ($gambarList as $idx => $item) {
                 $varianList[] = [
@@ -1436,9 +1451,9 @@ class SkrbController extends Controller
                 'alamat' => $snapshot['alamat_lengkap'] ?? ($snapshot['customer_alamat'] ?? null),
                 'alamat_permohonan' => $snapshot['alamat_permohonan'] ?? null,
                 'bidang_usaha' => $snapshot['bidang_usaha'] ?? null,
-                'merek_tipe' => $merekTipe,
-                'jenis' => $snapshot['jenis_tipe'] ?? null,
-                'peruntukan' => $snapshot['alias_kendaraan'] ?? null,
+                'merek_tipe' => ($isManual && isset($snapshot['manual_merk_tipe']) && $snapshot['manual_merk_tipe'] !== '') ? $snapshot['manual_merk_tipe'] : $merekTipe,
+                'jenis' => ($isManual && isset($snapshot['manual_jenis']) && $snapshot['manual_jenis'] !== '') ? $snapshot['manual_jenis'] : ($snapshot['jenis_tipe'] ?? null),
+                'peruntukan' => ($isManual && isset($snapshot['manual_peruntukan']) && $snapshot['manual_peruntukan'] !== '') ? $snapshot['manual_peruntukan'] : ($snapshot['alias_kendaraan'] ?? null),
                 'jenis_pengajuan' => $pengajuanMapped,
                 'varian_list' => $varianList,
                 'kop_path' => !empty($snapshot['kop_surat_file']) && Storage::disk('customer-documents')->exists($snapshot['kop_surat_file'])
