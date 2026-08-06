@@ -93,6 +93,14 @@ class M_MasterVarianController extends Controller
         }
 
         $masterVarian = MMasterVarian::create($validated);
+
+        // Sinkronkan ke riwayat di e_varian_body jika ada yang case-nya berbeda (misal sebelumnya huruf kapital)
+        $namaVarian = trim($validated['nama_varian']);
+        EVarianBody::withTrashed()
+            ->whereRaw('LOWER(varian_body) = ?', [strtolower($namaVarian)])
+            ->where('varian_body', '!=', $namaVarian)
+            ->update(['varian_body' => $namaVarian]);
+
         return response()->json($masterVarian->load('jenisKendaraan'), 201);
     }
 
@@ -106,7 +114,22 @@ class M_MasterVarianController extends Controller
             'nama_varian' => 'required|string|max:255'
         ]);
 
+        $oldNamaVarian = $masterVarian->nama_varian;
+        $namaVarian = trim($validated['nama_varian']);
         $masterVarian->update($validated);
+
+        // Sinkronkan ke riwayat transaksi di e_varian_body (termasuk jika user hanya mengubah case atau memperbaiki ketikan)
+        $targetLower = strtolower($oldNamaVarian ?: $namaVarian);
+        $newLower = strtolower($namaVarian);
+
+        EVarianBody::withTrashed()
+            ->where(function($q) use ($targetLower, $newLower) {
+                $q->whereRaw('LOWER(varian_body) = ?', [$targetLower])
+                  ->orWhereRaw('LOWER(varian_body) = ?', [$newLower]);
+            })
+            ->where('varian_body', '!=', $namaVarian)
+            ->update(['varian_body' => $namaVarian]);
+
         return response()->json($masterVarian->fresh()->load('jenisKendaraan'));
     }
 
