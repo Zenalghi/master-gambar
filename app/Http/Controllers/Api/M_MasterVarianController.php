@@ -78,7 +78,7 @@ class M_MasterVarianController extends Controller
 
         // Cek duplikasi (Optional tapi disarankan)
         $exists = MMasterVarian::where('d_jenis_kendaraan_id', $validated['d_jenis_kendaraan_id'])
-            ->where('nama_varian', Str::upper($validated['nama_varian']))
+            ->whereRaw('LOWER(nama_varian) = ?', [strtolower(trim($validated['nama_varian']))])
             ->first();
 
         if ($exists) {

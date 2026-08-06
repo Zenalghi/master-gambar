@@ -15,11 +15,6 @@ class EVarianBody extends Model
     use HasFactory, SoftDeletes; // <-- Tambah SoftDeletes
     protected $table = 'e_varian_body';
     protected $fillable = ['master_data_id', 'varian_body'];
-
-    public function setVarianBodyAttribute($value)
-    {
-        $this->attributes['varian_body'] = Str::upper($value);
-    }
     // ------------------------------------
 
     public function masterData()

@@ -91,33 +91,34 @@ class E_VarianBodyController extends Controller
         // Gunakan DB Transaction agar proses massal ini tetap aman
         \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $masterDataId, &$createdItems, &$skippedItems, &$seenInBatch) {
             foreach ($validated['varian_bodies'] as $namaVarian) {
-                // Bersihkan spasi dan buat uppercase agar konsisten dengan mutator
-                $upperVarian = \Illuminate\Support\Str::upper(trim($namaVarian));
+                // Bersihkan spasi depan & belakang dan simpan apa adanya (as-is)
+                $cleanVarian = trim($namaVarian);
+                $lowerVarian = strtolower($cleanVarian);
 
-                // KUNCINYA DI SINI: Buat unique key gabungan master_data_id dan nama varian
-                $uniqueBatchKey = $masterDataId . '-' . $upperVarian;
+                // KUNCINYA DI SINI: Buat unique key gabungan master_data_id dan nama varian (case-insensitive)
+                $uniqueBatchKey = $masterDataId . '-' . $lowerVarian;
 
                 if (isset($seenInBatch[$uniqueBatchKey])) {
-                    $skippedItems[] = $upperVarian;
+                    $skippedItems[] = $cleanVarian;
                     continue;
                 }
 
                 $seenInBatch[$uniqueBatchKey] = true;
 
-                // Cek ke database berdasarkan master_data_id DAN varian_body (termasuk yang di trash)
+                // Cek ke database berdasarkan master_data_id DAN varian_body case-insensitive (termasuk yang di trash)
                 $existing = EVarianBody::withTrashed()
                     ->where('master_data_id', $masterDataId)
-                    ->where('varian_body', $upperVarian)
+                    ->whereRaw('LOWER(varian_body) = ?', [$lowerVarian])
                     ->first();
 
                 if ($existing) {
                     // Jika kombinasi ID dan Nama sudah ada, masukkan ke list dilewati
-                    $skippedItems[] = $upperVarian;
+                    $skippedItems[] = $cleanVarian;
                 } else {
-                    // Jika benar-benar kombinasi baru, lakukan insert
+                    // Jika benar-benar kombinasi baru, lakukan insert sesuai input user (as-is)
                     $varianBody = EVarianBody::create([
                         'master_data_id' => $masterDataId,
-                        'varian_body' => $upperVarian,
+                        'varian_body' => $cleanVarian,
                     ]);
 
                     // Load relasi lengkap untuk response data yang berhasil dibuat

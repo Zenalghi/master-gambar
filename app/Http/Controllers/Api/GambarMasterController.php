@@ -50,13 +50,17 @@ class GambarMasterController extends Controller
             'gambar_kontruksi.max' => 'Ukuran file Gambar Kontruksi tidak boleh lebih dari 1 MB.',
         ]);
 
-        // 2. Buat atau ambil Varian Body
-        $varianBody = EVarianBody::firstOrCreate(
-            [
+        // 2. Buat atau ambil Varian Body (case-insensitive & simpan as-is)
+        $cleanVarian = trim($validated['varian_body']);
+        $varianBody = EVarianBody::where('master_data_id', $validated['master_data_id'])
+            ->whereRaw('LOWER(varian_body) = ?', [strtolower($cleanVarian)])
+            ->first();
+        if (!$varianBody) {
+            $varianBody = EVarianBody::create([
                 'master_data_id' => $validated['master_data_id'],
-                'varian_body' => Str::upper($validated['varian_body']),
-            ]
-        );
+                'varian_body' => $cleanVarian,
+            ]);
+        }
 
         // 3. Bangun path dasar
         $basePath = $this->buildPath($varianBody);

@@ -198,7 +198,7 @@ class SKRB_template extends MasterPdf
         foreach ($varianList as $v) {
             $prefix = $v['prefix'] ?? '   ';
             $label  = $this->toTitleCase($v['label'] ?? '') ?? '';
-            $value  = $this->toTitleCase($v['value'] ?? null);
+            $value  = $v['value'] ?? null;
             $this->printKendaraanRow($prefix, $label, $value);
         }
 

@@ -19,12 +19,6 @@ class MMasterVarian extends Model
         'nama_varian',
     ];
 
-    // Auto Uppercase
-    public function setNamaVarianAttribute($value)
-    {
-        $this->attributes['nama_varian'] = Str::upper($value);
-    }
-
     // Relasi ke DJenisKendaraan
     public function jenisKendaraan(): BelongsTo
     {
