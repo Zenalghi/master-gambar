@@ -10,6 +10,13 @@ use App\Models\GGambarUtama;
 use App\Models\HGambarOptional;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Models\MMasterVarian;
+use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class E_VarianBodyController extends Controller
 {
@@ -255,5 +262,208 @@ class E_VarianBodyController extends Controller
         $varianBody->forceDelete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Export seluruh Varian Body ke Excel (.xlsx) untuk perbaikan casing
+     */
+    public function exportExcel()
+    {
+        $varianBodies = EVarianBody::query()->withTrashed()
+            ->join('master_data', 'e_varian_body.master_data_id', '=', 'master_data.id')
+            ->leftJoin('a_type_engines', 'master_data.a_type_engine_id', '=', 'a_type_engines.id')
+            ->leftJoin('b_merks', 'master_data.b_merk_id', '=', 'b_merks.id')
+            ->leftJoin('c_type_chassis', 'master_data.c_type_chassis_id', '=', 'c_type_chassis.id')
+            ->leftJoin('d_jenis_kendaraan', 'master_data.d_jenis_kendaraan_id', '=', 'd_jenis_kendaraan.id')
+            ->select('e_varian_body.*')
+            ->with(['masterData.typeEngine', 'masterData.merk', 'masterData.typeChassis', 'masterData.jenisKendaraan'])
+            ->orderBy('e_varian_body.varian_body', 'asc')
+            ->orderBy('b_merks.merk', 'asc')
+            ->orderBy('c_type_chassis.type_chassis', 'asc')
+            ->get();
+
+        $rows = [];
+        foreach ($varianBodies as $item) {
+            $master = $item->masterData;
+            $engine = $master && $master->typeEngine ? $master->typeEngine->type_engine : '';
+            $merk = $master && $master->merk ? $master->merk->merk : '';
+            $chassis = $master && $master->typeChassis ? $master->typeChassis->type_chassis : '';
+            $jenis = $master && $master->jenisKendaraan ? $master->jenisKendaraan->jenis_kendaraan : '';
+            
+            $status = $item->trashed() ? 'Di-Recycle Bin (Dihapus)' : 'Aktif';
+
+            $rows[] = [
+                $item->id,
+                $item->master_data_id,
+                $engine,
+                $merk,
+                $chassis,
+                $jenis,
+                $item->varian_body,
+                $status,
+            ];
+        }
+
+        // Urutkan seluruh baris berdasarkan Nama Varian Body secara abjad A-Z (case-insensitive)
+        usort($rows, function ($a, $b) {
+            return strcasecmp(trim((string)$a[6]), trim((string)$b[6]));
+        });
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Data Varian Body');
+
+        $headers = [
+            'ID Varian Body (JANGAN DIUBAH)',
+            'ID Master Data (JANGAN DIUBAH)',
+            'Engine (Informasi)',
+            'Merk (Informasi)',
+            'Chassis (Informasi)',
+            'Jenis Kendaraan (Informasi)',
+            'Nama Varian Body (Ubah Casing Di Sini)',
+            'Status Data (Informasi)',
+        ];
+        $sheet->fromArray($headers, null, 'A1');
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF1565C0'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ];
+        $sheet->getStyle('A1:H1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(25);
+
+        $rowNum = 2;
+        foreach ($rows as $r) {
+            $sheet->fromArray($r, null, 'A' . $rowNum);
+            $rowNum++;
+        }
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'Varian_Body_Utama_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Import Excel untuk Varian Body (tanpa merusak ID) dan sinkronisasi ke tabel Helper (MMasterVarian)
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $spreadsheet = IOFactory::load($file->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray();
+
+        array_shift($rows);
+
+        $updatedCount = 0;
+        $createdCount = 0;
+        $syncedMasterCount = 0;
+        $skipped = 0;
+
+        DB::transaction(function () use ($rows, &$updatedCount, &$createdCount, &$syncedMasterCount, &$skipped) {
+            foreach ($rows as $row) {
+                if (empty(array_filter($row))) continue;
+
+                $id = trim((string)($row[0] ?? ''));
+                $masterDataId = (int) trim((string)($row[1] ?? 0));
+                $namaVarian = trim((string)($row[6] ?? ''));
+
+                if ($masterDataId <= 0 || empty($namaVarian)) {
+                    $skipped++;
+                    continue;
+                }
+
+                $varianBody = null;
+                $oldNamaVarian = null;
+
+                if (!empty($id) && is_numeric($id)) {
+                    $varianBody = EVarianBody::withTrashed()->find((int) $id);
+                    if ($varianBody) {
+                        $oldNamaVarian = $varianBody->varian_body;
+                        if ($oldNamaVarian !== $namaVarian) {
+                            $varianBody->varian_body = $namaVarian;
+                            $varianBody->save();
+                            $updatedCount++;
+                        }
+                    }
+                }
+
+                if (!$varianBody) {
+                    $existing = EVarianBody::withTrashed()->where('master_data_id', $masterDataId)
+                        ->whereRaw('LOWER(varian_body) = ?', [strtolower($namaVarian)])
+                        ->first();
+
+                    if (!$existing) {
+                        $varianBody = EVarianBody::create([
+                            'master_data_id' => $masterDataId,
+                            'varian_body' => $namaVarian,
+                        ]);
+                        $createdCount++;
+                    } else {
+                        if ($existing->varian_body !== $namaVarian) {
+                            $existing->varian_body = $namaVarian;
+                            $existing->save();
+                            $updatedCount++;
+                        }
+                        $varianBody = $existing;
+                    }
+                }
+
+                // Sinkronisasikan ke tabel helper (m_master_varians)
+                if ($varianBody) {
+                    $varianBody->load('masterData');
+                    if ($varianBody->masterData && $varianBody->masterData->d_jenis_kendaraan_id) {
+                        $jenisId = $varianBody->masterData->d_jenis_kendaraan_id;
+                        $masterVarian = MMasterVarian::withTrashed()->where('d_jenis_kendaraan_id', $jenisId)
+                            ->whereRaw('LOWER(nama_varian) = ?', [strtolower($namaVarian)])
+                            ->first();
+
+                        if (!$masterVarian) {
+                            MMasterVarian::create([
+                                'd_jenis_kendaraan_id' => $jenisId,
+                                'nama_varian' => $namaVarian,
+                            ]);
+                            $syncedMasterCount++;
+                        } else if ($masterVarian->nama_varian !== $namaVarian) {
+                            $masterVarian->nama_varian = $namaVarian;
+                            $masterVarian->save();
+                            $syncedMasterCount++;
+                        }
+                    }
+                }
+            }
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'message' => "Import Varian Body berhasil! $updatedCount data diupdate (ID tetap sama), $createdCount data baru ditambahkan, dan $syncedMasterCount data di Helper Master Varian diselaraskan.",
+            'stats' => [
+                'updated' => $updatedCount,
+                'created' => $createdCount,
+                'synced_helper' => $syncedMasterCount,
+                'skipped' => $skipped,
+            ]
+        ]);
     }
 }

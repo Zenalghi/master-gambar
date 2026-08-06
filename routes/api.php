@@ -228,6 +228,8 @@ Route::middleware('auth.api')->group(
             Route::apiResource('jenis-kendaraan', JenisKendaraanController::class);
 
             // --- MASTER VARIAN ---
+            Route::get('master-varian/export-excel', [M_MasterVarianController::class, 'exportExcel']);
+            Route::post('master-varian/import-excel', [M_MasterVarianController::class, 'importExcel']);
             Route::apiResource('master-varian', App\Http\Controllers\Api\M_MasterVarianController::class);
 
             // Recycle bin Master Varian (Tambahkan empty trash di BARIS PALING ATAS agar tidak bentrok dengan {id})
@@ -239,6 +241,8 @@ Route::middleware('auth.api')->group(
             Route::get('options/master-varian/{jenisKendaraanId}', [App\Http\Controllers\Api\M_MasterVarianController::class, 'getOptionsByJenisKendaraan']);
 
             // --- VARIAN BODY ---
+            Route::get('varian-body/export-excel', [VarianBodyController::class, 'exportExcel']);
+            Route::post('varian-body/import-excel', [VarianBodyController::class, 'importExcel']);
             Route::delete('varian-body/trash/empty', [VarianBodyController::class, 'emptyTrash']);
             Route::get('varian-body/trash', [VarianBodyController::class, 'trash']);
             Route::post('varian-body/{id}/restore', [VarianBodyController::class, 'restore']);
