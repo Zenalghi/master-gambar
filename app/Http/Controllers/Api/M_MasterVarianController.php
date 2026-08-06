@@ -98,7 +98,7 @@ class M_MasterVarianController extends Controller
         $namaVarian = trim($validated['nama_varian']);
         EVarianBody::withTrashed()
             ->whereRaw('LOWER(varian_body) = ?', [strtolower($namaVarian)])
-            ->where('varian_body', '!=', $namaVarian)
+            ->whereRaw('BINARY varian_body != ?', [$namaVarian])
             ->update(['varian_body' => $namaVarian]);
 
         return response()->json($masterVarian->load('jenisKendaraan'), 201);
@@ -127,7 +127,7 @@ class M_MasterVarianController extends Controller
                 $q->whereRaw('LOWER(varian_body) = ?', [$targetLower])
                   ->orWhereRaw('LOWER(varian_body) = ?', [$newLower]);
             })
-            ->where('varian_body', '!=', $namaVarian)
+            ->whereRaw('BINARY varian_body != ?', [$namaVarian])
             ->update(['varian_body' => $namaVarian]);
 
         return response()->json($masterVarian->fresh()->load('jenisKendaraan'));
@@ -408,7 +408,7 @@ class M_MasterVarianController extends Controller
                         $q->whereRaw('LOWER(varian_body) = ?', [$targetLower])
                           ->orWhereRaw('LOWER(varian_body) = ?', [$newLower]);
                     })
-                    ->where('varian_body', '!=', $namaVarian)
+                    ->whereRaw('BINARY varian_body != ?', [$namaVarian])
                     ->update(['varian_body' => $namaVarian]);
 
                 $syncedTransactions += $affected;
