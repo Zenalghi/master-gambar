@@ -204,12 +204,30 @@ class TransaksiController extends Controller
         $this->authorize('update', $transaksi);
         $validated = $request->validated();
 
-        $transaksi->update([
-            'master_data_id' => $validated['master_data_id'],
-            'customer_id'    => $validated['customer_id'],
+        $hasDetail = $transaksi->detail()->exists();
+
+        if ($hasDetail) {
+            if (
+                (int)$validated['customer_id'] !== (int)$transaksi->customer_id ||
+                (int)$validated['master_data_id'] !== (int)$transaksi->master_data_id
+            ) {
+                return response()->json([
+                    'message' => 'Customer dan Master Data tidak dapat diubah karena detail transaksi sudah dibuat.'
+                ], 422);
+            }
+        }
+
+        $updateData = [
             'f_pengajuan_id' => $validated['f_pengajuan_id'],
             'pdf_date_type'  => $validated['pdf_date_type'] ?? 'today',
-        ]);
+        ];
+
+        if (!$hasDetail) {
+            $updateData['master_data_id'] = $validated['master_data_id'];
+            $updateData['customer_id']    = $validated['customer_id'];
+        }
+
+        $transaksi->update($updateData);
 
         if ($request->filled('created_at') && Auth::user()->role->name === 'admin') {
             $transaksi->created_at = $request->input('created_at');
