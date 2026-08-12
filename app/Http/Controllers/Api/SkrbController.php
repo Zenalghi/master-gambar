@@ -820,6 +820,24 @@ class SkrbController extends Controller
      */
     public function update(Request $request, Skrb $skrb)
     {
+        $hasIdDwg = !empty($skrb->transaksi_id);
+        $isRestricted = $hasIdDwg || ((int) $skrb->fase === 2);
+
+        if ($isRestricted) {
+            if ($request->has('customer_id') && (int) $request->input('customer_id') !== (int) $skrb->customer_id) {
+                $msg = $hasIdDwg
+                    ? 'Customer dan Master Data tidak dapat diubah karena SKRB terikat dengan ID DWG/Transaksi.'
+                    : 'Customer dan Master Data tidak dapat diubah pada SKRB Fase 2.';
+                return response()->json(['message' => $msg], 422);
+            }
+            if ($request->has('master_data_id') && (int) $request->input('master_data_id') !== (int) $skrb->master_data_id) {
+                $msg = $hasIdDwg
+                    ? 'Customer dan Master Data tidak dapat diubah karena SKRB terikat dengan ID DWG/Transaksi.'
+                    : 'Customer dan Master Data tidak dapat diubah pada SKRB Fase 2.';
+                return response()->json(['message' => $msg], 422);
+            }
+        }
+
         $coreDataChanged = false;
 
         $newCustomerId = $request->has('customer_id') ? (int) $request->input('customer_id') : (int) $skrb->customer_id;
