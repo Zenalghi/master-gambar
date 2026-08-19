@@ -27,3 +27,6 @@ Thumbs.db
 
 # Backup folder (generated backups - not for Git)
 /backups
+
+# Scratch & Temporary Dev Files
+/dev_scratch
