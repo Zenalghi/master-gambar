@@ -23,7 +23,7 @@ class CTypeChassis extends Model
 
     public function setMerekDagangAttribute($value)
     {
-        $this->attributes['merek_dagang'] = !empty($value) ? Str::upper($value) : null;
+        $this->attributes['merek_dagang'] = !empty($value) ? trim($value) : null;
     }
 
     public function setJenisTipeAttribute($value)
