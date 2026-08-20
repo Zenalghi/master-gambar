@@ -78,6 +78,8 @@ Route::middleware('auth.api')->group(
         Route::apiResource('type-engines', TypeEngineController::class);
 
         Route::apiResource('merks', MerkController::class);
+        Route::get('/type-chassis/export-excel', [TypeChassisController::class, 'exportExcel']);
+        Route::post('/type-chassis/import-excel', [TypeChassisController::class, 'importExcel']);
         Route::get('/type-chassis/{typeChassis}/sut-pdf', [TypeChassisController::class, 'viewSutPdf']);
         Route::apiResource('type-chassis', TypeChassisController::class)
             ->parameters(['type-chassis' => 'typeChassis']);

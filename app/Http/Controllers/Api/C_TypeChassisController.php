@@ -11,6 +11,12 @@ use App\Models\MasterData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use Illuminate\Support\Facades\DB;
 
 class C_TypeChassisController extends Controller
 {
@@ -216,5 +222,233 @@ class C_TypeChassisController extends Controller
         $typeChassis->forceDelete();
 
         return response()->json(null, 204);
+    }
+
+    /**
+     * Export Master Type Chassis ke Excel
+     */
+    public function exportExcel()
+    {
+        $chassis = CTypeChassis::withTrashed()->orderBy('type_chassis', 'asc')->get();
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Master Type Chassis');
+
+        $headers = [
+            'ID Type Chassis',
+            'Type Chassis',
+            'Nomor SUT',
+            'Merek Dagang',
+            'Jenis Tipe',
+            'Status'
+        ];
+        $sheet->fromArray($headers, null, 'A1');
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+            'fill' => [
+                'fillType' => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF2E7D32'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ];
+        $sheet->getStyle('A1:F1')->applyFromArray($headerStyle);
+        $sheet->getRowDimension(1)->setRowHeight(25);
+
+        $rowNum = 2;
+        foreach ($chassis as $c) {
+            $status = $c->trashed() ? 'Di-Recycle Bin (Dihapus)' : 'Aktif';
+            if ($c->sut_file) {
+                $status .= ', Ada File SUT';
+            } else {
+                $status .= ', Belum Ada File SUT';
+            }
+
+            $sheet->fromArray([
+                $c->id,
+                $c->type_chassis,
+                $c->nomor_sut,
+                $c->merek_dagang,
+                $c->jenis_tipe,
+                $status
+            ], null, 'A' . $rowNum);
+            $rowNum++;
+        }
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'Master_Type_Chassis_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Import Master Type Chassis dari Excel
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $spreadsheet = IOFactory::load($file->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray();
+
+        // Lepas baris header
+        array_shift($rows);
+
+        $updatedCount = 0;
+        $createdCount = 0;
+        $failedRows = [];
+
+        DB::beginTransaction();
+        try {
+            foreach ($rows as $index => $row) {
+                // Pastikan baris tidak kosong semua
+                $isEmpty = true;
+                foreach ($row as $cell) {
+                    if (trim((string)$cell) !== '') {
+                        $isEmpty = false;
+                        break;
+                    }
+                }
+                if ($isEmpty) continue;
+
+                $id = trim((string)($row[0] ?? ''));
+                $typeChassis = trim((string)($row[1] ?? ''));
+                $nomorSut = trim((string)($row[2] ?? '')) ?: null;
+                $merekDagang = trim((string)($row[3] ?? '')) ?: null;
+                $jenisTipe = trim((string)($row[4] ?? '')) ?: null;
+
+                if (empty($typeChassis)) {
+                    $failedRows[] = [
+                        'baris' => $index + 2,
+                        'data' => $typeChassis,
+                        'alasan' => 'Type Chassis tidak boleh kosong.'
+                    ];
+                    continue;
+                }
+
+                // Cek unik Nomor SUT (termasuk yang di recycle bin)
+                if ($nomorSut) {
+                    $sutQuery = CTypeChassis::withTrashed()->where('nomor_sut', $nomorSut);
+                    if ($id) $sutQuery->where('id', '!=', $id);
+                    $existingSut = $sutQuery->first();
+                    if ($existingSut) {
+                        $isDeleted = $existingSut->trashed();
+                        $hasSutFile = !empty($existingSut->sut_file);
+                        $statusStr = $isDeleted ? 'Di-Recycle Bin (Dihapus)' : 'Aktif';
+                        $statusStr .= $hasSutFile ? ', Ada File SUT' : ', Belum Ada File SUT';
+
+                        $failedRows[] = [
+                            'baris' => $index + 2,
+                            'data' => "$typeChassis ($nomorSut)",
+                            'alasan' => 'Nomor SUT sudah digunakan.',
+                            'status' => $statusStr,
+                            'is_deleted' => $isDeleted,
+                            'conflict_id' => $existingSut->id
+                        ];
+                        continue;
+                    }
+                }
+
+                // Cek unik kombinasi type_chassis + nomor_sut + merek_dagang + jenis_tipe (termasuk yang di recycle bin)
+                $comboQuery = CTypeChassis::withTrashed()->where('type_chassis', $typeChassis);
+                
+                if ($nomorSut === null) {
+                    $comboQuery->whereNull('nomor_sut');
+                } else {
+                    $comboQuery->where('nomor_sut', $nomorSut);
+                }
+
+                if ($merekDagang === null) {
+                    $comboQuery->whereNull('merek_dagang');
+                } else {
+                    $comboQuery->where('merek_dagang', $merekDagang);
+                }
+                
+                if ($jenisTipe === null) {
+                    $comboQuery->whereNull('jenis_tipe');
+                } else {
+                    $comboQuery->where('jenis_tipe', $jenisTipe);
+                }
+
+                if ($id) {
+                    $comboQuery->where('id', '!=', $id);
+                }
+
+                $existingCombo = $comboQuery->first();
+                if ($existingCombo) {
+                    $isDeleted = $existingCombo->trashed();
+                    $hasSutFile = !empty($existingCombo->sut_file);
+                    $statusStr = $isDeleted ? 'Di-Recycle Bin (Dihapus)' : 'Aktif';
+                    $statusStr .= $hasSutFile ? ', Ada File SUT' : ', Belum Ada File SUT';
+
+                    $failedRows[] = [
+                        'baris' => $index + 2,
+                        'data' => "$typeChassis - $nomorSut - $merekDagang - $jenisTipe",
+                        'alasan' => 'Kombinasi Type Chassis, Nomor SUT, Merek Dagang, dan Jenis Tipe sudah ada.',
+                        'status' => $statusStr,
+                        'is_deleted' => $isDeleted,
+                        'conflict_id' => $existingCombo->id
+                    ];
+                    continue;
+                }
+
+                if (!empty($id)) {
+                    $chassis = CTypeChassis::withTrashed()->find($id);
+                    if ($chassis) {
+                        $chassis->type_chassis = $typeChassis;
+                        $chassis->nomor_sut = $nomorSut;
+                        $chassis->merek_dagang = $merekDagang;
+                        $chassis->jenis_tipe = $jenisTipe;
+                        $chassis->save();
+                        $updatedCount++;
+                    } else {
+                        $failedRows[] = [
+                            'baris' => $index + 2,
+                            'data' => $typeChassis,
+                            'alasan' => "ID $id tidak ditemukan di database."
+                        ];
+                    }
+                } else {
+                    CTypeChassis::create([
+                        'type_chassis' => $typeChassis,
+                        'nomor_sut' => $nomorSut,
+                        'merek_dagang' => $merekDagang,
+                        'jenis_tipe' => $jenisTipe,
+                    ]);
+                    $createdCount++;
+                }
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Terjadi kesalahan sistem saat import: ' . $e->getMessage()
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => "Import berhasil: $createdCount data baru, $updatedCount data diupdate.",
+            'created' => $createdCount,
+            'updated' => $updatedCount,
+            'failed' => count($failedRows),
+            'failed_rows' => $failedRows
+        ]);
     }
 }
