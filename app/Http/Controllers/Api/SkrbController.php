@@ -73,6 +73,7 @@ class SkrbController extends Controller
                 $snapshot['sut_file'] = $md->typeChassis->sut_file;
                 $snapshot['type_chassis'] = $md->typeChassis->type_chassis ?: null;
                 $snapshot['merek_dagang'] = $md->typeChassis->merek_dagang ?: null;
+                $snapshot['nomor_sut'] = $md->typeChassis->nomor_sut ?: null;
                 $snapshot['jenis_tipe'] = $md->typeChassis->jenis_tipe ?: null;
             }
             if ($md->jenisKendaraan) {
@@ -204,6 +205,7 @@ class SkrbController extends Controller
             'merk' => ($md && $md->merk) ? $md->merk->merk : ($snapshot['merk'] ?? '-'),
             'type_chassis' => ($md && $md->typeChassis) ? $md->typeChassis->type_chassis : ($snapshot['type_chassis'] ?? '-'),
             'merek_dagang' => ($md && $md->typeChassis) ? $md->typeChassis->merek_dagang : ($snapshot['merek_dagang'] ?? null),
+            'nomor_sut' => ($md && $md->typeChassis) ? $md->typeChassis->nomor_sut : ($snapshot['nomor_sut'] ?? null),
             'jenis_kendaraan' => ($md && $md->jenisKendaraan) ? $md->jenisKendaraan->jenis_kendaraan : ($snapshot['jenis_kendaraan'] ?? '-'),
             'jenis_pengajuan' => $fPengajuan ? $fPengajuan->jenis_pengajuan : ($snapshot['jenis_pengajuan'] ?? 'Varian'),
             'status_tdp' => $statusTdp,
@@ -270,6 +272,7 @@ class SkrbController extends Controller
                 'merk' => $trx->masterData && $trx->masterData->merk ? $trx->masterData->merk->merk : '-',
                 'type_chassis' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->type_chassis : '-',
                 'merek_dagang' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->merek_dagang : null,
+                'nomor_sut' => $trx->masterData && $trx->masterData->typeChassis ? $trx->masterData->typeChassis->nomor_sut : null,
                 'jenis_kendaraan' => $trx->masterData && $trx->masterData->jenisKendaraan ? $trx->masterData->jenisKendaraan->jenis_kendaraan : '-',
                 'jenis_pengajuan' => $trx->fPengajuan ? $trx->fPengajuan->jenis_pengajuan : 'Varian',
             ];

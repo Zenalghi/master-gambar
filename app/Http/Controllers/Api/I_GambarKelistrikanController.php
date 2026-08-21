@@ -41,7 +41,8 @@ class I_GambarKelistrikanController extends Controller
                 'a_type_engines.type_engine',
                 'b_merks.merk',
                 'c_type_chassis.type_chassis',
-                'c_type_chassis.merek_dagang'
+                'c_type_chassis.merek_dagang',
+                'c_type_chassis.nomor_sut'
             ]);
 
         // Search Logic
@@ -49,6 +50,7 @@ class I_GambarKelistrikanController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.nomor_sut', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('master_kelistrikan_files.id', 'like', "%{$search}%")
@@ -63,6 +65,7 @@ class I_GambarKelistrikanController extends Controller
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
+            'nomor_sut' => 'c_type_chassis.nomor_sut',
             'created_at' => 'master_kelistrikan_files.created_at',
             'updated_at' => 'master_kelistrikan_files.updated_at',
             default => 'master_kelistrikan_files.updated_at',

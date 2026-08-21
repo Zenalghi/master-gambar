@@ -57,12 +57,13 @@ class _OptionController extends Controller
         return CTypeChassis::query()
             ->where(function ($q) use ($search) {
                 $q->where('type_chassis', 'like', "%{$search}%")
-                  ->orWhere('merek_dagang', 'like', "%{$search}%");
+                  ->orWhere('merek_dagang', 'like', "%{$search}%")
+                  ->orWhere('nomor_sut', 'like', "%{$search}%");
             })
             ->whereNull('deleted_at')
             ->orderBy('created_at', 'desc')
             ->limit(30)
-            ->get(['id', 'type_chassis', 'merek_dagang'])
+            ->get(['id', 'type_chassis', 'merek_dagang', 'nomor_sut'])
             ->map(function ($item) {
                 $name = $item->type_chassis;
                 if (!empty($item->merek_dagang)) {
@@ -71,6 +72,7 @@ class _OptionController extends Controller
                 return [
                     'id' => $item->id,
                     'name' => $name,
+                    'nomor_sut' => $item->nomor_sut,
                 ];
             });
     }
