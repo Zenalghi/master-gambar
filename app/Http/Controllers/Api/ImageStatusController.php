@@ -174,7 +174,7 @@ class ImageStatusController extends Controller
             } else {
                 $query->orderByRaw("g_gambar_utama.created_at IS NULL DESC, g_gambar_utama.created_at ASC");
             }
-        } elseif ($sortBy === 'nomor_sut' || $sortBy === 'merek_dagang' || $sortBy === 'jenis_tipe') {
+        } elseif ($sortBy === 'nomor_sut' || $sortBy === 'merek_dagang' || $sortBy === 'jenis_tipe' || $sortBy === 'deskripsi_optional') {
             $query->orderByRaw("({$sortColumn} IS NULL OR {$sortColumn} = '') ASC");
             $query->orderBy($sortColumn, $sortDirection);
         } else {
