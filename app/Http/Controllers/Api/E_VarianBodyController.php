@@ -28,7 +28,7 @@ class E_VarianBodyController extends Controller
         $validated = $request->validate([
             'page' => 'integer|min:1',
             'perPage' => 'integer|in:50,100',
-            'sortBy' => 'nullable|string|in:id,varian_body,type_engine,merk,type_chassis,jenis_kendaraan,created_at,updated_at',
+            'sortBy' => 'nullable|string|in:id,varian_body,type_engine,merk,type_chassis,nomor_sut,jenis_kendaraan,created_at,updated_at',
             'sortDirection' => 'string|in:asc,desc',
             'search' => 'nullable|string',
             // Filter optional jika dibutuhkan dropdown
@@ -60,6 +60,7 @@ class E_VarianBodyController extends Controller
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.nomor_sut', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%");
             });
         }
@@ -76,11 +77,16 @@ class E_VarianBodyController extends Controller
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
+            'nomor_sut' => 'c_type_chassis.nomor_sut',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'created_at' => 'e_varian_body.created_at',
             'updated_at' => 'e_varian_body.updated_at',
             default => 'e_varian_body.updated_at',
         };
+
+        if ($sortBy === 'nomor_sut') {
+            $query->orderByRaw("({$sortColumn} IS NULL OR {$sortColumn} = '') ASC");
+        }
         $query->orderBy($sortColumn, $sortDirection);
 
         return $query->paginate($perPage);

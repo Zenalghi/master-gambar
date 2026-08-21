@@ -106,7 +106,7 @@ class _OptionController extends Controller
                 // Cari di semua kolom relasi
                 $q->whereHas('typeEngine', fn($sub) => $sub->where('type_engine', 'like', "%{$search}%"))
                     ->orWhereHas('merk', fn($sub) => $sub->where('merk', 'like', "%{$search}%"))
-                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%")->orWhere('merek_dagang', 'like', "%{$search}%"))
+                    ->orWhereHas('typeChassis', fn($sub) => $sub->where('type_chassis', 'like', "%{$search}%")->orWhere('merek_dagang', 'like', "%{$search}%")->orWhere('nomor_sut', 'like', "%{$search}%"))
                     ->orWhereHas('jenisKendaraan', fn($sub) => $sub->where('jenis_kendaraan', 'like', "%{$search}%"));
             })
             ->whereNull('deleted_at')
@@ -125,6 +125,7 @@ class _OptionController extends Controller
             return [
                 'id' => $item->id,
                 'name' => "$engine / $merk / $chassis / $jenis",
+                'nomor_sut' => $chassisObj ? $chassisObj->nomor_sut : null,
                 'd_jenis_kendaraan_id' => $item->d_jenis_kendaraan_id
             ];
         });

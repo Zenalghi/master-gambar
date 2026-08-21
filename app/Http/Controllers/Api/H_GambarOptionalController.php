@@ -56,6 +56,7 @@ class H_GambarOptionalController extends Controller
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.nomor_sut', 'like', "%{$search}%")
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('a_type_engines.type_engine', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.created_at', 'like', "%{$search}%")
@@ -69,12 +70,17 @@ class H_GambarOptionalController extends Controller
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
+            'nomor_sut' => 'c_type_chassis.nomor_sut',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'deskripsi' => 'h_gambar_optional.deskripsi',
             'created_at' => 'h_gambar_optional.created_at',
             'updated_at' => 'h_gambar_optional.updated_at',
             default => 'h_gambar_optional.updated_at',
         };
+
+        if ($sortBy === 'nomor_sut') {
+            $query->orderByRaw("({$sortColumn} IS NULL OR {$sortColumn} = '') ASC");
+        }
         $query->orderBy($sortColumn, $sortDirection);
 
         return $query->paginate($perPage);

@@ -55,6 +55,9 @@ class C_TypeChassisController extends Controller
         }
 
         // 4. Terapkan sorting
+        if (in_array($sortBy, ['nomor_sut', 'merek_dagang', 'jenis_tipe'])) {
+            $query->orderByRaw("({$sortBy} IS NULL OR {$sortBy} = '') ASC");
+        }
         $query->orderBy($sortBy, $sortDirection);
 
         // 5. Lakukan paginasi

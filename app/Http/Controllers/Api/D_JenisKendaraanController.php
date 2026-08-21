@@ -45,6 +45,9 @@ class D_JenisKendaraanController extends Controller
         }
 
         // 4. Terapkan sorting
+        if ($sortBy === 'alias_kendaraan') {
+            $query->orderByRaw("({$sortBy} IS NULL OR {$sortBy} = '') ASC");
+        }
         $query->orderBy($sortBy, $sortDirection);
 
         // 5. Lakukan paginasi

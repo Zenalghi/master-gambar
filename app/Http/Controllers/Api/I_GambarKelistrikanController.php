@@ -70,6 +70,10 @@ class I_GambarKelistrikanController extends Controller
             'updated_at' => 'master_kelistrikan_files.updated_at',
             default => 'master_kelistrikan_files.updated_at',
         };
+
+        if ($sortBy === 'nomor_sut') {
+            $query->orderByRaw("({$sortColumn} IS NULL OR {$sortColumn} = '') ASC");
+        }
         $query->orderBy($sortColumn, $sortDirection);
 
         return $query->paginate($perPage);

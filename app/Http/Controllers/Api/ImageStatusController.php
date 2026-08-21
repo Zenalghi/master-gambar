@@ -58,6 +58,7 @@ class ImageStatusController extends Controller
             'b_merks.merk',
             'c_type_chassis.type_chassis',
             'c_type_chassis.merek_dagang',
+            'c_type_chassis.nomor_sut',
             'd_jenis_kendaraan.jenis_kendaraan',
             'g_gambar_utama.created_at as gambar_utama_created_at',
             'g_gambar_utama.updated_at as gambar_utama_updated_at',
@@ -91,6 +92,7 @@ class ImageStatusController extends Controller
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
+            'nomor_sut' => 'c_type_chassis.nomor_sut',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
             'created_at' => 'g_gambar_utama.created_at',
@@ -129,6 +131,7 @@ class ImageStatusController extends Controller
                     ->orWhere('b_merks.merk', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.type_chassis', 'like', "%{$search}%")
                     ->orWhere('c_type_chassis.merek_dagang', 'like', "%{$search}%")
+                    ->orWhere('c_type_chassis.nomor_sut', 'like', "%{$search}%")
                     ->orWhere('d_jenis_kendaraan.jenis_kendaraan', 'like', "%{$search}%")
                     ->orWhere('h_gambar_optional.deskripsi', 'like', "%{$search}%")
                     ->orWhere('g_gambar_utama.created_at', 'like', "%{$search}%")
@@ -143,6 +146,7 @@ class ImageStatusController extends Controller
             'type_engine' => 'a_type_engines.type_engine',
             'merk' => 'b_merks.merk',
             'type_chassis' => 'c_type_chassis.type_chassis',
+            'nomor_sut' => 'c_type_chassis.nomor_sut',
             'jenis_kendaraan' => 'd_jenis_kendaraan.jenis_kendaraan',
             'varian_body' => 'e_varian_body.varian_body',
             'deskripsi_optional' => 'h_gambar_optional.deskripsi',
@@ -170,6 +174,9 @@ class ImageStatusController extends Controller
             } else {
                 $query->orderByRaw("g_gambar_utama.created_at IS NULL DESC, g_gambar_utama.created_at ASC");
             }
+        } elseif ($sortBy === 'nomor_sut' || $sortBy === 'merek_dagang' || $sortBy === 'jenis_tipe') {
+            $query->orderByRaw("({$sortColumn} IS NULL OR {$sortColumn} = '') ASC");
+            $query->orderBy($sortColumn, $sortDirection);
         } else {
             $query->orderBy($sortColumn, $sortDirection);
         }
