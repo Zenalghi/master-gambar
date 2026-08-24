@@ -166,7 +166,6 @@ class DocumentCustomerController extends Controller
 
     /**
      * Menghapus satu file TDP berdasarkan index. (DELETE - admin only)
-     * TDP 1 (index 0) tidak boleh dihapus.
      */
     public function deleteTdpFile(Customer $customer, int $index): JsonResponse
     {
@@ -178,8 +177,8 @@ class DocumentCustomerController extends Controller
 
         $tdpFiles = $document->tdp_files ?? [];
 
-        if ($index < 1 || $index >= count($tdpFiles)) {
-            return response()->json(['message' => 'Index TDP tidak valid. TDP 1 tidak dapat dihapus.'], 422);
+        if ($index < 0 || $index >= count($tdpFiles)) {
+            return response()->json(['message' => 'Index TDP tidak valid.'], 422);
         }
 
         $disk = Storage::disk('customer-documents');
