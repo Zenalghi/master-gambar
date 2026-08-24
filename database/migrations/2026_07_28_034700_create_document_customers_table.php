@@ -21,7 +21,7 @@ return new class extends Migration
             // Poin 2: Data Umum Perusahaan (single PDF)
             $table->string('data_umum_file')->nullable();
 
-            // Poin 3: TDP (multi PDF, max 20)
+            // Poin 3: TDP (multi PDF, max 5)
             $table->json('tdp_files')->nullable(); // [{path, uploaded_at}, ...]
             $table->date('tdp_masa_berlaku')->nullable();
 

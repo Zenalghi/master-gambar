@@ -33,13 +33,19 @@ class DocumentCustomerController extends Controller
      */
     public function store(Request $request, Customer $customer): JsonResponse
     {
-        // 1. Validasi
+        // 1. Ambil atau buat document baru (untuk cek existing tdp_files)
+        $document = $customer->documentCustomer ?? new DocumentCustomer(['customer_id' => $customer->id]);
+        $existingTdpCount = count($document->tdp_files ?? []);
+        $newTdpCount = $request->hasFile('tdp_files') ? count($request->file('tdp_files')) : 0;
+        $totalTdpCount = $existingTdpCount + $newTdpCount;
+
+        // 2. Validasi
         $request->validate([
             'kop_surat_file'     => 'nullable|file|mimes:pdf|max:500',
             'data_umum_file'     => 'nullable|file|mimes:pdf|max:500',
-            'tdp_files'          => 'nullable|array|max:20',
+            'tdp_files'          => 'nullable|array|max:5',
             'tdp_files.*'        => 'file|mimes:pdf|max:500',
-            'tdp_masa_berlaku'   => 'required|date',
+            'tdp_masa_berlaku'   => $totalTdpCount > 0 ? 'required|date' : 'nullable|date',
             'permohonan_skrb'    => 'nullable|string|max:255',
             'permohonan_rekom'   => 'nullable|string|max:255',
             'alamat_permohonan'  => 'nullable|string|max:255',
@@ -53,9 +59,6 @@ class DocumentCustomerController extends Controller
         $disk = Storage::disk('customer-documents');
         $folder = "docus-{$customer->id}";
         $now = Carbon::now()->format('Ymd-His');
-
-        // 2. Ambil atau buat document baru
-        $document = $customer->documentCustomer ?? new DocumentCustomer(['customer_id' => $customer->id]);
 
         // 3. Proses Kop Surat
         if ($request->hasFile('kop_surat_file')) {
@@ -94,7 +97,7 @@ class DocumentCustomerController extends Controller
             $nextIndex = count($existingTdp) + 1;
 
             foreach ($request->file('tdp_files') as $file) {
-                if ($nextIndex > 20) break; // max 20 file
+                if ($nextIndex > 5) break; // max 5 file
 
                 $fileName = "{$customer->id}-tdp{$nextIndex}-{$now}.pdf";
                 $path = $file->storeAs($folder, $fileName, 'customer-documents');
