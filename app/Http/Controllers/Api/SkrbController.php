@@ -509,6 +509,7 @@ class SkrbController extends Controller
                 'customer_name' => $trx->customer ? $trx->customer->nama_pt : '-',
                 'document_customer_id' => $docCustomer ? $docCustomer->id : null,
                 'has_document_customer' => $docCustomer !== null,
+                'customer_nama_lengkap' => $trx->customer ? $trx->customer->nama_lengkap : null,
                 'customer_pj' => $trx->customer ? $trx->customer->pj : null,
                 'customer_jabatan' => $trx->customer ? $trx->customer->jabatan : null,
                 'alamat_permohonan' => $docCustomer ? $docCustomer->alamat_permohonan : null,
@@ -621,6 +622,7 @@ class SkrbController extends Controller
                 'customer_name' => $customer->nama_pt ?? '-',
                 'document_customer_id' => $docCustomer ? $docCustomer->id : null,
                 'has_document_customer' => $docCustomer !== null,
+                'customer_nama_lengkap' => $customer->nama_lengkap ?? null,
                 'customer_pj' => $customer->pj ?? null,
                 'customer_jabatan' => $customer->jabatan ?? null,
                 'customer_alamat_kantor' => $customer->alamat_kantor ?? null,
@@ -1497,10 +1499,14 @@ class SkrbController extends Controller
             $merekTipe = (!empty($merk) && $merk !== '-' && !empty($chassis) && $chassis !== '-') 
                 ? "{$merk} TIPE {$chassis}" : null;
 
+            $namaPemohon = !empty($snapshot['customer_nama_lengkap']) 
+                ? $snapshot['customer_nama_lengkap'] 
+                : (!empty($snapshot['customer_pj']) && $snapshot['customer_pj'] !== '-' ? $snapshot['customer_pj'] : ($snapshot['customer_name'] ?? null));
+
             $data = [
                 'nomor_surat' => $idSkrb,
                 'lampiran' => '-',
-                'nama_pemohon' => !empty($snapshot['customer_pj']) && $snapshot['customer_pj'] !== '-' ? $snapshot['customer_pj'] : ($snapshot['customer_name'] ?? null),
+                'nama_pemohon' => $namaPemohon,
                 'jabatan' => $snapshot['customer_jabatan'] ?? null,
                 'alamat' => $snapshot['alamat_lengkap'] ?? ($snapshot['customer_alamat'] ?? null),
                 'alamat_permohonan' => $snapshot['alamat_permohonan'] ?? null,

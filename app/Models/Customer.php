@@ -27,6 +27,7 @@ class Customer extends Model
     protected $fillable = [
         'nama_pt',
         'pj',
+        'nama_lengkap',
         'jabatan',
         'signature_pj',
         'nama_drafter',
@@ -43,6 +44,13 @@ class Customer extends Model
     }
 
     protected function jabatan(): Attribute
+    {
+        return Attribute::make(
+            set: fn($value) => $value ? trim($value) : null,
+        );
+    }
+
+    protected function namaLengkap(): Attribute
     {
         return Attribute::make(
             set: fn($value) => $value ? trim($value) : null,

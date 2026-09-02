@@ -18,6 +18,7 @@ class UpdateCustomerRequest extends FormRequest
             // Pastikan nama PT unik, kecuali untuk dirinya sendiri saat update
             'nama_pt' => 'sometimes|required|string|max:255|unique:customers,nama_pt,' . $customerId,
             'pj' => 'sometimes|required|string|max:255',
+            'nama_lengkap' => 'nullable|string|max:255',
             'jabatan' => 'nullable|string|max:255',
             'signature_pj' => 'nullable|string',
             'nama_drafter' => 'nullable|string|max:255',

@@ -24,7 +24,7 @@ class X_CustomerController extends Controller
         $sortAsc = $request->input('sort_asc', 'false') === 'true';
 
         // 2. Tentukan kolom yang diizinkan untuk di-sort
-        $allowedSorts = ['nama_pt', 'pj', 'jabatan', 'nama_drafter', 'nama_pemeriksa', 'created_at', 'updated_at', 'status_tdp', 'tdp_masa_berlaku'];
+        $allowedSorts = ['nama_pt', 'pj', 'nama_lengkap', 'jabatan', 'nama_drafter', 'nama_pemeriksa', 'created_at', 'updated_at', 'status_tdp', 'tdp_masa_berlaku'];
         if (!in_array($sortBy, $allowedSorts)) {
             $sortBy = 'updated_at';
         }
@@ -37,6 +37,7 @@ class X_CustomerController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('nama_pt', 'like', "%{$search}%")
                     ->orWhere('pj', 'like', "%{$search}%")
+                    ->orWhere('nama_lengkap', 'like', "%{$search}%")
                     ->orWhere('jabatan', 'like', "%{$search}%")
                     ->orWhere('nama_drafter', 'like', "%{$search}%")
                     ->orWhere('nama_pemeriksa', 'like', "%{$search}%")
@@ -51,7 +52,7 @@ class X_CustomerController extends Controller
             $query->leftJoin('document_customers', 'customers.id', '=', 'document_customers.customer_id')
                   ->select('customers.*')
                   ->orderByRaw("document_customers.tdp_masa_berlaku IS NULL ASC, document_customers.tdp_masa_berlaku {$direction}");
-        } elseif (in_array($sortBy, ['jabatan', 'nama_drafter', 'nama_pemeriksa'])) {
+        } elseif (in_array($sortBy, ['nama_lengkap', 'jabatan', 'nama_drafter', 'nama_pemeriksa'])) {
             $query->orderByRaw("$sortBy IS NULL ASC, $sortBy $direction");
         } else {
             // Untuk kolom yang tidak nullable (nama_pt, pj, dll)
