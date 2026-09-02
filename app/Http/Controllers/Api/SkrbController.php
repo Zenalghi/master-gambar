@@ -50,6 +50,7 @@ class SkrbController extends Controller
         if ($customer) {
             $snapshot['customer_name'] = $customer->nama_pt ?: '-';
             $snapshot['customer_pj'] = $customer->pj ?: '-';
+            $snapshot['customer_nama_lengkap'] = $customer->nama_lengkap ?: null;
             $snapshot['customer_jabatan'] = $customer->jabatan ?: null;
             $snapshot['customer_alamat_kantor'] = $customer->alamat_kantor ?: null;
         }
@@ -94,7 +95,9 @@ class SkrbController extends Controller
 
         if ($originalSnapshot !== $snapshot || $force) {
             $skrb->snapshot_documents = $snapshot;
+            $skrb->timestamps = false;
             $skrb->saveQuietly();
+            $skrb->timestamps = true;
         }
     }
 
@@ -924,6 +927,8 @@ class SkrbController extends Controller
             }
         }
 
+        $needRegenPdf = false;
+
         if ($request->has('fase')) {
             $newFase = (int) $request->input('fase');
             $skrb->fase = $newFase;
@@ -933,6 +938,7 @@ class SkrbController extends Controller
                 $skrb->snapshot_documents = $snapshot;
                 $skrb->saveQuietly();
                 $this->syncSnapshotIfOpen($skrb, true, true, true);
+                $needRegenPdf = true;
             }
         }
 
@@ -940,7 +946,6 @@ class SkrbController extends Controller
             $skrb->hidden_flags = $request->input('hidden_flags');
         }
 
-        $needRegenPdf = false;
         $snapshot = $skrb->snapshot_documents ?? [];
 
         if ($request->has('gambar_utama_list')) {
