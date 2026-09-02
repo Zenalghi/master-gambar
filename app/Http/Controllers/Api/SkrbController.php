@@ -103,7 +103,45 @@ class SkrbController extends Controller
      */
     private function getCleanMergedFileName(Skrb $skrb, array $snapshot): array
     {
-        $dateStr = now()->format('d-m-y');
+        $idSkrb = $skrb->id_skrb ?? '';
+        $prefixStr = now()->format('d-m-y'); // Fallback jika format ID tidak dikenali
+        $debugSource = 'FALLBACK_DATE';
+
+        if (!empty($idSkrb)) {
+            $parts = explode('/', $idSkrb);
+            $c = count($parts);
+            
+            // Minimal ada 3 atau 4 bagian (contoh: 29/SJM-SKRB/IX/2026 -> 4 bagian)
+            if ($c >= 3) {
+                // Nomor urut selalu di awal
+                $nomor = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
+                
+                // Bulan romawi selalu di elemen ke-2 dari belakang
+                $romawi = $parts[$c - 2];
+                $mapRomawi = [
+                    'I' => '01', 'II' => '02', 'III' => '03', 'IV' => '04',
+                    'V' => '05', 'VI' => '06', 'VII' => '07', 'VIII' => '08',
+                    'IX' => '09', 'X' => '10', 'XI' => '11', 'XII' => '12'
+                ];
+                $bulan = $mapRomawi[strtoupper($romawi)] ?? now()->format('m');
+                
+                // Tahun selalu di elemen terakhir
+                $tahun = $parts[$c - 1];
+                $tahun2Digit = strlen($tahun) >= 2 ? substr($tahun, -2) : str_pad($tahun, 2, '0', STR_PAD_LEFT);
+                
+                $prefixStr = sprintf("%s-%s-%s", $nomor, $bulan, $tahun2Digit);
+                $debugSource = 'ID_SKRB_PARSED';
+            } else {
+                $debugSource = 'ID_SKRB_FORMAT_INVALID';
+            }
+        }
+
+        // \Illuminate\Support\Facades\Log::info("DEBUG_SKRB_FILENAME", [
+        //     'id_skrb' => $idSkrb,
+        //     'source' => $debugSource,
+        //     'prefixStr' => $prefixStr
+        // ]);
+
         $pengajuanStr = strtoupper($snapshot['jenis_pengajuan'] ?? 'VARIAN');
         $chassisStr = strtoupper($snapshot['type_chassis'] ?? '');
         $dagangVal = trim((string) ($snapshot['merek_dagang'] ?? ''));
@@ -111,9 +149,9 @@ class SkrbController extends Controller
         $kendaraanStr = strtoupper($snapshot['jenis_kendaraan'] ?? '');
 
         if ($dagangStr) {
-            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s %s (%s)", $dateStr, $pengajuanStr, $chassisStr, $dagangStr, $kendaraanStr);
+            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s %s (%s)", $prefixStr, $pengajuanStr, $chassisStr, $dagangStr, $kendaraanStr);
         } else {
-            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s)", $dateStr, $pengajuanStr, $chassisStr, $kendaraanStr);
+            $rawName = sprintf("%s PERMOHONAN SKRB (%s) %s (%s)", $prefixStr, $pengajuanStr, $chassisStr, $kendaraanStr);
         }
         
         // Ambil murni dari DB skrb_settings Tanpa hardcode fallback
