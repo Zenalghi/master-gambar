@@ -164,7 +164,11 @@ class SkrbController extends Controller
         $snapshot = $skrb->snapshot_documents ?? [];
         
         $doc = $customerId ? DocumentCustomer::where('customer_id', $customerId)->first() : null;
-        $statusTdp = $doc ? ($doc->status_tdp ?: '-') : '-';
+        $hasDoc = $doc !== null;
+        $statusTdp = '-';
+        if ($doc) {
+            $statusTdp = $doc->status_tdp ?: 'Tanpa TDP';
+        }
         $masaBerlaku = $doc && $doc->tdp_masa_berlaku ? \Carbon\Carbon::parse($doc->tdp_masa_berlaku)->format('Y-m-d') : null;
 
         // Cek status Kop Surat
@@ -211,6 +215,8 @@ class SkrbController extends Controller
             'status_tdp' => $statusTdp,
             'tdp_masa_berlaku' => $masaBerlaku,
             'is_tdp_outdated' => $isTdpOutdated,
+            'document_customer_id' => $doc ? $doc->id : ($snapshot['document_customer_id'] ?? null),
+            'has_document_customer' => $hasDoc || !empty($snapshot['document_customer_id']) || !empty($snapshot['kop_surat_file']) || !empty($snapshot['data_umum_file']),
             'has_kop_surat' => $hasKopSurat,
             'kop_source' => $kopSource,
             'fase' => $skrb->fase,
@@ -478,6 +484,8 @@ class SkrbController extends Controller
             // Siapkan snapshot
             $snapshot = [
                 'customer_name' => $trx->customer ? $trx->customer->nama_pt : '-',
+                'document_customer_id' => $docCustomer ? $docCustomer->id : null,
+                'has_document_customer' => $docCustomer !== null,
                 'customer_pj' => $trx->customer ? $trx->customer->pj : null,
                 'customer_jabatan' => $trx->customer ? $trx->customer->jabatan : null,
                 'alamat_permohonan' => $docCustomer ? $docCustomer->alamat_permohonan : null,
@@ -588,6 +596,8 @@ class SkrbController extends Controller
 
             $snapshot = [
                 'customer_name' => $customer->nama_pt ?? '-',
+                'document_customer_id' => $docCustomer ? $docCustomer->id : null,
+                'has_document_customer' => $docCustomer !== null,
                 'customer_pj' => $customer->pj ?? null,
                 'customer_jabatan' => $customer->jabatan ?? null,
                 'customer_alamat_kantor' => $customer->alamat_kantor ?? null,

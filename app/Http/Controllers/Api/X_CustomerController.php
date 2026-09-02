@@ -64,8 +64,13 @@ class X_CustomerController extends Controller
         // 7. Transformasi: Tambahkan status_tdp dan tdp_masa_berlaku ke response
         $paginated->getCollection()->transform(function ($customer) {
             $doc = $customer->documentCustomer;
-            $customer->setAttribute('status_tdp', $doc ? $doc->status_tdp : null);
+            $hasDoc = $doc !== null;
+            $statusTdp = $doc ? ($doc->status_tdp ?: 'Tanpa TDP') : null;
+
+            $customer->setAttribute('status_tdp', $statusTdp);
             $customer->setAttribute('tdp_masa_berlaku', $doc ? $doc->tdp_masa_berlaku?->format('Y-m-d') : null);
+            $customer->setAttribute('document_customer_id', $doc ? $doc->id : null);
+            $customer->setAttribute('has_document', $hasDoc);
             unset($customer->documentCustomer); // Hapus relasi dari response agar tidak duplikat
             return $customer;
         });
