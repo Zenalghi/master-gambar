@@ -330,18 +330,20 @@ class SkrbController extends Controller
         $docCustomer = DocumentCustomer::where('customer_id', $customerId)->first();
         $hasCustomPermohonan = ($docCustomer && !empty(trim($docCustomer->permohonan_skrb ?? '')));
 
-        if ($hasCustomPermohonan) {
-            $permohonanDoc = trim($docCustomer->permohonan_skrb);
-            $previewId = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-            // Cek apakah preview ID sudah terpakai, jika ya naikan urut
-            $tempUrut = $nomorUrut;
-            while (Skrb::where('id_skrb', $previewId)->exists()) {
-                $tempUrut++;
-                $tempStr = str_pad($tempUrut, 2, '0', STR_PAD_LEFT);
-                $previewId = sprintf("%s/%s/%s/%s", $tempStr, $permohonanDoc, $bulanRomawi, $tahun);
-            }
-        } else {
-            $previewId = sprintf("%s/x???-SKRB/%s/%s", $strUrut, $bulanRomawi, $tahun);
+        if (!$hasCustomPermohonan) {
+            return response()->json([
+                'message' => "Data Customer belum ditambahkan\nhubungi admin"
+            ], 422);
+        }
+
+        $permohonanDoc = trim($docCustomer->permohonan_skrb);
+        $previewId = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+        // Cek apakah preview ID sudah terpakai, jika ya naikan urut
+        $tempUrut = $nomorUrut;
+        while (Skrb::where('id_skrb', $previewId)->exists()) {
+            $tempUrut++;
+            $tempStr = str_pad($tempUrut, 2, '0', STR_PAD_LEFT);
+            $previewId = sprintf("%s/%s/%s/%s", $tempStr, $permohonanDoc, $bulanRomawi, $tahun);
         }
 
         return response()->json([
@@ -365,26 +367,17 @@ class SkrbController extends Controller
         $docCustomer = DocumentCustomer::where('customer_id', $customerId)->first();
         $hasCustomPermohonan = ($docCustomer && !empty(trim($docCustomer->permohonan_skrb ?? '')));
 
+        if (!$hasCustomPermohonan) {
+            throw new \Exception("Data Customer belum ditambahkan\nhubungi admin");
+        }
+
         if ($nomorUrutManual !== null) {
             // Mode Kustom / Ubah Nomor Urut: user menentukan nomor urut
             $nomorUrut = $nomorUrutManual;
             $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
 
-            if ($hasCustomPermohonan) {
-                $permohonanDoc = trim($docCustomer->permohonan_skrb);
-                $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-            } else {
-                // Tanpa permohonan_skrb custom: gunakan x???-SKRB
-                do {
-                    $randNum = mt_rand(100, 999);
-                    $permohonanDoc = "x{$randNum}-SKRB";
-                    $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-                    $checkQuery = Skrb::where('id_skrb', $idSkrb);
-                    if ($excludeSkrbId !== null) {
-                        $checkQuery->where('id', '!=', $excludeSkrbId);
-                    }
-                } while ($checkQuery->exists());
-            }
+            $permohonanDoc = trim($docCustomer->permohonan_skrb);
+            $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
 
             // Validasi uniqueness
             $query = Skrb::where('id_skrb', $idSkrb);
@@ -400,20 +393,12 @@ class SkrbController extends Controller
             $nomorUrut = $lastUrut + 1;
             $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
 
-            if ($hasCustomPermohonan) {
-                $permohonanDoc = trim($docCustomer->permohonan_skrb);
+            $permohonanDoc = trim($docCustomer->permohonan_skrb);
+            $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
+            while (Skrb::where('id_skrb', $idSkrb)->exists()) {
+                $nomorUrut++;
+                $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
                 $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-                while (Skrb::where('id_skrb', $idSkrb)->exists()) {
-                    $nomorUrut++;
-                    $strUrut = str_pad($nomorUrut, 2, '0', STR_PAD_LEFT);
-                    $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-                }
-            } else {
-                do {
-                    $randNum = mt_rand(100, 999);
-                    $permohonanDoc = "x{$randNum}-SKRB";
-                    $idSkrb = sprintf("%s/%s/%s/%s", $strUrut, $permohonanDoc, $bulanRomawi, $tahun);
-                } while (Skrb::where('id_skrb', $idSkrb)->exists());
             }
         }
 
