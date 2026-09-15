@@ -274,7 +274,7 @@ class DocumentCustomerController extends Controller
     /**
      * Serve file PDF untuk preview. (GET - semua user bisa akses)
      */
-    public function viewPdf(Customer $customer, string $type, ?int $index = null): \Symfony\Component\HttpFoundation\StreamedResponse|JsonResponse
+    public function viewPdf(Customer $customer, string $type, ?int $index = null): \Symfony\Component\HttpFoundation\BinaryFileResponse|JsonResponse
     {
         $document = $customer->documentCustomer;
 
@@ -304,8 +304,7 @@ class DocumentCustomerController extends Controller
             return response()->json(['message' => 'File tidak ditemukan.'], 404);
         }
 
-        return $disk->response($path, null, [
-            'Content-Type' => 'application/pdf',
-        ]);
+        $filePath = $disk->path($path);
+        return response()->file($filePath, ['Content-Type' => 'application/pdf']);
     }
 }
