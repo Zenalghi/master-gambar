@@ -189,9 +189,34 @@ fi
 echo ""
 
 # =====================================================================
-# STEP 8: Verifikasi
+# STEP 8: Housekeeping (Pembersihan Backup Lama)
 # =====================================================================
-echo -e "${BLUE}[8/8] Verifikasi...${NC}"
+echo -e "${BLUE}[8/9] Membersihkan backup lama...${NC}"
+
+# Batas maksimal folder backup yang disimpan
+MAX_BACKUPS=5
+
+# Cari folder backup yang sesuai pola, urutkan dari yang paling LAMA ke BARU
+# Lalu ambil daftar folder yang melebihi batas simpan (head -n -MAX_BACKUPS)
+OLD_BACKUPS=$(ls -1d ${BACKUP_DIR}/*-master-backup 2>/dev/null | sort | head -n -${MAX_BACKUPS})
+
+if [ -n "${OLD_BACKUPS}" ]; then
+    echo "  Jumlah folder backup melebihi batas (${MAX_BACKUPS}). Menghapus folder terlama:"
+    for FOLDER in ${OLD_BACKUPS}; do
+        echo "   - Hapus: ${FOLDER}"
+        rm -rf "${FOLDER}"
+    done
+    echo -e "${GREEN}  ✓ Pembersihan backup lama selesai${NC}"
+else
+    echo -e "${GREEN}  ✓ Jumlah folder backup masih aman (<= ${MAX_BACKUPS})${NC}"
+fi
+
+echo ""
+
+# =====================================================================
+# STEP 9: Verifikasi
+# =====================================================================
+echo -e "${BLUE}[9/9] Verifikasi...${NC}"
 sleep 5
 ${COMPOSE_CMD} ps
 
@@ -208,5 +233,5 @@ echo ""
 echo -e "${YELLOW}Data yang AMAN (tidak terhapus):${NC}"
 echo "  ✓ MySQL database (volume: mysql-data, di infra)"
 echo "  ✓ File storage (volume: storage-data)"
-echo "  ✓ Backup (folder: /mnt/data/backups/)"
+echo "  ✓ Backup (folder: ${BACKUP_DIR} - disimpan max ${MAX_BACKUPS} terbaru)"
 echo "  ✓ Shared code (volume: app-code)"
