@@ -153,7 +153,7 @@ class C_TypeChassisController extends Controller
         if ($request->has('jenis_tipe')) {
             $typeChassis->jenis_tipe = $request->input('jenis_tipe');
         }
-        
+
         $disk = Storage::disk('sut-pdf');
         $folder = "sut-{$typeChassis->id}";
 
@@ -180,12 +180,18 @@ class C_TypeChassisController extends Controller
 
     public function viewSutPdf(CTypeChassis $typeChassis)
     {
-        if (!$typeChassis->sut_file || !Storage::disk('sut-pdf')->exists($typeChassis->sut_file)) {
+        $disk = Storage::disk('sut-pdf');
+
+        if (!$typeChassis->sut_file || !$disk->exists($typeChassis->sut_file)) {
             return response()->json(['message' => 'File PDF SUT tidak ditemukan.'], 404);
         }
 
-        return Storage::disk('sut-pdf')->response($typeChassis->sut_file, null, [
+        $filePath = $disk->path($typeChassis->sut_file);
+
+        // Menggunakan response()->file() dengan header Content-Disposition: inline
+        return response()->file($filePath, [
             'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . basename($filePath) . '"',
         ]);
     }
 
@@ -377,7 +383,7 @@ class C_TypeChassisController extends Controller
 
                 // Cek unik kombinasi type_chassis + nomor_sut + merek_dagang + jenis_tipe (termasuk yang di recycle bin)
                 $comboQuery = CTypeChassis::withTrashed()->where('type_chassis', $typeChassis);
-                
+
                 if ($nomorSut === null) {
                     $comboQuery->whereNull('nomor_sut');
                 } else {
@@ -389,7 +395,7 @@ class C_TypeChassisController extends Controller
                 } else {
                     $comboQuery->where('merek_dagang', $merekDagang);
                 }
-                
+
                 if ($jenisTipe === null) {
                     $comboQuery->whereNull('jenis_tipe');
                 } else {
